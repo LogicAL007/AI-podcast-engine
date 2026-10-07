@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+**/__pycache__
+**/node_modules
+web/dist
+data
+secrets
+.env
+evaluation
+docs
+tests

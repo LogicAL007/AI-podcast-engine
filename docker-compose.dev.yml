@@ -1,0 +1,22 @@
+# Development overlay: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`
+# Mounts ./src read-only and puts it first on PYTHONPATH, so code edits apply on container
+# restart without rebuilding images. Postgres and MinIO are also exposed on localhost.
+
+x-dev-src: &dev-src
+  PYTHONPATH: /app/src
+
+services:
+  api:
+    command: [uvicorn, podcast_engine.api.main:app, --host, 0.0.0.0, --port, "8000", --reload, --reload-dir, /app/src]
+    environment:
+      <<: *dev-src
+    volumes:
+      - ./src:/app/src:ro
+  scheduler:
+    environment: *dev-src
+    volumes:
+      - ./src:/app/src:ro
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]
+  minio:
+    ports: ["127.0.0.1:9000:9000"]

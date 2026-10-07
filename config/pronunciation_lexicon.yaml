@@ -1,0 +1,4 @@
+# Spoken forms for terms TTS tends to mispronounce.
+lexicon:
+  pgvector: "P G vector"
+  LUFS: "loofs"

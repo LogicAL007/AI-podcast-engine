@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project: local data, secrets and build output
+data/*
+!data/.gitkeep
+secrets/*
+!secrets/.gitkeep
+web/node_modules/
+web/dist/

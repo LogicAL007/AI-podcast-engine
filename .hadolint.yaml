@@ -1,0 +1,2 @@
+ignored:
+  - DL3008 # apt package versions: pinned by the base image's release, not by us

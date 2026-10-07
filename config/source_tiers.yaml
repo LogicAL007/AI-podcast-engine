@@ -1,0 +1,8 @@
+# Source reliability tiers used by retrieval ranking. Contested topics need 2+ sources.
+primary:
+  - arxiv.org
+  - nature.com
+established:
+  - bbc.co.uk
+  - reuters.com
+default: unverified
