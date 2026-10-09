@@ -1,8 +1,13 @@
 # syntax=docker/dockerfile:1
 #
-# One image recipe for every Python container (API, scheduler and the eight stage workers).
-# docker-compose.yml builds it once per service with different build args, so each image
-# contains only the dependencies its stage needs:
+# One image recipe for every Python container. docker-compose.yml builds it once per service
+# with different build args, so each image contains only the dependencies its stage needs.
+#
+# Targets:
+#   api      uvicorn serving the FastAPI app (EXTRAS=api); has its own HEALTHCHECK
+#   worker   the default: scheduler and stage workers, whose command compose supplies
+#
+# Build args:
 #   EXTRAS            comma-separated extras from pyproject.toml, e.g. "ingest"
 #   APT_PACKAGES      system packages for the runtime image, e.g. "ffmpeg"
 #   TORCH_INDEX_URL   when set, install torch from this index first (CPU wheels, smaller image)
@@ -43,3 +48,17 @@ RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin app \
 COPY --from=builder /opt/venv /opt/venv
 USER app
 WORKDIR /app
+
+# --- API: uvicorn. Tune with UVICORN_* environment variables (UVICORN_WORKERS, UVICORN_PORT, ...).
+FROM runtime AS api
+ENV UVICORN_HOST=0.0.0.0 \
+    UVICORN_PORT=8000 \
+    UVICORN_PROXY_HEADERS=true \
+    UVICORN_FORWARDED_ALLOW_IPS=*
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+    CMD ["python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=2)"]
+CMD ["uvicorn", "podcast_engine.api.main:app"]
+
+# --- Worker: must stay the last stage so it is the default build target.
+FROM runtime AS worker

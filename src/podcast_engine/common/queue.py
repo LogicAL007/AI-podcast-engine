@@ -39,12 +39,13 @@ def next_stage(stage: Stage) -> Stage | None:
 
 def create_celery_app() -> Celery:
     settings = get_settings()
-    app = Celery("podcast_engine", broker=settings.redis_url, backend=settings.redis_url)
+    # No result backend: episode state lives in Postgres, so nothing ever reads Celery results.
+    app = Celery("podcast_engine", broker=settings.redis_url)
     app.conf.update(
         task_acks_late=True,  # a crashed worker's job is redelivered, not lost
         task_reject_on_worker_lost=True,
         worker_prefetch_multiplier=1,  # long jobs: do not hoard messages
-        task_track_started=True,
+        task_ignore_result=True,
         task_serializer="json",
         accept_content=["json"],
         task_default_queue=Stage.INGEST.value,
@@ -58,5 +59,7 @@ celery_app = create_celery_app()
 
 def dispatch(stage: Stage, **kwargs: Any) -> str:
     """Enqueue ``stage`` and return the Celery task id."""
-    result = celery_app.send_task(task_name(stage), kwargs=kwargs, queue=stage.value)
+    result = celery_app.send_task(
+        task_name(stage), kwargs=kwargs, queue=stage.value, ignore_result=True
+    )
     return str(result.id)

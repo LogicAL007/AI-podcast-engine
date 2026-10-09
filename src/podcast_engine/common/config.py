@@ -22,10 +22,11 @@ class Settings(BaseSettings):
     # Infrastructure
     database_url: str = "postgresql+psycopg://podcast:change-me@postgres:5432/podcast"
     redis_url: str = "redis://redis:6379/0"
-    s3_endpoint_url: str = "http://minio:9000"
+    s3_endpoint_url: str = "http://s3:9000"
     s3_access_key: str = ""
     s3_secret_key: str = ""
     s3_bucket: str = "podcast-episodes"
+    s3_region: str = "us-east-1"
 
     # Local volumes (mounted by docker compose)
     data_dir: Path = Path("/data")
@@ -36,7 +37,8 @@ class Settings(BaseSettings):
     # Models and providers
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_dimensions: int = 384
-    llm_model: str = "claude-sonnet-5-5"
+    llm_provider: str = "gemini"  # "gemini" or "anthropic"
+    llm_model: str = "gemini-3.8-flash"
     tts_provider: str = "hosted"
     llm_api_key: SecretStr = SecretStr("")
     llm_api_key_file: Path | None = None
@@ -45,6 +47,7 @@ class Settings(BaseSettings):
 
     # Pipeline behaviour
     worker_concurrency: int = Field(default=2, ge=1)
+    metrics_port: int = Field(default=9100, ge=1, le=65535)  # workers serve /metrics here
     max_rewrites: int = Field(default=2, ge=0)
     episode_cost_cap_usd: float = Field(default=1.0, gt=0)
     public_feed_base_url: str = "http://localhost:8080"

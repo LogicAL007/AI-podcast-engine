@@ -1,1 +1,1 @@
-"""Route modules, one per resource."""
+"""Routes: paths, status codes and OpenAPI metadata only."""

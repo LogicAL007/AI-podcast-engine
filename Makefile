@@ -1,10 +1,19 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help setup secrets build up dev down logs lint format typecheck test check
+.PHONY: help api notebook-test notebook-clean setup secrets build up dev down logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
+
+api:  ## Run the API locally with auto-reload (needs Postgres, Redis and S3 up)
+	uvicorn podcast_engine.api.main:app --reload
+
+notebook-test:  ## Execute notebooks/podcast_flow.ipynb offline and check the flow
+	pytest -m notebook --no-cov
+
+notebook-clean:  ## Strip outputs (including audio) from the notebook before committing it
+	python -c "import nbformat as n; p='notebooks/podcast_flow.ipynb'; nb=n.read(p, as_version=4); [c.update(outputs=[], execution_count=None) for c in nb.cells if c.cell_type=='code']; n.write(nb, p)"
 
 setup:  ## Install Python dev dependencies and git hooks
 	python -m pip install -e ".[api,dev]"

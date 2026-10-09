@@ -12,6 +12,7 @@ license = { file = "LICENSE" }
 dependencies = [
     "boto3>=1.34",
     "celery[redis]>=5.4",
+    "prometheus-client>=0.20",
     "psycopg[binary]>=3.1",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
@@ -23,12 +24,32 @@ dependencies = [
 # One extra per container image, so each stage installs only what it needs.
 [project.optional-dependencies]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
-ingest = ["feedparser>=6.0", "httpx>=0.27", "pymupdf>=1.24", "trafilatura>=1.9"]
+ingest = ["feedparser>=6.0", "httpx>=0.27", "lxml>=5.0", "pymupdf>=1.24", "trafilatura>=1.9"]
 embeddings = ["pgvector>=0.3", "sentence-transformers>=3.0"]
-llm = ["anthropic>=0.40"]
+llm = ["google-genai>=1.0"]
+anthropic = ["anthropic>=0.40"]
 voice = ["httpx>=0.27"]
 assemble = ["numpy>=1.26", "pydub>=0.25", "pyloudnorm>=0.1"]
 publish = ["feedgen>=1.0"]
+# Voice cloning backend (Chatterbox, MIT). Heavy: pulls torch and pins transformers and gradio, so
+# install it in its own environment rather than next to `embeddings`. setuptools is pinned because
+# resemble-perth (Chatterbox's watermarker) imports pkg_resources, which setuptools 81+ removed, and
+# without it Chatterbox fails to start with "'NoneType' object is not callable".
+cloning = ["chatterbox-tts>=0.1.7", "setuptools<81"]
+# Everything notebooks/podcast_flow.ipynb imports; sentence-transformers is optional (see `embeddings`).
+notebook = [
+    "anthropic>=0.40",
+    "feedgen>=1.0",
+    "google-genai>=1.0",
+    "feedparser>=6.0",
+    "httpx>=0.27",
+    "ipykernel>=6.29",
+    "lxml>=5.0",
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+    "numpy>=1.26",
+    "pyloudnorm>=0.1",
+]
 dev = [
     "httpx>=0.27",
     "mypy>=1.10",
@@ -69,6 +90,9 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "ARG"]
+# Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the
+# text goes in on stdin, never through a shell). The RNG only picks banter lines.
+"notebooks/**" = ["A004", "ARG001", "ARG002", "E402", "E501", "S101", "S311", "S603", "S607", "SIM905", "T201"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -78,6 +102,8 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 files = ["src", "tests"]
+# Test doubles that replace third-party SDKs on PYTHONPATH; not worth type-checking.
+exclude = ["tests/fixtures/"]
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no type information.
@@ -88,6 +114,7 @@ module = [
     "feedgen.*",
     "feedparser.*",
     "fitz.*",
+    "lxml.*",
     "pgvector.*",
     "pydub.*",
     "pyloudnorm.*",
@@ -99,4 +126,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --cov=podcast_engine --cov-report=term-missing"
-markers = ["integration: needs the docker compose stack running"]
+markers = [
+    "integration: needs the docker compose stack running",
+    "notebook: executes notebooks/podcast_flow.ipynb (slow; no network or API key needed)",
+]

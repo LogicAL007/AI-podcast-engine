@@ -107,3 +107,13 @@ class FactCheckReport(_Model):
         if self.total_claims == 0:
             return 1.0
         return 1 - len(self.unsupported) / self.total_claims
+
+
+class EpisodeStatus(StrEnum):
+    """Lifecycle of an episode; the pipeline stages and the API both read and write it."""
+
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    NEEDS_REVIEW = "needs_review"
+    PUBLISHED = "published"
+    FAILED = "failed"

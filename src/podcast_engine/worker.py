@@ -11,6 +11,7 @@ import sys
 from collections.abc import Sequence
 
 from podcast_engine.common.config import get_settings
+from podcast_engine.common.metrics import start_metrics_server
 from podcast_engine.common.queue import Stage, celery_app
 
 
@@ -48,6 +49,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("a stage is required unless --healthcheck is given")
 
     settings = get_settings()
+    start_metrics_server(settings.metrics_port)
     celery_app.worker_main(
         worker_args(
             args.stage, concurrency=settings.worker_concurrency, log_level=settings.log_level

@@ -2,13 +2,13 @@ name: podcast-engine
 
 # Pipeline: ingest -> index -> retrieve_plan -> script <-> factcheck -> voice -> assemble -> publish
 # Every stage is its own worker container consuming its own queue, so stages scale and retry
-# independently. State lives in Postgres, Redis and MinIO; workers are stateless.
+# independently. State lives in Postgres, Redis and S3 storage; workers are stateless.
 #
 # Volume map
 #   Named volumes (managed by Docker):
 #     pgdata         postgres:/var/lib/postgresql/data      database files
 #     redisdata      redis:/data                            queue persistence (AOF)
-#     miniodata      minio:/data                            episode audio, feeds, cached objects
+#     s3data         s3:/data                               episode audio, feeds, cached objects
 #     uploads        api (rw) + ingest (ro):/data/uploads   private user uploads (PDFs)
 #     ingest_cache   ingest:/data/ingest                    raw fetch cache, ETags
 #     hf_cache       index, retrieve_plan                   embedding model weights
@@ -16,23 +16,28 @@ name: podcast-engine
 #     audio_scratch  voice (rw) + assemble (rw):/data/audio working audio between stages
 #     feed_staging   publish:/data/feeds                    rendered RSS before upload
 #     scheduler_state scheduler:/data/scheduler             last-seen hashes / run markers
+#     prometheus_data prometheus:/prometheus                metrics time series (15 days)
 #   Bind mounts (read-only, edited on the host):
-#     ./config, ./prompts, ./assets, ./db/init, ./web/nginx.conf
+#     ./config, ./prompts, ./assets, ./db/init, ./web/nginx.conf, ./monitoring/prometheus.yml
 
 x-app-env: &app-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB}
   REDIS_URL: redis://redis:6379/0
-  S3_ENDPOINT_URL: http://minio:9000
+  S3_ENDPOINT_URL: http://s3:9000
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
   S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
   S3_BUCKET: ${S3_BUCKET:-podcast-episodes}
+  S3_REGION: ${S3_REGION:-us-east-1}
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
-  LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5-5}
+  LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+  LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
   TTS_PROVIDER: ${TTS_PROVIDER:-hosted}
   MAX_REWRITES: ${MAX_REWRITES:-2}
   EPISODE_COST_CAP_USD: ${EPISODE_COST_CAP_USD:-1.00}
   PUBLIC_FEED_BASE_URL: ${PUBLIC_FEED_BASE_URL:-http://localhost:8080}
+  # Lets uvicorn's and Celery's several processes report one merged set of metrics.
+  PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
 
 x-hardening: &hardening
   restart: unless-stopped
@@ -49,8 +54,9 @@ x-worker: &worker
   depends_on:
     postgres: { condition: service_healthy }
     redis: { condition: service_healthy }
-    minio-init: { condition: service_completed_successfully }
+    s3-init: { condition: service_completed_successfully }
   environment: *app-env
+  expose: ["9100"] # /metrics, scraped by prometheus
   healthcheck:
     test: [CMD, python, -m, podcast_engine.worker, --healthcheck]
     interval: 30s
@@ -88,57 +94,80 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
+  # S3-compatible object store. MinIO no longer publishes images, so this is RustFS (Apache-2.0).
+  # Any S3 service works: only S3_ENDPOINT_URL and the keys change.
+  s3:
+    image: rustfs/rustfs:1.0.1
     restart: unless-stopped
-    command: ["server", "/data", "--console-address", ":9001"]
+    command: ["/data"]
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+      RUSTFS_ADDRESS: ":9000"
     ports:
       - "127.0.0.1:9001:9001" # console, local only
     volumes:
-      - miniodata:/data
+      - s3data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio: { condition: service_healthy }
-    restart: "no"
-    environment:
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_BUCKET: ${S3_BUCKET:-podcast-episodes}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - >
-        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
-        && mc mb --ignore-existing "local/$$S3_BUCKET"
-
-  # ---------------------------------------------------------------- application
-  api:
-    <<: *worker
+  # One-shot: creates the bucket (idempotent), then exits. Everything else waits for it.
+  s3-init:
+    <<: *hardening
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
+    restart: "no"
+    command: ["python", "-m", "podcast_engine.common.init_storage"]
+    depends_on:
+      s3: { condition: service_healthy }
+    environment: *app-env
+
+  # ---------------------------------------------------------------- observability
+  # Metrics only (request rates, latency, stage durations and failures). It does not store logs;
+  # those are JSON on each container's stdout (`docker compose logs`).
+  prometheus:
+    <<: *hardening
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------- application
+  api:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: docker/stage.Dockerfile
+      target: api
       args: { EXTRAS: api }
-    command: ["uvicorn", "podcast_engine.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # CMD (uvicorn podcast_engine.api.main:app) and HEALTHCHECK come from the image's api target.
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      s3-init: { condition: service_completed_successfully }
+    environment:
+      <<: *app-env
+      UVICORN_WORKERS: ${API_WORKERS:-2}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - uploads:/data/uploads
       - ./config:/app/config:ro
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
 
   web:
     <<: *hardening
@@ -286,7 +315,7 @@ secrets:
 volumes:
   pgdata:
   redisdata:
-  miniodata:
+  s3data:
   uploads:
   ingest_cache:
   hf_cache:
@@ -294,3 +323,4 @@ volumes:
   audio_scratch:
   feed_staging:
   scheduler_state:
+  prometheus_data:

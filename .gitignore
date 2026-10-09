@@ -226,3 +226,13 @@ secrets/*
 !secrets/.gitkeep
 web/node_modules/
 web/dist/
+
+# Notebook run output (audio, feeds, caches)
+notebooks/output/
+
+# Voice reference recordings are people's voices: never commit them
+assets/voices/*
+!assets/voices/.gitkeep
+
+# Separate environment for the voice-cloning backend (heavy pinned dependencies)
+.venv-cloning/

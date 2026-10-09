@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from uuid import UUID
 
 from podcast_engine.common.logging import get_logger
+from podcast_engine.common.metrics import STAGE_DURATION, STAGE_RUNS
 from podcast_engine.common.queue import Stage
 
 
@@ -18,6 +19,12 @@ def stage_timer(stage: Stage, episode_id: UUID) -> Iterator[None]:
     try:
         yield
     except Exception:
-        log.exception("stage_failed", seconds=round(time.perf_counter() - started, 3))
+        seconds = time.perf_counter() - started
+        STAGE_RUNS.labels(stage.value, "failure").inc()
+        STAGE_DURATION.labels(stage.value).observe(seconds)
+        log.exception("stage_failed", seconds=round(seconds, 3))
         raise
-    log.info("stage_finished", seconds=round(time.perf_counter() - started, 3))
+    seconds = time.perf_counter() - started
+    STAGE_RUNS.labels(stage.value, "success").inc()
+    STAGE_DURATION.labels(stage.value).observe(seconds)
+    log.info("stage_finished", seconds=round(seconds, 3))
