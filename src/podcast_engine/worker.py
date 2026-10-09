@@ -15,8 +15,14 @@ from podcast_engine.common.metrics import start_metrics_server
 from podcast_engine.common.queue import Stage, celery_app
 
 
-def worker_args(stage: Stage, *, concurrency: int, log_level: str) -> list[str]:
-    """Celery argv for a worker bound to ``stage``."""
+def worker_args(
+    stage: Stage, *, concurrency: int, log_level: str, pool: str = "prefork"
+) -> list[str]:
+    """Celery argv for a worker bound to ``stage``.
+
+    ``solo`` runs tasks in the worker process itself: use it for a host worker on Python 3.14
+    (where the prefork pool crashes) or one holding a large model such as Chatterbox.
+    """
     return [
         "worker",
         "--queues",
@@ -27,6 +33,8 @@ def worker_args(stage: Stage, *, concurrency: int, log_level: str) -> list[str]:
         str(concurrency),
         "--loglevel",
         log_level.upper(),
+        "--pool",
+        pool,
     ]
 
 
@@ -52,7 +60,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     start_metrics_server(settings.metrics_port)
     celery_app.worker_main(
         worker_args(
-            args.stage, concurrency=settings.worker_concurrency, log_level=settings.log_level
+            args.stage,
+            concurrency=settings.worker_concurrency,
+            log_level=settings.log_level,
+            pool=settings.worker_pool,
         )
     )
     return 0

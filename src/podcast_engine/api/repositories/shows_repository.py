@@ -11,17 +11,30 @@ from sqlalchemy.orm import Session
 from podcast_engine.api.models.shows_model import ShowCreate, ShowRead
 
 _COLUMNS = (
-    "show_id, topic, tone, target_minutes, host_count, language, expertise, sources, created_at"
+    "show_id, topic, tone, target_minutes, host_count, language, expertise, sources,"
+    " topic_keywords, attribution, max_segments, ranking_profile, created_at"
 )
 _INSERT = (
-    "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources)"
+    "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources,"  # noqa: S608
+    " topic_keywords, attribution, max_segments, ranking_profile)"
     " VALUES (:topic, :tone, :target_minutes, :host_count, :language, :expertise,"
-    " CAST(:sources AS jsonb))"
-    " RETURNING show_id, topic, tone, target_minutes, host_count, language, expertise,"
-    " sources, created_at"
+    " CAST(:sources AS jsonb), :topic_keywords, :attribution, :max_segments, :ranking_profile)"
+    f" RETURNING {_COLUMNS}"
 )
 _UPDATABLE = frozenset(
-    {"topic", "tone", "target_minutes", "host_count", "language", "expertise", "sources"}
+    {
+        "topic",
+        "tone",
+        "target_minutes",
+        "host_count",
+        "language",
+        "expertise",
+        "sources",
+        "topic_keywords",
+        "attribution",
+        "max_segments",
+        "ranking_profile",
+    }
 )
 
 

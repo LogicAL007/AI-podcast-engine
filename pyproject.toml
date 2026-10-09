@@ -12,12 +12,14 @@ license = { file = "LICENSE" }
 dependencies = [
     "boto3>=1.34",
     "celery[redis]>=5.4",
+    "numpy>=1.26",
     "prometheus-client>=0.20",
     "psycopg[binary]>=3.1",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "pyyaml>=6.0",
     "sqlalchemy>=2.0",
+    "stop-words>=2018.7.23",
     "structlog>=24.1",
 ]
 
@@ -66,7 +68,7 @@ packages = ["src/podcast_engine"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "."]
 
 [tool.ruff.lint]
 select = [
@@ -90,6 +92,8 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "ARG"]
+# Evaluation scripts are command-line tools that print their reports.
+"evaluation/**" = ["T201"]
 # Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the
 # text goes in on stdin, never through a shell). The RNG only picks banter lines.
 "notebooks/**" = ["A004", "ARG001", "ARG002", "E402", "E501", "S101", "S311", "S603", "S607", "SIM905", "T201"]
@@ -101,7 +105,7 @@ quote-style = "double"
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "evaluation"]
 # Test doubles that replace third-party SDKs on PYTHONPATH; not worth type-checking.
 exclude = ["tests/fixtures/"]
 
@@ -109,11 +113,17 @@ exclude = ["tests/fixtures/"]
 # Third-party packages that ship no type information.
 module = [
     "boto3.*",
+    "chatterbox.*",
+    "scipy.*",
+    "transformers.*",
+    "torch.*",
+    "torchaudio.*",
     "botocore.*",
     "celery.*",
     "feedgen.*",
     "feedparser.*",
     "fitz.*",
+    "stop_words.*",
     "lxml.*",
     "pgvector.*",
     "pydub.*",

@@ -53,9 +53,10 @@ def get_show_controller(session: SessionDep) -> ShowController:
 def get_episode_controller(
     session: SessionDep,
     enqueue: Annotated[Callable[[UUID], None], Depends(get_enqueue_episode)],
+    store: Annotated[ObjectStore, Depends(get_object_store)],
 ) -> EpisodeController:
     service = EpisodeService(
-        PostgresEpisodeRepository(session), PostgresShowRepository(session), enqueue
+        PostgresEpisodeRepository(session), PostgresShowRepository(session), enqueue, store
     )
     return EpisodeController(service)
 

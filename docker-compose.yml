@@ -18,7 +18,8 @@ name: podcast-engine
 #     scheduler_state scheduler:/data/scheduler             last-seen hashes / run markers
 #     prometheus_data prometheus:/prometheus                metrics time series (15 days)
 #   Bind mounts (read-only, edited on the host):
-#     ./config, ./prompts, ./assets, ./db/init, ./web/nginx.conf, ./monitoring/prometheus.yml
+#     ./config, ./prompts, ./assets, ./db/init, ./db/migrations, ./web/nginx.conf,
+#     ./monitoring/prometheus.yml
 
 x-app-env: &app-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -29,11 +30,19 @@ x-app-env: &app-env
   S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
   S3_BUCKET: ${S3_BUCKET:-podcast-episodes}
   S3_REGION: ${S3_REGION:-us-east-1}
-  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+  # "hashing" runs offline; a sentence-transformers id (384 dimensions) needs the model download.
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-hashing}
+  # false: the offline extractive writer and word-overlap judge, no model calls and no key needed.
+  LLM_ENABLED: ${LLM_ENABLED:-false}
   LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
   LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
-  TTS_PROVIDER: ${TTS_PROVIDER:-hosted}
+  LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+  # placeholder (tones, for testing) or gemini. say and chatterbox run on a host: see the README.
+  TTS_BACKEND: ${TTS_BACKEND:-placeholder}
+  TTS_MODEL: ${TTS_MODEL:-gemini-3.8-flash-tts}
   MAX_REWRITES: ${MAX_REWRITES:-2}
+  TOPIC_THRESHOLD: ${TOPIC_THRESHOLD:-0.0}
+  REFRESH_INTERVAL_HOURS: ${REFRESH_INTERVAL_HOURS:-0}
   EPISODE_COST_CAP_USD: ${EPISODE_COST_CAP_USD:-1.00}
   PUBLIC_FEED_BASE_URL: ${PUBLIC_FEED_BASE_URL:-http://localhost:8080}
   # Lets uvicorn's and Celery's several processes report one merged set of metrics.
@@ -52,7 +61,7 @@ x-hardening: &hardening
 x-worker: &worker
   <<: *hardening
   depends_on:
-    postgres: { condition: service_healthy }
+    db-migrate: { condition: service_completed_successfully }
     redis: { condition: service_healthy }
     s3-init: { condition: service_completed_successfully }
   environment: *app-env
@@ -126,6 +135,21 @@ services:
       s3: { condition: service_healthy }
     environment: *app-env
 
+  # One-shot: applies db/migrations (idempotent, recorded in schema_migrations), then exits.
+  # db/init only runs on a brand-new volume; this also upgrades an existing one.
+  db-migrate:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: docker/stage.Dockerfile
+    restart: "no"
+    command: ["python", "-m", "podcast_engine.common.migrate"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment: *app-env
+    volumes:
+      - ./db/migrations:/app/db/migrations:ro
+
   # ---------------------------------------------------------------- observability
   # Metrics only (request rates, latency, stage durations and failures). It does not store logs;
   # those are JSON on each container's stdout (`docker compose logs`).
@@ -157,7 +181,7 @@ services:
       args: { EXTRAS: api }
     # CMD (uvicorn podcast_engine.api.main:app) and HEALTHCHECK come from the image's api target.
     depends_on:
-      postgres: { condition: service_healthy }
+      db-migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       s3-init: { condition: service_completed_successfully }
     environment:
@@ -265,6 +289,7 @@ services:
       LLM_API_KEY_FILE: /run/secrets/llm_api_key
     secrets: [llm_api_key]
     volumes:
+      - ./config:/app/config:ro
       - ./prompts:/app/prompts:ro
 
   voice:
@@ -272,7 +297,7 @@ services:
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: voice }
+      args: { EXTRAS: "voice,llm" } # llm brings google-genai for TTS_BACKEND=gemini
     command: [python, -m, podcast_engine.worker, voice]
     environment:
       <<: *app-env
@@ -282,6 +307,7 @@ services:
       - tts_cache:/data/tts_cache
       - audio_scratch:/data/audio
       - ./config:/app/config:ro
+      - ./assets:/app/assets:ro
 
   assemble:
     <<: *worker
@@ -305,6 +331,7 @@ services:
     command: [python, -m, podcast_engine.worker, publish]
     volumes:
       - feed_staging:/data/feeds
+      - ./config:/app/config:ro
 
 secrets:
   llm_api_key:

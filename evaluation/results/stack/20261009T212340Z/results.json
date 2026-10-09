@@ -1,0 +1,50 @@
+{
+  "single": {
+    "episodes": [
+      "6331f1ca-ef35-488c-80b0-21d73c41169e"
+    ],
+    "seconds": 8.48305637500016,
+    "statuses": [
+      "published"
+    ],
+    "all_published": true
+  },
+  "parallel": {
+    "episodes": [
+      "78d04f33-49ef-4ee7-841c-5bc4e5313eb2",
+      "7171ca6b-9665-4e40-b474-d6ff6003c434",
+      "5d610dca-f6c5-4d9a-9bb6-45e5e4baf642"
+    ],
+    "seconds": 11.341427083010785,
+    "statuses": [
+      "published",
+      "published",
+      "published"
+    ],
+    "all_published": true
+  },
+  "parallel_speedup_vs_serial": 2.243912422901593,
+  "reliability": {
+    "stopped": "assemble",
+    "while_stopped": {
+      "status": "processing",
+      "stage": "voice"
+    },
+    "final_status": "published",
+    "stage_runs": [
+      "ingest",
+      "index",
+      "retrieve_plan",
+      "script",
+      "factcheck",
+      "voice",
+      "assemble",
+      "publish"
+    ],
+    "each_stage_ran_once": true,
+    "first_seen": {
+      "status": "processing",
+      "stage": "voice"
+    }
+  }
+}

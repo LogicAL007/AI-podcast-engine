@@ -1,0 +1,1004 @@
+{
+  "claims": [
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "ClickHouse is a column-oriented SQL database management system (DBMS) for online analytical processing (OLAP).",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "ClickHouse is not a column-oriented SQL database management system (DBMS) for online analytical processing (OLAP).",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "ClickHouse is a row-oriented SQL database management system (DBMS) for online analytical processing (OLAP).",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "distorted: other product",
+      "supported": false,
+      "text": "PostgreSQL is a column-oriented SQL database management system (DBMS) for online analytical processing (OLAP).",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "ClickHouse is a column-oriented SQL database management system (DBMS) for online analytical processing (OLAP).",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "ClickHouse is a column-oriented SQL database management system (DBMS) for online analytical processing (OLAP).",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "It is available as both an open-source software and a cloud offering.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "It is not available as both an open-source software and a cloud offering.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "It is available as both an open-source software and a cloud offering.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "It is available as both an open-source software and a cloud offering.",
+      "chunk_ids": []
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "ClickHouse is an SQL database that stores data by column and is built for analytical workloads.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "You can run ClickHouse yourself as open-source software or use it as a cloud service.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse was first released by NASA in 1987 to track satellite telemetry.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse is a graph database designed mainly for social-network friend lookups.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Analytics, also known as OLAP (Online Analytical Processing), refers to SQL queries with complex calculations (e.g., aggregations, string processing, arithmetic) over massive datasets.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Analytics, also known as OLAP (Online Analytical Processing), refers to SQL queries with complex calculations (e.g., aggregations, string processing, arithmetic) over massive datasets.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Analytics, also known as OLAP (Online Analytical Processing), refers to SQL queries with complex calculations (e.g., aggregations, string processing, arithmetic) over massive datasets.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Unlike transactional queries (or OLTP, Online Transaction Processing) that read and write just a few rows per query and, therefore, complete in milliseconds, analytics queries routinely process billions and trillions of rows.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "Unlike transactional queries (or OLTP, Online Transaction Processing) that read and write just a few columns per query and, therefore, complete in milliseconds, analytics queries routinely process billions and trillions of columns.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "distorted: quantifier",
+      "supported": false,
+      "text": "Unlike transactional queries (or OLTP, Online Transaction Processing) that read and write just a few rows per query and, therefore, complete in milliseconds, analytics queries routinely process hundreds and trillions of rows.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Unlike transactional queries (or OLTP, Online Transaction Processing) that read and write just a few rows per query and, therefore, complete in milliseconds, analytics queries routinely process billions and trillions of rows.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Unlike transactional queries (or OLTP, Online Transaction Processing) that read and write just a few rows per query and, therefore, complete in milliseconds, analytics queries routinely process billions and trillions of rows.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "In many use cases, analytics queries must be \u201creal-time\u201d, i.e., return a result in less than one second.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "In many use cases, analytics queries must not be \u201creal-time\u201d, i.e., return a result in less than one second.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "distorted: quantifier",
+      "supported": false,
+      "text": "In rare use cases, analytics queries must be \u201creal-time\u201d, i.e., return a result in less than one second.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "In many use cases, analytics queries must be \u201creal-time\u201d, i.e., return a result in less than one second.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "In many use cases, analytics queries must be \u201creal-time\u201d, i.e., return a result in less than one second.",
+      "chunk_ids": []
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Analytical queries crunch huge datasets with heavy calculations such as aggregations.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Transactional queries touch only a handful of rows, while analytical ones can scan billions.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Real-time analytics means answering in under a second.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "Most analytics queries finish in about forty minutes on a typical laptop.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "Analytical workloads were invented for spreadsheet macros in Lotus 1-2-3.",
+      "chunk_ids": [
+        "e2ff82b5-7d17-578d-aa69-8c040d038294"
+      ]
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Databases store data either row-oriented or column-oriented.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "Databases store data either column-oriented or row-oriented.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Databases store data either row-oriented or column-oriented.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Databases store data either row-oriented or column-oriented.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "In a row-oriented database, consecutive table rows are sequentially stored one after the other.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "In a row-oriented database, consecutive table rows are not sequentially stored one after the other.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "In a column-oriented database, consecutive table columns are sequentially stored one after the other.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "In a row-oriented database, consecutive table rows are sequentially stored one after the other.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "In a row-oriented database, consecutive table rows are sequentially stored one after the other.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "This layout allows to retrieve rows quickly as the column values of each row are stored together.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "This layout allows to retrieve rows quickly as the column values of each row are not stored together.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "This layout allows to retrieve columns quickly as the row values of each column are stored together.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "This layout allows to retrieve rows quickly as the column values of each row are stored together.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "This layout allows to retrieve rows quickly as the column values of each row are stored together.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "ClickHouse is a column-oriented database.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "ClickHouse is not a column-oriented database.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "ClickHouse is a row-oriented database.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "distorted: other product",
+      "supported": false,
+      "text": "PostgreSQL is a column-oriented database.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "ClickHouse is a column-oriented database.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "ClickHouse is a column-oriented database.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "In such systems, tables are stored as a collection of columns, i.e. the values of each column are stored sequentially one after the other.",
+      "chunk_ids": [
+        "40fb9b7b-ae30-5678-ad3a-3e7839ed0c02"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "In such systems, tables are not stored as a collection of columns, i.e. the values of each column are stored sequentially one after the other.",
+      "chunk_ids": [
+        "40fb9b7b-ae30-5678-ad3a-3e7839ed0c02"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "In such systems, tables are stored as a collection of rows, i.e. the values of each row are stored sequentially one after the other.",
+      "chunk_ids": [
+        "40fb9b7b-ae30-5678-ad3a-3e7839ed0c02"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "In such systems, tables are stored as a collection of columns, i.e. the values of each column are stored sequentially one after the other.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "In such systems, tables are stored as a collection of columns, i.e. the values of each column are stored sequentially one after the other.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "This layout makes it harder to restore single rows (as there are now gaps between the row values) but column operations such as filters or aggregation become much faster than in a row-oriented database.",
+      "chunk_ids": [
+        "40fb9b7b-ae30-5678-ad3a-3e7839ed0c02"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "This layout makes it harder to restore single rows (as there are not now gaps between the row values) but column operations such as filters or aggregation become much faster than in a row-oriented database.",
+      "chunk_ids": [
+        "40fb9b7b-ae30-5678-ad3a-3e7839ed0c02"
+      ]
+    },
+    {
+      "category": "distorted: swap rows and columns",
+      "supported": false,
+      "text": "This layout makes it harder to restore single columns (as there are now gaps between the column values) but row operations such as filters or aggregation become much faster than in a column-oriented database.",
+      "chunk_ids": [
+        "40fb9b7b-ae30-5678-ad3a-3e7839ed0c02"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "This layout makes it harder to restore single rows (as there are now gaps between the row values) but column operations such as filters or aggregation become much faster than in a row-oriented database.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "This layout makes it harder to restore single rows (as there are now gaps between the row values) but column operations such as filters or aggregation become much faster than in a row-oriented database.",
+      "chunk_ids": []
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "A row store keeps each record's values next to each other on disk.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Column stores make filters and aggregations much quicker but make fetching a single record harder.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse keeps every table in a single JSON document per day.",
+      "chunk_ids": [
+        "a34c684a-8cca-56b0-b223-fdf58207e3de"
+      ]
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "ClickHouse uses an asynchronous multi-master replication scheme to ensure that data is stored redundantly on multiple nodes.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "ClickHouse uses an asynchronous multi-master replication scheme to ensure that data is not stored redundantly on multiple nodes.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "distorted: other product",
+      "supported": false,
+      "text": "PostgreSQL uses an asynchronous multi-master replication scheme to ensure that data is stored redundantly on multiple nodes.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "ClickHouse uses an asynchronous multi-master replication scheme to ensure that data is stored redundantly on multiple nodes.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "ClickHouse uses an asynchronous multi-master replication scheme to ensure that data is stored redundantly on multiple nodes.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "After being written to any available replica, all the remaining replicas retrieve their copy in the background.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "distorted: quantifier",
+      "supported": false,
+      "text": "After being written to any available replica, none of the the remaining replicas retrieve their copy in the background.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "After being written to any available replica, all the remaining replicas retrieve their copy in the background.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "After being written to any available replica, all the remaining replicas retrieve their copy in the background.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "The system maintains identical data on different replicas.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "The system maintains identical data on different replicas.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "The system maintains identical data on different replicas.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Recovery after most failures is performed automatically, or semi-automatically in complex cases.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "Recovery after most failures is not performed automatically, or semi-automatically in complex cases.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "distorted: quantifier",
+      "supported": false,
+      "text": "Recovery after very few failures is performed automatically, or semi-automatically in complex cases.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Recovery after most failures is performed automatically, or semi-automatically in complex cases.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Recovery after most failures is performed automatically, or semi-automatically in complex cases.",
+      "chunk_ids": []
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Data written to one replica is copied to the other replicas in the background.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Most failures are recovered from without manual work.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse needs a nightly manual restart to keep replicas consistent.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "Every replica must be approved by an administrator before it receives copies.",
+      "chunk_ids": [
+        "77619691-9311-595b-b83b-03ab66e4417d"
+      ]
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "ClickHouse supports a declarative query language based on SQL that is identical to the ANSI SQL standard in many cases.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "ClickHouse supports a declarative query language based on SQL that is not identical to the ANSI SQL standard in many cases.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "distorted: other product",
+      "supported": false,
+      "text": "PostgreSQL supports a declarative query language based on SQL that is identical to the ANSI SQL standard in many cases.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "distorted: quantifier",
+      "supported": false,
+      "text": "ClickHouse supports a declarative query language based on SQL that is identical to the ANSI SQL standard in rare cases.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "ClickHouse supports a declarative query language based on SQL that is identical to the ANSI SQL standard in many cases.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "ClickHouse supports a declarative query language based on SQL that is identical to the ANSI SQL standard in many cases.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Supported query clauses include GROUP BY, ORDER BY, subqueries in FROM, JOIN clause, IN operator, window functions and scalar subqueries.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Supported query clauses include GROUP BY, ORDER BY, subqueries in FROM, JOIN clause, IN operator, window functions and scalar subqueries.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Supported query clauses include GROUP BY, ORDER BY, subqueries in FROM, JOIN clause, IN operator, window functions and scalar subqueries.",
+      "chunk_ids": []
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "ClickHouse queries are written in a dialect of SQL that often matches the ANSI standard.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Window functions, joins and subqueries are all available in ClickHouse SQL.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse refuses any query that contains a JOIN.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse queries are written in Python rather than a query language.",
+      "chunk_ids": [
+        "cfbd8955-4742-5643-8085-8198a6296505"
+      ]
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "ClickHouse provides ways to trade accuracy for performance.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "distorted: other product",
+      "supported": false,
+      "text": "PostgreSQL provides ways to trade accuracy for performance.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "ClickHouse provides ways to trade accuracy for performance.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "ClickHouse provides ways to trade accuracy for performance.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "For example, some of its aggregate functions calculate the distinct value count, the median, and quantiles approximately.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "For example, some of its aggregate functions calculate the distinct value count, the median, and quantiles approximately.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "For example, some of its aggregate functions calculate the distinct value count, the median, and quantiles approximately.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Also, queries can be run on a sample of the data to compute an approximate result quickly.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "Also, queries can not be run on a sample of the data to compute an approximate result quickly.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Also, queries can be run on a sample of the data to compute an approximate result quickly.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Also, queries can be run on a sample of the data to compute an approximate result quickly.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Finally, aggregations can be run with a limited number of keys instead of for all keys.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "Finally, aggregations can not be run with a limited number of keys instead of for all keys.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "distorted: quantifier",
+      "supported": false,
+      "text": "Finally, aggregations can be run with a limited number of keys instead of for none of the keys.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Finally, aggregations can be run with a limited number of keys instead of for all keys.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Finally, aggregations can be run with a limited number of keys instead of for all keys.",
+      "chunk_ids": []
+    },
+    {
+      "category": "verbatim",
+      "supported": true,
+      "text": "Depending on how skewed the distribution of the keys is, this can provide a reasonably accurate result that uses far fewer resources than an exact calculation.",
+      "chunk_ids": [
+        "c6eaf61b-5860-5bcf-9c67-7365bc8f6caa"
+      ]
+    },
+    {
+      "category": "distorted: negation",
+      "supported": false,
+      "text": "Depending on how skewed the distribution of the keys is not, this can provide a reasonably accurate result that uses far fewer resources than an exact calculation.",
+      "chunk_ids": [
+        "c6eaf61b-5860-5bcf-9c67-7365bc8f6caa"
+      ]
+    },
+    {
+      "category": "misattributed",
+      "supported": false,
+      "text": "Depending on how skewed the distribution of the keys is, this can provide a reasonably accurate result that uses far fewer resources than an exact calculation.",
+      "chunk_ids": [
+        "16d22782-a377-55b6-9761-06bbe0973fbc"
+      ]
+    },
+    {
+      "category": "uncited",
+      "supported": false,
+      "text": "Depending on how skewed the distribution of the keys is, this can provide a reasonably accurate result that uses far fewer resources than an exact calculation.",
+      "chunk_ids": []
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "ClickHouse can give up some accuracy to answer faster.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "paraphrase",
+      "supported": true,
+      "text": "Running a query on a sample of the data gives a quick approximate answer.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    },
+    {
+      "category": "fabricated",
+      "supported": false,
+      "text": "ClickHouse guarantees exact answers and never approximates anything.",
+      "chunk_ids": [
+        "44e8d340-67a3-52a4-90f8-1d3b01f11539"
+      ]
+    }
+  ],
+  "threshold": 0.6,
+  "judges": {
+    "offline-word-overlap": {
+      "recall_unsupported": 0.6091954022988506,
+      "recall_ci95": [
+        0.5041319615871446,
+        0.7050233152904094
+      ],
+      "false_alarm_rate": 0.17142857142857143,
+      "false_alarm_ci95": [
+        0.08102529944856719,
+        0.3268260763958882
+      ],
+      "precision_of_flags": 0.8983050847457628,
+      "counts": {
+        "unsupported": 87,
+        "supported": 35,
+        "flagged": 59
+      },
+      "per_category": {
+        "distorted: negation": {
+          "correct": 0,
+          "total": 14,
+          "rate": 0.0
+        },
+        "distorted: other product": {
+          "correct": 0,
+          "total": 5,
+          "rate": 0.0
+        },
+        "distorted: quantifier": {
+          "correct": 0,
+          "total": 6,
+          "rate": 0.0
+        },
+        "distorted: swap rows and columns": {
+          "correct": 0,
+          "total": 8,
+          "rate": 0.0
+        },
+        "fabricated": {
+          "correct": 9,
+          "total": 10,
+          "rate": 0.9
+        },
+        "misattributed": {
+          "correct": 22,
+          "total": 22,
+          "rate": 1.0
+        },
+        "paraphrase": {
+          "correct": 7,
+          "total": 13,
+          "rate": 0.5384615384615384
+        },
+        "uncited": {
+          "correct": 22,
+          "total": 22,
+          "rate": 1.0
+        },
+        "verbatim": {
+          "correct": 22,
+          "total": 22,
+          "rate": 1.0
+        }
+      }
+    }
+  }
+}

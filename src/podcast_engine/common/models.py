@@ -114,6 +114,7 @@ class EpisodeStatus(StrEnum):
 
     QUEUED = "queued"
     PROCESSING = "processing"
-    NEEDS_REVIEW = "needs_review"
+    NEEDS_REVIEW = "needs_review"  # the fact-check gate held it after the last rewrite
     PUBLISHED = "published"
+    UNCHANGED = "unchanged"  # a refresh found no changed source, so no new revision was made
     FAILED = "failed"

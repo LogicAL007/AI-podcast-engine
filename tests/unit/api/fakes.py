@@ -5,7 +5,12 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from podcast_engine.api.models.episodes_model import EpisodeRead
+from podcast_engine.api.models.episodes_model import (
+    EpisodeFiles,
+    EpisodeRead,
+    EpisodeScript,
+    StageRunRead,
+)
 from podcast_engine.api.models.shows_model import ShowCreate, ShowRead
 from podcast_engine.common.models import EpisodeStatus
 
@@ -45,6 +50,9 @@ class FakeShowRepository:
 class FakeEpisodeRepository:
     def __init__(self) -> None:
         self.rows: dict[UUID, EpisodeRead] = {}
+        self.scripts: dict[UUID, EpisodeScript] = {}
+        self.runs: dict[UUID, list[StageRunRead]] = {}
+        self.files: dict[UUID, EpisodeFiles] = {}
 
     def add(self, show_id: UUID) -> EpisodeRead:
         episode = EpisodeRead(
@@ -67,6 +75,19 @@ class FakeEpisodeRepository:
 
     def set_status(self, episode_id: UUID, status: EpisodeStatus) -> None:
         self.rows[episode_id] = self.rows[episode_id].model_copy(update={"status": status})
+
+    def get_script(self, episode_id: UUID) -> EpisodeScript | None:
+        if episode_id not in self.rows:
+            return None
+        return self.scripts.get(episode_id, EpisodeScript(episode_id=episode_id, segments=[]))
+
+    def list_runs(self, episode_id: UUID) -> list[StageRunRead]:
+        return self.runs.get(episode_id, [])
+
+    def get_files(self, episode_id: UUID) -> EpisodeFiles | None:
+        if episode_id not in self.rows:
+            return None
+        return self.files.get(episode_id, EpisodeFiles(audio_key=None, notes_key=None))
 
 
 class FakeObjectStore:

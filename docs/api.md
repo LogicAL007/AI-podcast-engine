@@ -59,25 +59,45 @@ the unit tests run the whole API with in-memory fakes.
 
 ## Endpoints
 
-| Method | Path | Success | Errors | Notes |
-|---|---|---|---|---|
-| POST | `/shows` | 201 | 422 | Create a show (FR1) |
-| GET | `/shows` | 200 | 422 | `limit` 1–100 (default 20), `offset` ≥ 0; newest first |
-| GET | `/shows/{show_id}` | 200 | 404 | |
-| PATCH | `/shows/{show_id}` | 200 | 404, 422 | Only sent fields change; `{}` is a no-op |
-| DELETE | `/shows/{show_id}` | 204 | 404 | Cascades to items, episodes and claims |
-| POST | `/shows/{show_id}/episodes` | 202 | 404, 503 | Creates the episode and enqueues ingest |
-| GET | `/shows/{show_id}/episodes` | 200 | 404 | Same pagination as shows |
-| GET | `/episodes/{episode_id}` | 200 | 404 | Poll this for `status` |
-| GET | `/feeds/{show_id}/rss.xml` | 200 | 404 | `application/rss+xml`; 404 until publish has run |
-| GET | `/health` | 200 | | Liveness only; does not check dependencies |
-| GET | `/metrics` | 200 | | Prometheus metrics; not in the OpenAPI schema, blocked at the web proxy (see [observability](observability.md)) |
+| Method | Path | Operation id | Success | Errors | Notes |
+|---|---|---|---|---|---|
+| POST | `/shows` | `create_show` | 201 | 422 | Create a show (FR1) |
+| GET | `/shows` | `list_shows` | 200 | 422 | `limit` 1–100 (default 20), `offset` ≥ 0; newest first |
+| GET | `/shows/{show_id}` | `get_show` | 200 | 404 | |
+| PATCH | `/shows/{show_id}` | `update_show` | 200 | 404, 422 | Only sent fields change; `{}` is a no-op |
+| DELETE | `/shows/{show_id}` | `delete_show` | 204 | 404 | Cascades to items, episodes and claims |
+| POST | `/shows/{show_id}/episodes` | `start_episode` | 202 | 404, 503 | Enqueues ingest; a later episode is a refresh (FR8) |
+| GET | `/shows/{show_id}/episodes` | `list_episodes` | 200 | 404 | Same paging as shows |
+| GET | `/episodes/{episode_id}` | `get_episode` | 200 | 404 | `status`, `stage`, `error`, and `links` to everything below |
+| GET | `/episodes/{episode_id}/script` | `get_episode_script` | 200 | 404 | Segments, lines, claims with chunk ids and verdicts (FR5, FR7, FR9) |
+| GET | `/episodes/{episode_id}/runs` | `list_episode_runs` | 200 | 404 | Per stage: seconds, model, prompt version, seed |
+| GET, HEAD | `/episodes/{episode_id}/audio.wav` | `get_episode_audio`, `head_episode_audio` | 200, 206 | 404, 416 | `audio/wav`. Honours `Range` so players can seek; `?download=true` saves it as a file |
+| GET | `/episodes/{episode_id}/notes.md` | `get_episode_notes` | 200 | 404 | Markdown show notes; 404 until published |
+| GET | `/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml`; 404 until an episode is published |
+| GET | `/health` | `health` | 200 | | Liveness only; does not check dependencies |
+| GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema, blocked at the web proxy (see [observability](observability.md)) |
+
+Interactive docs are at `/docs` (Swagger UI) and `/redoc`; the schema is at `/openapi.json`. Every
+error body is `{"detail": "..."}` (the `ErrorDetail` schema), except 422 validation errors, which
+use FastAPI's `HTTPValidationError`. Operation ids are the route function names, so generated
+clients get methods such as `get_episode_audio`. The links in `EpisodeRead.links` are relative to
+the API's base URL (`/api` behind the web proxy).
+
+```bash
+curl -o episode.wav localhost:8000/episodes/<episode_id>/audio.wav              # whole file
+curl -H 'Range: bytes=0-1023' -i localhost:8000/episodes/<episode_id>/audio.wav  # 206, first KiB
+```
 
 Show fields: `topic` (3–200 chars), `tone` (`casual`, `neutral`, `formal`), `target_minutes`
 (1–30, default 7), `host_count` (1–4, default 2), `language` (`en` or `fr-CA` form),
-`expertise` (`beginner`, `intermediate`, `expert`), `sources` (up to 50 http(s) URLs).
+`expertise` (`beginner`, `intermediate`, `expert`), `sources` (up to 50 http(s) URLs),
+`topic_keywords` (words matched with the topic when ranking passages), `attribution` (credit and
+licence line for the show notes), `max_segments` (1–12, default 6), `ranking_profile` (`explainer`
+favours authoritative sources, `daily` fresh ones).
 
-Episode `status` is `queued`, `processing`, `needs_review`, `published` or `failed`.
+Episode `status` is `queued`, `processing` (see `stage`), `needs_review` (the gate held it after
+the last rewrite; `error` says why), `published`, `unchanged` (a refresh found no changed source)
+or `failed` (`error` names the stage and the reason).
 
 ```bash
 curl -X POST localhost:8000/shows -H 'content-type: application/json' \
@@ -134,7 +154,8 @@ package is installed (`make setup`), and `--reload` would then watch only that o
 
 Run pipeline workers in Docker, not directly on your machine. On Python 3.14, Celery's prefork pool
 crashes every task with `ValueError: not enough values to unpack (expected 3, got 0)`; the images use
-Python 3.12, where workers run correctly. The API itself runs fine on 3.14.
+Python 3.12, where workers run correctly. A host worker that must run on 3.14 (the Chatterbox voice
+worker, see the README) sets `WORKER_POOL=solo`. The API itself runs fine on 3.14.
 
 Settings are read from the environment ([config.py](../src/podcast_engine/common/config.py)).
 
@@ -160,8 +181,11 @@ Postgres is unreachable.
 3. If it needs data, add a method to the repository Protocol, the Postgres class and the test fake
    (`tests/unit/api/fakes.py`).
 4. Add a controller method that maps the new errors with `to_http`.
-5. Add the route in `routers/<resource>_router.py`, declaring `responses` for each error status.
-6. Add a test in `tests/unit/api/`.
+5. Add the route in `routers/<resource>_router.py` with a `summary`, a `response_description`, a
+   docstring (it becomes the description), `Path`/`Query` descriptions for every parameter, and
+   `responses=errors(e404="...")` (from `api/openapi.py`) for each error status. Files use
+   `file_response(...)`.
+6. Add a test in `tests/unit/api/`. `test_openapi_docs.py` fails if any of step 5 is missing.
 
 A new resource gets one file in each layer folder (`<resource>_router.py`, `_controller.py`,
 `_service.py`, `_model.py` and, if it stores data, `_repository.py`), a provider in
@@ -169,6 +193,7 @@ A new resource gets one file in each layer folder (`<resource>_router.py`, `_con
 
 ## Not built yet
 
-- Script review and edit before voicing (FR7): needs script storage the schema doesn't have yet.
+- Editing the script before voicing (FR7). It is stored and readable at `/episodes/{id}/script`,
+  but there is no endpoint to change it and re-run from the gate yet.
 - Source uploads (PDF) and the shared `uploads` volume endpoints.
 - Authentication and per-creator ownership of shows.

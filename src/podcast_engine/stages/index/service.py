@@ -2,7 +2,15 @@
 
 from uuid import UUID
 
+from podcast_engine.common.context import PipelineContext, get_context
+from podcast_engine.common.logging import get_logger
 from podcast_engine.common.queue import Stage
+
+# The overlap must be at least as long as the longest sentence, so every sentence sits whole inside
+# at least one chunk (the offline writer quotes whole sentences and cites the chunk they came from).
+CHUNK_WORDS, CHUNK_OVERLAP = 80, 40
+
+log = get_logger("index")
 
 
 def chunk_words(text: str, *, max_words: int = 200, overlap: int = 40) -> list[str]:
@@ -22,6 +30,24 @@ def chunk_words(text: str, *, max_words: int = 200, overlap: int = 40) -> list[s
     ]
 
 
-def index_items(episode_id: UUID) -> Stage | None:
-    """Embed new or changed items into pgvector with source, date and reliability metadata."""
-    raise NotImplementedError("index_items: embed chunks with the configured model")
+def index_items(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
+    """Embed new or changed items into pgvector with source, date and reliability metadata.
+
+    Chunks whose text is unchanged keep their stored vectors, so a refresh embeds only what changed.
+    """
+    ctx = ctx or get_context()
+    episode = ctx.repo.get_episode(episode_id)
+    embedded = reused = 0
+    for item in ctx.repo.list_items(episode.show_id):
+        pieces = chunk_words(item.text, max_words=CHUNK_WORDS, overlap=CHUNK_OVERLAP)
+        new, kept = ctx.repo.replace_chunks(item.item_id, pieces, ctx.embedder.encode)
+        embedded += new
+        reused += kept
+    log.info(
+        "items_indexed",
+        episode_id=str(episode_id),
+        embedder=ctx.embedder.name,
+        embedded=embedded,
+        reused=reused,
+    )
+    return Stage.RETRIEVE_PLAN

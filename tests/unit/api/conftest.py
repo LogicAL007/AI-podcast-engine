@@ -28,7 +28,7 @@ class Harness:
             ShowService(self.shows)
         )
         app.dependency_overrides[dependencies.get_episode_controller] = lambda: EpisodeController(
-            EpisodeService(self.episodes, self.shows, self._enqueue)
+            EpisodeService(self.episodes, self.shows, self._enqueue, self.store)
         )
         app.dependency_overrides[dependencies.get_feed_controller] = lambda: FeedController(
             FeedService(self.store)

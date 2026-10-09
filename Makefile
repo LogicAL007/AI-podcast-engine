@@ -1,13 +1,18 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help api notebook-test notebook-clean setup secrets build up dev down logs lint format typecheck test check
+.PHONY: help api bench-db notebook-test notebook-clean setup secrets build up dev down logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
 
 api:  ## Run the API locally with auto-reload (needs Postgres, Redis and S3 up)
 	uvicorn podcast_engine.api.main:app --reload
+
+bench-db:  ## Start a throwaway pgvector database for evaluation/ on localhost:55433
+	docker start podcast-bench-pg 2>/dev/null || docker run -d --name podcast-bench-pg \
+		-e POSTGRES_USER=podcast -e POSTGRES_PASSWORD=bench -e POSTGRES_DB=podcast \
+		-p 127.0.0.1:55433:5432 -v "$(CURDIR)/db/init:/docker-entrypoint-initdb.d:ro" pgvector/pgvector:pg16
 
 notebook-test:  ## Execute notebooks/podcast_flow.ipynb offline and check the flow
 	pytest -m notebook --no-cov

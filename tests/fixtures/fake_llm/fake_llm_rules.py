@@ -45,6 +45,30 @@ def _required(pattern: str, text: str) -> str:
 
 def _segment(system: str, user: str) -> dict[str, Any]:
     hosts = [h.strip() for h in _required(r"Hosts: ([^.]*)\.", system).split(",")]
+    if "no source material" in system:  # the RQ1 ungrounded baseline: canned, partly wrong, uncited
+        title = _required(r"Segment title: (.*)", user)
+        return {
+            "lines": [
+                {
+                    "speaker": hosts[0],
+                    "text": f"So, {title}.",
+                    "is_claim": False,
+                    "passage_ids": [],
+                },
+                {
+                    "speaker": hosts[-1],
+                    "text": f"{title} was introduced in 2016.",
+                    "is_claim": True,
+                    "passage_ids": [],
+                },
+                {
+                    "speaker": hosts[0],
+                    "text": "It is widely used for analytics.",
+                    "is_claim": True,
+                    "passage_ids": [],
+                },
+            ]
+        }
     passages = _passages(user)
     title = _required(r"Segment title: (.*)", user)
     lines: list[dict[str, Any]] = [
