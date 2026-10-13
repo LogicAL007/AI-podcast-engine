@@ -25,6 +25,10 @@ class Stage(StrEnum):
 
 PIPELINE_ORDER: tuple[Stage, ...] = tuple(Stage)
 
+# Not a pipeline stage: rewrites one show's feed (after a published episode is deleted). It runs
+# on the publish queue, in the publish worker, which has the feed-writing library.
+REBUILD_FEED_TASK = "podcast_engine.publish.rebuild_feed"
+
 
 def task_name(stage: Stage) -> str:
     """Stable Celery task name for a stage."""
@@ -49,12 +53,25 @@ def create_celery_app() -> Celery:
         task_serializer="json",
         accept_content=["json"],
         task_default_queue=Stage.INGEST.value,
-        task_routes={task_name(stage): {"queue": stage.value} for stage in Stage},
+        task_routes={
+            **{task_name(stage): {"queue": stage.value} for stage in Stage},
+            REBUILD_FEED_TASK: {"queue": Stage.PUBLISH.value},
+        },
     )
     return app
 
 
 celery_app = create_celery_app()
+
+
+def dispatch_feed_rebuild(show_id: str) -> str:
+    result = celery_app.send_task(
+        REBUILD_FEED_TASK,
+        kwargs={"show_id": show_id},
+        queue=Stage.PUBLISH.value,
+        ignore_result=True,
+    )
+    return str(result.id)
 
 
 def dispatch(stage: Stage, **kwargs: Any) -> str:

@@ -1,5 +1,7 @@
 """Ingest: fetch sources and detect which items changed."""
 
+from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import yaml
@@ -8,10 +10,13 @@ from podcast_engine.common.context import PipelineContext, get_context
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.models import EpisodeStatus, ReliabilityTier
 from podcast_engine.common.queue import Stage
-from podcast_engine.common.repository import SourceDoc
+from podcast_engine.common.repository import ShowRecord, SourceDoc
 from podcast_engine.common.text import content_hash
 
-__all__ = ["content_hash", "has_changed", "ingest_sources", "load_url_docs"]
+__all__ = ["content_hash", "has_changed", "ingest_sources", "load_docs"]
+
+if TYPE_CHECKING:
+    from podcast_engine.stages.ingest.extract import Section
 
 log = get_logger("ingest")
 
@@ -21,36 +26,65 @@ def has_changed(previous_hash: str | None, text: str) -> bool:
     return previous_hash != content_hash(text)
 
 
-def load_url_docs(urls: list[str], ctx: PipelineContext) -> list[SourceDoc]:
-    """Fetch pages and return one document per section, so each can change and be cited alone."""
+def load_docs(show: ShowRecord, ctx: PipelineContext) -> list[SourceDoc]:
+    """Every section of the show's sources, in order: its URLs (web pages or RSS/Atom feeds),
+    then its uploaded PDFs. Each section can change and be cited on its own."""
     from podcast_engine.stages.ingest.extract import extract_page, fetch_html, source_tier
+    from podcast_engine.stages.ingest.feeds import feed_sections, looks_like_feed
 
     tiers_file = ctx.settings.config_dir / "source_tiers.yaml"
     tiers = yaml.safe_load(tiers_file.read_text(encoding="utf-8")) if tiers_file.exists() else {}
     fetch = ctx.fetch or fetch_html
     docs: list[SourceDoc] = []
-    for url in urls:
-        page = extract_page(fetch(url))
+
+    def add(url: str, section: Section, published: datetime | None, tier: ReliabilityTier) -> None:
+        docs.append(
+            SourceDoc(
+                url=f"{url}#{section.anchor}" if section.anchor and "#" not in url else url,
+                title=section.heading,
+                text=section.text,
+                published_at=published,
+                reliability=tier,
+                position=len(docs),
+            )
+        )
+
+    for url in show.sources:
+        body = fetch(url)
+        if looks_like_feed(body):
+            title, sections = feed_sections(body, fetch, max_items=ctx.settings.feed_max_items)
+            if not sections:
+                raise ValueError(f"The feed at {url} has no entries with usable text")
+            for link, section, published in sections:
+                add(link or url, section, published, source_tier(link or url, tiers or {}))
+            log.info("feed_ingested", url=url, title=title, sections=len(sections))
+            continue
+        page = extract_page(body)
         if not page.sections:
             raise ValueError(f"No usable text found at {url}")
-        tier: ReliabilityTier = source_tier(url, tiers or {})
         for section in page.sections:
-            docs.append(
-                SourceDoc(
-                    url=f"{url}#{section.anchor}" if section.anchor else url,
-                    title=section.heading,
-                    text=section.text,
-                    published_at=page.published_at,
-                    reliability=tier,
-                    position=len(docs),
-                )
-            )
+            add(url, section, page.published_at, source_tier(url, tiers or {}))
         log.info("page_ingested", url=url, sections=len(page.sections), dropped=list(page.dropped))
+
+    for upload in ctx.repo.list_uploads(show.show_id):
+        from podcast_engine.stages.ingest.pdf import extract_pdf
+
+        pdf = extract_pdf(ctx.store.get(upload.object_key), filename=upload.filename)
+        if not pdf.sections:
+            raise ValueError(f"No usable text found in the upload {upload.filename}")
+        # Citations link to the file through the API, at the page the passage is on.
+        file_url = (
+            f"{ctx.settings.public_feed_base_url}/api/shows/{show.show_id}"
+            f"/uploads/{upload.upload_id}/file"
+        )
+        for section in pdf.sections:
+            # The creator supplied it, so it ranks as an established source.
+            add(f"{file_url}#{section.anchor}", section, None, ReliabilityTier.ESTABLISHED)
+        log.info("upload_ingested", upload=upload.filename, sections=len(pdf.sections))
     return docs
 
 
-# TODO (from the notebook): RSS feeds without summaries, pages behind authentication, and PDF
-# uploads (PyMuPDF) are not ingested yet; only web pages are.
+# Not ingested yet: pages behind authentication, and search results as a source.
 def ingest_sources(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
     """FR2: fetch the show's pages, store their sections, and record which ones changed.
 
@@ -60,9 +94,9 @@ def ingest_sources(episode_id: UUID, ctx: PipelineContext | None = None) -> Stag
     ctx = ctx or get_context()
     episode = ctx.repo.get_episode(episode_id)
     show = ctx.repo.get_show(episode.show_id)
-    if not show.sources:
-        raise ValueError("The show has no sources: add at least one URL.")
-    result = ctx.repo.sync_items(show.show_id, load_url_docs(show.sources, ctx))
+    if not show.sources and not ctx.repo.list_uploads(show.show_id):
+        raise ValueError("The show has no sources: add a URL or upload a PDF.")
+    result = ctx.repo.sync_items(show.show_id, load_docs(show, ctx))
     previous = [e for e in ctx.repo.list_published(show.show_id) if e.episode_id != episode_id]
     log.info(
         "sources_synced",

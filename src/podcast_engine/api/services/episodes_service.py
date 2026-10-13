@@ -1,20 +1,47 @@
 """Business rules for episodes. No HTTP and no SQL in here."""
 
 from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from podcast_engine.api.errors import NotFoundError, PipelineUnavailableError
-from podcast_engine.api.models.episodes_model import EpisodeRead, EpisodeScript, StageRunRead
+from podcast_engine.api.errors import (
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+    PipelineUnavailableError,
+)
+from podcast_engine.api.models.episodes_model import (
+    ClaimDetail,
+    EpisodeRead,
+    EpisodeScript,
+    ScriptEdit,
+    StageRunRead,
+)
+from podcast_engine.api.models.pagination_model import Paged
 from podcast_engine.api.repositories.episodes_repository import EpisodeRepository
 from podcast_engine.api.repositories.shows_repository import ShowRepository
+from podcast_engine.common.context import HOST_NAMES
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.models import EpisodeStatus
+from podcast_engine.common.queue import Stage
 from podcast_engine.common.storage import ObjectStore
 
-# Starts the pipeline for an episode id (enqueues the first stage).
-EnqueueEpisode = Callable[[UUID], None]
+# Enqueues a pipeline stage for an episode.
+EnqueueStage = Callable[[UUID, Stage], None]
+# Asks the publish worker to rewrite a show's RSS feed (after a published episode is deleted).
+RebuildFeed = Callable[[UUID], None]
 
 log = get_logger("api.episodes")
+
+EDITABLE = {EpisodeStatus.NEEDS_REVIEW}
+CANCELLABLE = {EpisodeStatus.QUEUED, EpisodeStatus.PROCESSING, EpisodeStatus.NEEDS_REVIEW}
+RETRYABLE = {EpisodeStatus.FAILED, EpisodeStatus.CANCELLED}
+RUNNING = {EpisodeStatus.QUEUED, EpisodeStatus.PROCESSING}
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class EpisodeService:
@@ -22,14 +49,19 @@ class EpisodeService:
         self,
         episodes: EpisodeRepository,
         shows: ShowRepository,
-        enqueue: EnqueueEpisode,
+        enqueue: EnqueueStage,
         store: ObjectStore | None = None,
+        rebuild_feed: RebuildFeed | None = None,
+        now: Callable[[], datetime] = _utc_now,
     ) -> None:
         self._episodes = episodes
         self._shows = shows
         self._enqueue = enqueue
         self._store = store
+        self._rebuild_feed = rebuild_feed
+        self._now = now
 
+    # ---- creating and reading -------------------------------------------------------------
     def start(self, show_id: UUID) -> EpisodeRead:
         """Create an episode for a show and hand it to the pipeline.
 
@@ -42,14 +74,7 @@ class EpisodeService:
         if self._shows.get(show_id) is None:
             raise NotFoundError("show", show_id)
         episode = self._episodes.add(show_id)
-        try:
-            self._enqueue(episode.episode_id)
-        except Exception as error:
-            log.exception("enqueue_failed", episode_id=str(episode.episode_id))
-            self._episodes.set_status(episode.episode_id, EpisodeStatus.FAILED)
-            raise PipelineUnavailableError(
-                "The job queue is unavailable; try again later"
-            ) from error
+        self._dispatch(episode.episode_id, Stage.INGEST)
         return episode
 
     def get(self, episode_id: UUID) -> EpisodeRead:
@@ -58,10 +83,18 @@ class EpisodeService:
             raise NotFoundError("episode", episode_id)
         return episode
 
-    def list_for_show(self, show_id: UUID, *, limit: int, offset: int) -> list[EpisodeRead]:
+    def list_for_show(
+        self, show_id: UUID, *, status: EpisodeStatus | None, limit: int, offset: int
+    ) -> Paged[EpisodeRead]:
         if self._shows.get(show_id) is None:
             raise NotFoundError("show", show_id)
-        return self._episodes.list_for_show(show_id, limit=limit, offset=offset)
+        return self._episodes.list_page(show_id=show_id, status=status, limit=limit, offset=offset)
+
+    def list_all(
+        self, *, status: EpisodeStatus | None, show_id: UUID | None, limit: int, offset: int
+    ) -> Paged[EpisodeRead]:
+        """Episodes across shows; ``status=needs_review`` is the review queue."""
+        return self._episodes.list_page(show_id=show_id, status=status, limit=limit, offset=offset)
 
     def get_script(self, episode_id: UUID) -> EpisodeScript:
         script = self._episodes.get_script(episode_id)
@@ -69,9 +102,23 @@ class EpisodeService:
             raise NotFoundError("episode", episode_id)
         return script
 
-    def list_runs(self, episode_id: UUID) -> list[StageRunRead]:
+    def list_runs(self, episode_id: UUID, *, limit: int, offset: int) -> Paged[StageRunRead]:
         self.get(episode_id)
-        return self._episodes.list_runs(episode_id)
+        return self._episodes.list_runs(episode_id, limit=limit, offset=offset)
+
+    def list_claims(
+        self,
+        episode_id: UUID,
+        *,
+        supported: bool | None,
+        segment: int | None,
+        limit: int,
+        offset: int,
+    ) -> Paged[ClaimDetail]:
+        self.get(episode_id)
+        return self._episodes.list_claims(
+            episode_id, supported=supported, segment=segment, limit=limit, offset=offset
+        )
 
     def get_audio(self, episode_id: UUID) -> bytes:
         files = self._episodes.get_files(episode_id)
@@ -84,6 +131,146 @@ class EpisodeService:
         if files is None:
             raise NotFoundError("episode", episode_id)
         return self._read(files.notes_key, "show notes for episode", episode_id).decode("utf-8")
+
+    # ---- review -----------------------------------------------------------------------------
+    def edit_script(self, episode_id: UUID, edit: ScriptEdit) -> EpisodeRead:
+        """Replace segments' lines, then fact-check the script again.
+
+        Only an episode waiting for review can be edited. Edited claims get new ids and are
+        judged afresh. An edited script is never rewritten automatically: if it still fails the
+        fact-check, it comes back for review instead of being regenerated over the edit.
+        """
+        episode = self._require(episode_id, EDITABLE, "edited")
+        show = self._shows.get(episode.show_id)
+        if show is None:
+            raise NotFoundError("show", episode.show_id)
+        positions = set(self._episodes.segment_positions(episode_id))
+        hosts = set(HOST_NAMES[: show.host_count])
+        problems: list[str] = []
+        cited: set[UUID] = set()
+        for segment in edit.segments:
+            if segment.position not in positions:
+                problems.append(f"segment {segment.position} does not exist")
+            for line in segment.lines:
+                if line.speaker not in hosts:
+                    problems.append(f"speaker {line.speaker!r} is not a host ({sorted(hosts)})")
+                cited.update(line.chunk_ids or [])
+        unknown = cited - self._episodes.chunks_in_show(episode.show_id, cited)
+        problems += [
+            f"passage {chunk} is not one of this show's sources" for chunk in sorted(unknown)
+        ]
+        if problems:
+            raise InvalidInputError("; ".join(dict.fromkeys(problems)))
+
+        from podcast_engine.stages.script.service import claim_id_for
+
+        script: dict[str, Any] = dict(self._episodes.get_raw_script(episode_id) or {})
+        segments = dict(script.get("segments", {}))
+        for segment in edit.segments:
+            segments[str(segment.position)] = [
+                {
+                    "speaker": line.speaker,
+                    "text": line.text,
+                    "claims": []
+                    if line.chunk_ids is None
+                    else [
+                        {
+                            "claim_id": str(claim_id_for(episode_id, segment.position, line.text)),
+                            "text": line.text,
+                            "chunk_ids": [str(chunk) for chunk in line.chunk_ids],
+                        }
+                    ],
+                }
+                for line in segment.lines
+            ]
+        script["segments"] = dict(sorted(segments.items(), key=lambda kv: int(kv[0])))
+        edited = sorted({*script.get("edited_segments", []), *(s.position for s in edit.segments)})
+        script["edited_segments"] = edited
+        self._episodes.save_script(episode_id, script)
+        self._episodes.update(
+            episode_id, status=EpisodeStatus.QUEUED, stage=Stage.FACTCHECK.value, error=None,
+            approved_at=None,
+        )  # fmt: skip
+        self._dispatch(episode_id, Stage.FACTCHECK, revert_to=EpisodeStatus.NEEDS_REVIEW)
+        return self.get(episode_id)
+
+    def approve(self, episode_id: UUID) -> EpisodeRead:
+        """Release an episode waiting for review to voicing, as it is.
+
+        This is a reviewer's decision, so it also releases a script the fact-check held back
+        for unsupported claims; the verdicts stay on record in the script and claims.
+        """
+        self._require(episode_id, EDITABLE, "approved")
+        self._episodes.update(
+            episode_id, status=EpisodeStatus.QUEUED, stage=Stage.VOICE.value, error=None,
+            approved_at=self._now(),
+        )  # fmt: skip
+        self._dispatch(episode_id, Stage.VOICE, revert_to=EpisodeStatus.NEEDS_REVIEW)
+        return self.get(episode_id)
+
+    # ---- lifecycle --------------------------------------------------------------------------
+    def retry(self, episode_id: UUID) -> EpisodeRead:
+        """Run a failed or cancelled episode again from the stage it stopped at."""
+        episode = self._require(episode_id, RETRYABLE, "retried")
+        stage = Stage(episode.stage) if episode.stage else Stage.INGEST
+        self._episodes.update(episode_id, status=EpisodeStatus.QUEUED, error=None)
+        self._dispatch(episode_id, stage, revert_to=episode.status)
+        return self.get(episode_id)
+
+    def cancel(self, episode_id: UUID) -> EpisodeRead:
+        """Stop an episode. A stage already running finishes, but nothing runs after it."""
+        self._require(episode_id, CANCELLABLE, "cancelled")
+        self._episodes.update(
+            episode_id, status=EpisodeStatus.CANCELLED, error="Cancelled on request."
+        )
+        return self.get(episode_id)
+
+    def delete(self, episode_id: UUID) -> None:
+        """Delete an episode with its audio and show notes. A running episode must be cancelled
+        first. If it was published, the show's feed is rebuilt without it."""
+        episode = self.get(episode_id)
+        if episode.status in RUNNING:
+            raise ConflictError(
+                f"episode {episode_id} is {episode.status.value}; cancel it before deleting"
+            )
+        files = self._episodes.get_files(episode_id)
+        if self._store is not None and files is not None:
+            for key in (files.audio_key, files.notes_key):
+                if key:
+                    self._store.delete(key)
+        self._episodes.delete(episode_id)
+        if episode.status is EpisodeStatus.PUBLISHED and self._rebuild_feed is not None:
+            try:
+                self._rebuild_feed(episode.show_id)
+            except Exception:  # the episode is gone either way; the next publish fixes the feed
+                log.exception("feed_rebuild_enqueue_failed", show_id=str(episode.show_id))
+
+    # ---- helpers ----------------------------------------------------------------------------
+    def _require(self, episode_id: UUID, allowed: set[EpisodeStatus], action: str) -> EpisodeRead:
+        episode = self.get(episode_id)
+        if episode.status not in allowed:
+            states = ", ".join(sorted(s.value for s in allowed))
+            raise ConflictError(
+                f"episode {episode_id} is {episode.status.value}; only an episode that is "
+                f"{states} can be {action}"
+            )
+        return episode
+
+    def _dispatch(
+        self, episode_id: UUID, stage: Stage, *, revert_to: EpisodeStatus = EpisodeStatus.FAILED
+    ) -> None:
+        """Enqueue a stage. If the queue is unreachable, put the episode back as it was (or
+        mark a new one failed) rather than leave it queued forever."""
+        try:
+            self._enqueue(episode_id, stage)
+        except Exception as error:
+            log.exception("enqueue_failed", episode_id=str(episode_id), stage=stage.value)
+            self._episodes.update(
+                episode_id, status=revert_to, error="The job queue was unavailable."
+            )
+            raise PipelineUnavailableError(
+                "The job queue is unavailable; try again later"
+            ) from error
 
     def _read(self, key: str | None, what: str, episode_id: UUID) -> bytes:
         if key is None or self._store is None or not self._store.exists(key):

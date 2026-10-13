@@ -3,19 +3,19 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Request, status
 
 from podcast_engine.api.controllers.shows_controller import ShowController
 from podcast_engine.api.dependencies import get_show_controller
+from podcast_engine.api.models.pagination_model import Page
 from podcast_engine.api.models.shows_model import ShowCreate, ShowRead, ShowUpdate
 from podcast_engine.api.openapi import errors
+from podcast_engine.api.pagination import Paging, to_page
 
 router = APIRouter(prefix="/shows", tags=["shows"])
 
 Controller = Annotated[ShowController, Depends(get_show_controller)]
 ShowId = Annotated[UUID, Path(description="The show's id")]
-Limit = Annotated[int, Query(ge=1, le=100, description="Most shows to return")]
-Offset = Annotated[int, Query(ge=0, description="Shows to skip, for paging")]
 NOT_FOUND = errors(e404="Show not found")
 
 
@@ -33,13 +33,13 @@ def create_show(data: ShowCreate, controller: Controller) -> ShowRead:
 
 @router.get(
     "",
-    response_model=list[ShowRead],
+    response_model=Page[ShowRead],
     summary="List shows",
-    response_description="Shows, newest first",
+    response_description="A page of shows, newest first",
 )
-def list_shows(controller: Controller, limit: Limit = 20, offset: Offset = 0) -> list[ShowRead]:
+def list_shows(controller: Controller, paging: Paging, request: Request) -> Page[ShowRead]:
     """A page of shows, newest first."""
-    return controller.list_page(limit=limit, offset=offset)
+    return to_page(controller.list_page(limit=paging.limit, offset=paging.offset), paging, request)
 
 
 @router.get(

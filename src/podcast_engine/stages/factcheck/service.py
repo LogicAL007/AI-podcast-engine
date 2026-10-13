@@ -125,8 +125,18 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
     report = FactCheckReport(
         episode_id=episode_id, unsupported=unsupported, total_claims=len(claims_by_id)
     )
+    # A script a reviewer edited is never regenerated over the edit: if it fails, it goes back
+    # to review. A passing script waits for approval when the show reviews before voicing.
+    edited = bool((episode.script or {}).get("edited_segments"))
     decision = route_after_factcheck(
-        report, rewrites_done=episode.rewrite_count, max_rewrites=ctx.settings.max_rewrites
+        report,
+        rewrites_done=episode.rewrite_count,
+        max_rewrites=0 if edited else ctx.settings.max_rewrites,
+    )
+    awaiting_approval = (
+        decision is Stage.VOICE
+        and episode.approved_at is None
+        and ctx.repo.get_show(episode.show_id).review_before_voice
     )
     history = list((episode.fact_check or {}).get("history", []))
     history.append(
@@ -135,7 +145,7 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
             "claims": report.total_claims,
             "unsupported": len(unsupported),
             "support_rate": report.support_rate,
-            "next": decision.value if decision else "needs_review",
+            "next": "needs_review" if decision is None or awaiting_approval else decision.value,
         }
     )
     fact_check = {
@@ -168,14 +178,20 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
         )
         return Stage.SCRIPT
     if decision is None:
+        after = "a reviewer's edit" if edited else f"{episode.rewrite_count} rewrite(s)"
         ctx.repo.update_episode(
             episode_id,
             fact_check=fact_check,
             status=EpisodeStatus.NEEDS_REVIEW,
-            error=(
-                f"{len(unsupported)} unsupported claim(s) after {episode.rewrite_count} "
-                "rewrite(s); not voiced."
-            ),
+            error=f"{len(unsupported)} unsupported claim(s) after {after}; not voiced.",
+        )
+        return None
+    if awaiting_approval:
+        ctx.repo.update_episode(
+            episode_id,
+            fact_check=fact_check,
+            status=EpisodeStatus.NEEDS_REVIEW,
+            error="The script passed the fact-check and is waiting for approval before voicing.",
         )
         return None
     ctx.repo.update_episode(episode_id, fact_check=fact_check)

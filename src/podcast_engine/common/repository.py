@@ -37,6 +37,7 @@ class ShowRecord(_Record):
     attribution: str
     max_segments: int
     ranking_profile: str
+    review_before_voice: bool = False
 
 
 class EpisodeRecord(_Record):
@@ -57,6 +58,16 @@ class EpisodeRecord(_Record):
     manifest: dict[str, Any] | None
     created_at: datetime
     published_at: datetime | None
+    approved_at: datetime | None = None
+
+
+class UploadRecord(_Record):
+    """A file a creator uploaded as a source; its bytes are in object storage at ``object_key``."""
+
+    upload_id: UUID
+    filename: str
+    content_type: str
+    object_key: str
 
 
 class SourceDoc(_Record):
@@ -148,6 +159,7 @@ def chunk_id_for(item_id: UUID, position: int, chunk_text: str) -> UUID:
 # Episode columns a stage may set, and how each is sent to Postgres.
 _EPISODE_JSON = {"script", "fact_check", "voice_lines", "assembly", "manifest"}
 _EPISODE_PLAIN = {
+    "approved_at",
     "status",
     "stage",
     "error",
@@ -159,7 +171,8 @@ _EPISODE_PLAIN = {
 }
 _EPISODE_COLUMNS = (
     "episode_id, show_id, status, stage, error, revision, rewrite_count, changed_item_ids, script, "
-    "fact_check, voice_lines, assembly, audio_key, notes_key, manifest, created_at, published_at"
+    "fact_check, voice_lines, assembly, audio_key, notes_key, manifest, created_at, published_at, "
+    "approved_at"
 )
 
 
@@ -179,7 +192,8 @@ class PipelineRepository:
                     text(
                         "SELECT show_id, topic, tone, target_minutes, host_count, language, "
                         "expertise, "
-                        "sources, topic_keywords, attribution, max_segments, ranking_profile "
+                        "sources, topic_keywords, attribution, max_segments, ranking_profile, "
+                        "review_before_voice "
                         "FROM shows WHERE show_id = :id"
                     ),
                     {"id": show_id},
@@ -247,6 +261,17 @@ class PipelineRepository:
                 {"seconds": interval_hours * 3600},
             )
             return [row.show_id for row in rows]
+
+    def list_uploads(self, show_id: UUID) -> list[UploadRecord]:
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT upload_id, filename, content_type, object_key FROM uploads"
+                    " WHERE show_id = :id ORDER BY created_at, upload_id"
+                ),
+                {"id": show_id},
+            ).mappings()
+            return [UploadRecord.model_validate(dict(row)) for row in rows]
 
     def list_published(self, show_id: UUID) -> list[EpisodeRecord]:
         with self._engine.connect() as connection:

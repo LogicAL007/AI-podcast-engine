@@ -17,6 +17,10 @@ class ObjectStore(Protocol):
 
     def exists(self, key: str) -> bool: ...
 
+    def delete(self, key: str) -> None:
+        """Remove the object; deleting a missing key is not an error."""
+        ...
+
 
 class S3ObjectStore:
     def __init__(self, settings: Settings) -> None:
@@ -55,6 +59,13 @@ class S3ObjectStore:
         except self._client.exceptions.ClientError:
             return False
         return True
+
+    def delete(self, key: str) -> None:
+        self._client.delete_object(Bucket=self._bucket, Key=key)  # S3 ignores a missing key
+
+    def check(self) -> None:
+        """Raise if the bucket cannot be reached (the API's readiness check)."""
+        self._client.head_bucket(Bucket=self._bucket)
 
 
 def feed_key(show_id: UUID) -> str:

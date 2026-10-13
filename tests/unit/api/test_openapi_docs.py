@@ -7,6 +7,8 @@ import pytest
 from tests.unit.api.conftest import Harness
 
 ERROR_REF = "#/components/schemas/ErrorDetail"
+# Error responses that deliberately return a domain body instead of ErrorDetail.
+OWN_ERROR_BODY = {("/ready", "503"): "#/components/schemas/Readiness"}
 
 
 @pytest.fixture(scope="module")
@@ -49,7 +51,8 @@ def test_every_error_response_uses_the_error_schema(schema: dict[str, Any]) -> N
             assert response.get("description"), f"{method.upper()} {path} {code}: no description"
             if code.startswith(("4", "5")) and code != "422":  # 422 is FastAPI's validation schema
                 ref = response["content"]["application/json"]["schema"]["$ref"]
-                assert ref == ERROR_REF, f"{method.upper()} {path} {code}: {ref}"
+                expected = OWN_ERROR_BODY.get((path, code), ERROR_REF)
+                assert ref == expected, f"{method.upper()} {path} {code}: {ref}"
 
 
 def test_every_tag_is_described(schema: dict[str, Any]) -> None:

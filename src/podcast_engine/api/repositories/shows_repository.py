@@ -8,17 +8,19 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from podcast_engine.api.models.pagination_model import Paged
 from podcast_engine.api.models.shows_model import ShowCreate, ShowRead
 
 _COLUMNS = (
     "show_id, topic, tone, target_minutes, host_count, language, expertise, sources,"
-    " topic_keywords, attribution, max_segments, ranking_profile, created_at"
+    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, created_at"
 )
 _INSERT = (
     "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources,"  # noqa: S608
-    " topic_keywords, attribution, max_segments, ranking_profile)"
+    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice)"
     " VALUES (:topic, :tone, :target_minutes, :host_count, :language, :expertise,"
-    " CAST(:sources AS jsonb), :topic_keywords, :attribution, :max_segments, :ranking_profile)"
+    " CAST(:sources AS jsonb), :topic_keywords, :attribution, :max_segments, :ranking_profile,"
+    " :review_before_voice)"
     f" RETURNING {_COLUMNS}"
 )
 _UPDATABLE = frozenset(
@@ -34,6 +36,7 @@ _UPDATABLE = frozenset(
         "attribution",
         "max_segments",
         "ranking_profile",
+        "review_before_voice",
     }
 )
 
@@ -43,7 +46,7 @@ class ShowRepository(Protocol):
 
     def get(self, show_id: UUID) -> ShowRead | None: ...
 
-    def list_page(self, *, limit: int, offset: int) -> list[ShowRead]: ...
+    def list_page(self, *, limit: int, offset: int) -> Paged[ShowRead]: ...
 
     def update(self, show_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None: ...
 
@@ -79,7 +82,7 @@ class PostgresShowRepository:
         )
         return ShowRead.model_validate(row) if row else None
 
-    def list_page(self, *, limit: int, offset: int) -> list[ShowRead]:
+    def list_page(self, *, limit: int, offset: int) -> Paged[ShowRead]:
         rows = self._session.execute(
             text(
                 f"SELECT {_COLUMNS} FROM shows"  # noqa: S608 - constant column list
@@ -87,7 +90,8 @@ class PostgresShowRepository:
             ),
             {"limit": limit, "offset": offset},
         ).mappings()
-        return [ShowRead.model_validate(row) for row in rows]
+        total = self._session.execute(text("SELECT count(*) FROM shows")).scalar_one()
+        return Paged([ShowRead.model_validate(row) for row in rows], int(total))
 
     def update(self, show_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None:
         unknown = set(changes) - _UPDATABLE

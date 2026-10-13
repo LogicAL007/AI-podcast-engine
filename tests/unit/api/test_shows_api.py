@@ -29,7 +29,7 @@ def test_get_list_update_delete_round_trip(harness: Harness) -> None:
     show_id = harness.client.post("/shows", json=VALID).json()["show_id"]
 
     assert harness.client.get(f"/shows/{show_id}").json()["topic"] == VALID["topic"]
-    assert [s["show_id"] for s in harness.client.get("/shows").json()] == [show_id]
+    assert [s["show_id"] for s in harness.client.get("/shows").json()["items"]] == [show_id]
 
     patched = harness.client.patch(f"/shows/{show_id}", json={"host_count": 3})
     assert patched.json()["host_count"] == 3
@@ -56,7 +56,7 @@ def test_unknown_show_is_404_everywhere(harness: Harness) -> None:
 def test_list_pagination_bounds(harness: Harness) -> None:
     for _ in range(3):
         harness.client.post("/shows", json=VALID)
-    assert len(harness.client.get("/shows", params={"limit": 2}).json()) == 2
-    assert len(harness.client.get("/shows", params={"offset": 2}).json()) == 1
+    assert len(harness.client.get("/shows", params={"limit": 2}).json()["items"]) == 2
+    assert len(harness.client.get("/shows", params={"offset": 2}).json()["items"]) == 1
     assert harness.client.get("/shows", params={"limit": 0}).status_code == 422
     assert harness.client.get("/shows", params={"limit": 101}).status_code == 422

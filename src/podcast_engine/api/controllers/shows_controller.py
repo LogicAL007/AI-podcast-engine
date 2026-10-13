@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from podcast_engine.api.errors import NotFoundError, to_http
+from podcast_engine.api.models.pagination_model import Paged
 from podcast_engine.api.models.shows_model import ShowCreate, ShowRead, ShowUpdate
 from podcast_engine.api.services.shows_service import ShowService
 
@@ -20,7 +21,7 @@ class ShowController:
         except NotFoundError as error:
             raise to_http(error) from error
 
-    def list_page(self, *, limit: int, offset: int) -> list[ShowRead]:
+    def list_page(self, *, limit: int, offset: int) -> Paged[ShowRead]:
         return self._service.list_page(limit=limit, offset=offset)
 
     def update(self, show_id: UUID, data: ShowUpdate) -> ShowRead:

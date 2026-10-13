@@ -49,6 +49,9 @@ class MemoryStore:
     def exists(self, key: str) -> bool:
         return key in self.objects
 
+    def delete(self, key: str) -> None:
+        self.objects.pop(key, None)
+
 
 @pytest.fixture(scope="module")
 def engine() -> Iterator[Engine]:

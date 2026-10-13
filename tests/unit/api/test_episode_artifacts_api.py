@@ -171,7 +171,7 @@ def test_runs_list_each_stage(harness: Harness) -> None:
             started_at=datetime.now(UTC),
         )
     ]
-    (run,) = harness.client.get(f"/episodes/{episode_id}/runs").json()
+    (run,) = harness.client.get(f"/episodes/{episode_id}/runs").json()["items"]
     assert run["stage"] == "index"
     assert run["seed"] == 7
     assert harness.client.get(f"/episodes/{uuid4()}/runs").status_code == 404

@@ -58,6 +58,15 @@ Attribution = Annotated[
 MaxSegments = Annotated[
     int, Field(ge=1, le=12, description="At most this many segments per episode")
 ]
+ReviewBeforeVoice = Annotated[
+    bool,
+    Field(
+        description=(
+            "Pause each episode after the fact-check until a person approves it, "
+            "so nothing is voiced unreviewed"
+        )
+    ),
+]
 RankingProfile = Annotated[
     Literal["daily", "explainer"],
     Field(description="`daily` favours fresh sources; `explainer` favours authoritative ones"),
@@ -75,6 +84,7 @@ EXAMPLE: dict[str, Any] = {
     "attribution": "Source material: ClickHouse Documentation, CC BY-NC-SA 4.0.",
     "max_segments": 6,
     "ranking_profile": "explainer",
+    "review_before_voice": False,
 }
 
 
@@ -94,6 +104,7 @@ class ShowCreate(BaseModel):
     attribution: Attribution = ""
     max_segments: MaxSegments = 6
     ranking_profile: RankingProfile = "explainer"
+    review_before_voice: ReviewBeforeVoice = False
 
 
 class ShowUpdate(BaseModel):
@@ -114,6 +125,7 @@ class ShowUpdate(BaseModel):
     attribution: Attribution | None = None
     max_segments: MaxSegments | None = None
     ranking_profile: RankingProfile | None = None
+    review_before_voice: ReviewBeforeVoice | None = None
 
 
 class ShowRead(BaseModel):
@@ -133,4 +145,7 @@ class ShowRead(BaseModel):
     attribution: str = Field(default="", description="Credit and licence line for the show notes")
     max_segments: int = Field(default=6, description="At most this many segments per episode")
     ranking_profile: str = Field(default="explainer", description="`daily` or `explainer`")
+    review_before_voice: bool = Field(
+        default=False, description="Episodes pause for approval before voicing"
+    )
     created_at: datetime = Field(description="When the show was created")

@@ -38,7 +38,7 @@ def test_get_and_list(harness: Harness) -> None:
     episode_id = harness.client.post(f"/shows/{show_id}/episodes").json()["episode_id"]
 
     assert harness.client.get(f"/episodes/{episode_id}").json()["show_id"] == show_id
-    listed = harness.client.get(f"/shows/{show_id}/episodes").json()
+    listed = harness.client.get(f"/shows/{show_id}/episodes").json()["items"]
     assert [e["episode_id"] for e in listed] == [episode_id]
     assert harness.client.get(f"/episodes/{uuid4()}").status_code == 404
     assert harness.client.get(f"/shows/{uuid4()}/episodes").status_code == 404

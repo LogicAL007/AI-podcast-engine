@@ -27,6 +27,13 @@ AI-generated in its audio, show notes and feed.
 """
 
 TAGS: list[dict[str, Any]] = [
+    {
+        "name": "home",
+        "description": (
+            "Entry points: the home document listing every resource, and the API catalog for "
+            "automatic discovery."
+        ),
+    },
     {"name": "shows", "description": "A show: its topic, style, hosts and source pages."},
     {
         "name": "episodes",
@@ -35,8 +42,16 @@ TAGS: list[dict[str, Any]] = [
             "produced: audio, show notes, the script with citations, and per-stage run records."
         ),
     },
+    {
+        "name": "sources",
+        "description": "The sections read from a show's pages, feeds and uploads: what is cited.",
+    },
+    {"name": "uploads", "description": "PDFs a creator uploads as sources for a show."},
     {"name": "feeds", "description": "Each show's RSS feed, for podcast apps."},
-    {"name": "ops", "description": "Liveness for load balancers and container health checks."},
+    {
+        "name": "ops",
+        "description": "Liveness and readiness, for load balancers and container health checks.",
+    },
 ]
 
 

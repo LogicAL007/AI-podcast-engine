@@ -8,7 +8,7 @@ from uuid import UUID
 
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_context
-from podcast_engine.common.logging import configure_logging
+from podcast_engine.common.logging import configure_logging, get_logger
 from podcast_engine.common.models import EpisodeStatus
 from podcast_engine.common.queue import Stage, celery_app, dispatch, task_name
 from podcast_engine.common.timing import stage_timer
@@ -23,6 +23,8 @@ class StageFunction(Protocol):
 # Bad input or configuration (no sources, an unknown ranking profile, an unvoiced script):
 # retrying cannot help, so the episode fails at once with the reason.
 PERMANENT_ERRORS: tuple[type[Exception], ...] = (ValueError, LookupError)
+
+log = get_logger("runner")
 
 _PROMPT_OF = {Stage.RETRIEVE_PLAN: "outline", Stage.SCRIPT: "script", Stage.FACTCHECK: "factcheck"}
 
@@ -53,7 +55,14 @@ def run_stage(
     *,
     last_attempt: bool = True,
 ) -> Stage | None:
-    """Run one stage for an episode, recording progress, timing and failure on the episode row."""
+    """Run one stage for an episode, recording progress, timing and failure on the episode row.
+
+    A cancelled episode runs nothing. One cancelled while its stage runs finishes that stage, but
+    nothing is queued after it.
+    """
+    if ctx.repo.get_episode(episode_id).status is EpisodeStatus.CANCELLED:
+        log.info("stage_skipped", episode_id=str(episode_id), stage=stage.value, reason="cancelled")
+        return None
     ctx.repo.update_episode(
         episode_id, status=EpisodeStatus.PROCESSING, stage=stage.value, error=None
     )
@@ -93,6 +102,9 @@ def run_stage(
         else None,
         seed=ctx.settings.seed,
     )
+    if following is not None and ctx.repo.get_episode(episode_id).status is EpisodeStatus.CANCELLED:
+        log.info("pipeline_stopped", episode_id=str(episode_id), after=stage.value)
+        return None
     return following
 
 

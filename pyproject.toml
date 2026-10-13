@@ -25,7 +25,7 @@ dependencies = [
 
 # One extra per container image, so each stage installs only what it needs.
 [project.optional-dependencies]
-api = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+api = ["fastapi>=0.110", "python-multipart>=0.0.9", "uvicorn[standard]>=0.29"]
 ingest = ["feedparser>=6.0", "httpx>=0.27", "lxml>=5.0", "pymupdf>=1.24", "trafilatura>=1.9"]
 embeddings = ["pgvector>=0.3", "sentence-transformers>=3.0"]
 llm = ["google-genai>=1.0"]
@@ -133,10 +133,20 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# PyMuPDF ships type hints, but many of its functions are unannotated.
+module = ["pymupdf.*", "tests.unit.test_pdf_and_feeds", "tests.integration.test_api_lifecycle"]
+disallow_untyped_calls = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --cov=podcast_engine --cov-report=term-missing"
 markers = [
     "integration: needs the docker compose stack running",
     "notebook: executes notebooks/podcast_flow.ipynb (slow; no network or API key needed)",
+]
+# PyMuPDF's compiled bindings warn about their own SWIG types on import; nothing to act on.
+filterwarnings = [
+    "ignore:builtin type Swig:DeprecationWarning",
+    "ignore:builtin type swigvarlink:DeprecationWarning",
 ]

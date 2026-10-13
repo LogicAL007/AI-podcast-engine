@@ -52,6 +52,9 @@ class EpisodeRead(BaseModel):
     rewrite_count: int = Field(description="Times the fact-check gate sent the script back")
     created_at: datetime = Field(description="When the episode was started")
     published_at: datetime | None = Field(description="When it was published; null until then")
+    approved_at: datetime | None = Field(
+        default=None, description="When a reviewer released it to voicing; null if never"
+    )
     has_audio: bool = Field(default=False, exclude=True)
     has_notes: bool = Field(default=False, exclude=True)
 
@@ -137,3 +140,65 @@ class EpisodeFiles(BaseModel):
 
     audio_key: str | None
     notes_key: str | None
+
+
+class ClaimDetail(BaseModel):
+    """A claim in the episode's script, with where it is and how the fact-check judged it."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    claim_id: UUID = Field(description="The claim's id")
+    segment: int = Field(description="Position of the segment it is in, from 1")
+    text: str = Field(description="The claim as spoken")
+    chunk_ids: list[UUID] = Field(description="Passages cited as support; empty means uncited")
+    supported: bool | None = Field(description="The verdict; null until judged")
+    reason: str | None = Field(description="The judge's reason", examples=["word overlap 100%"])
+
+
+class LineEdit(BaseModel):
+    """One line of a replacement segment."""
+
+    speaker: str = Field(description="One of the show's hosts", examples=["Sam"])
+    text: str = Field(min_length=1, max_length=2000, description="What is said")
+    chunk_ids: list[UUID] | None = Field(
+        default=None,
+        description=(
+            "Passages that support the line, which makes it a claim. Null for framing or "
+            "reactions; an empty list is a claim with no citation, which the fact-check rejects"
+        ),
+    )
+
+
+class SegmentEdit(BaseModel):
+    """The new lines for one segment; they replace all of its current lines."""
+
+    position: int = Field(ge=1, description="Which segment, from 1")
+    lines: list[LineEdit] = Field(min_length=1, max_length=200, description="The segment's lines")
+
+
+class ScriptEdit(BaseModel):
+    """Replacement lines for one or more segments. Segments not listed stay as they are."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "segments": [
+                        {
+                            "position": 2,
+                            "lines": [
+                                {"speaker": "Alex", "text": "Next up: column storage."},
+                                {
+                                    "speaker": "Sam",
+                                    "text": "ClickHouse stores each column separately.",
+                                    "chunk_ids": ["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+                                },
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    segments: list[SegmentEdit] = Field(min_length=1, description="Segments to replace")

@@ -61,21 +61,69 @@ the unit tests run the whole API with in-memory fakes.
 
 | Method | Path | Operation id | Success | Errors | Notes |
 |---|---|---|---|---|---|
+| GET | `/home` (also `/`) | `home` | 200 | | Start here: every resource with its URI or template, methods, formats, ranges, paging and docs link; authentication; health links; conventions |
+| GET, HEAD | `/.well-known/api-catalog` | `api_catalog`, `api_catalog_head` | 200 | | RFC 9727 API catalog (`application/linkset+json`) for automatic discovery |
 | POST | `/shows` | `create_show` | 201 | 422 | Create a show (FR1) |
-| GET | `/shows` | `list_shows` | 200 | 422 | `limit` 1–100 (default 20), `offset` ≥ 0; newest first |
+| GET | `/shows` | `list_shows` | 200 | 422 | Page of shows, newest first |
 | GET | `/shows/{show_id}` | `get_show` | 200 | 404 | |
 | PATCH | `/shows/{show_id}` | `update_show` | 200 | 404, 422 | Only sent fields change; `{}` is a no-op |
-| DELETE | `/shows/{show_id}` | `delete_show` | 204 | 404 | Cascades to items, episodes and claims |
+| DELETE | `/shows/{show_id}` | `delete_show` | 204 | 404 | Cascades to items, uploads, episodes and claims |
 | POST | `/shows/{show_id}/episodes` | `start_episode` | 202 | 404, 503 | Enqueues ingest; a later episode is a refresh (FR8) |
-| GET | `/shows/{show_id}/episodes` | `list_episodes` | 200 | 404 | Same paging as shows |
-| GET | `/episodes/{episode_id}` | `get_episode` | 200 | 404 | `status`, `stage`, `error`, and `links` to everything below |
-| GET | `/episodes/{episode_id}/script` | `get_episode_script` | 200 | 404 | Segments, lines, claims with chunk ids and verdicts (FR5, FR7, FR9) |
-| GET | `/episodes/{episode_id}/runs` | `list_episode_runs` | 200 | 404 | Per stage: seconds, model, prompt version, seed |
-| GET, HEAD | `/episodes/{episode_id}/audio.wav` | `get_episode_audio`, `head_episode_audio` | 200, 206 | 404, 416 | `audio/wav`. Honours `Range` so players can seek; `?download=true` saves it as a file |
-| GET | `/episodes/{episode_id}/notes.md` | `get_episode_notes` | 200 | 404 | Markdown show notes; 404 until published |
-| GET | `/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml`; 404 until an episode is published |
-| GET | `/health` | `health` | 200 | | Liveness only; does not check dependencies |
-| GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema, blocked at the web proxy (see [observability](observability.md)) |
+| GET | `/shows/{show_id}/episodes` | `list_episodes` | 200 | 404 | Page; `status` filter |
+| GET | `/episodes` | `list_all_episodes` | 200 | 422 | Page across shows; `status`, `show_id` filters. `status=needs_review` is the review queue |
+| GET | `/episodes/{episode_id}` | `get_episode` | 200 | 404 | `status`, `stage`, `error`, `approved_at`, `links` |
+| DELETE | `/episodes/{episode_id}` | `delete_episode` | 204 | 404, 409 | Removes audio and notes; rewrites the feed if it was published. 409 while running |
+| GET | `/episodes/{episode_id}/script` | `get_episode_script` | 200 | 404 | Segments, lines, claims with citations and verdicts |
+| PATCH | `/episodes/{episode_id}/script` | `edit_episode_script` | 200 | 404, 409, 422, 503 | Replace segments' lines while in review (FR7); re-runs the fact-check |
+| POST | `/episodes/{episode_id}/approve` | `approve_episode` | 200 | 404, 409, 503 | Release an episode in review to voicing |
+| POST | `/episodes/{episode_id}/retry` | `retry_episode` | 200 | 404, 409, 503 | Resume a failed or cancelled episode at its stage |
+| POST | `/episodes/{episode_id}/cancel` | `cancel_episode` | 200 | 404, 409 | Stop after the running stage |
+| GET | `/episodes/{episode_id}/runs` | `list_episode_runs` | 200 | 404 | Page of stage runs: seconds, model, prompt version, seed |
+| GET | `/episodes/{episode_id}/claims` | `list_episode_claims` | 200 | 404 | Page of claims; `supported`, `segment` filters |
+| GET, HEAD | `/episodes/{episode_id}/audio.wav` | `get_episode_audio`, `head_episode_audio` | 200, 206 | 404, 416 | `audio/wav` with Range support; `?download=true` |
+| GET | `/episodes/{episode_id}/notes.md` | `get_episode_notes` | 200 | 404 | Markdown show notes |
+| GET | `/shows/{show_id}/sources` | `list_show_sources` | 200 | 404 | Page of ingested sections: url, tier, hash, size |
+| POST | `/shows/{show_id}/uploads` | `upload_source` | 201 | 404, 413, 415 | Multipart `file`: a PDF up to `MAX_UPLOAD_MB` |
+| GET | `/shows/{show_id}/uploads` | `list_uploads` | 200 | 404 | Page of uploads, newest first |
+| GET | `/shows/{show_id}/uploads/{upload_id}` | `get_upload` | 200 | 404 | |
+| GET | `/shows/{show_id}/uploads/{upload_id}/file` | `download_upload` | 200 | 404 | The PDF; citations link here with `#page=N` |
+| DELETE | `/shows/{show_id}/uploads/{upload_id}` | `delete_upload` | 204 | 404 | Its sections leave at the next episode |
+| GET | `/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml` |
+| GET | `/health` | `health` | 200 | | Liveness only |
+| GET | `/ready` | `ready` | 200 | 503 | Database, queue and storage; 503 names the failing one |
+| GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema |
+
+**Discovery.** `/home` is a JSON home document ([draft-nottingham-json-home-06](https://datatracker.ietf.org/doc/html/draft-nottingham-json-home)):
+`api` holds the title, version, links (by [RFC 8631](https://www.rfc-editor.org/rfc/rfc8631)
+relation: `service-desc` is the OpenAPI description, `service-doc` the interactive docs, `status`
+the liveness check), and this API's own additions `auth`, `health` and `conventions`; `resources`
+maps a link relation (`tag:podcast-engine,2026:episode-audio`) to the resource's `href` or
+`hrefTemplate` and `hints` (`allow`, `formats`, `acceptPost`, `acceptPatch`, `acceptRanges`,
+`docs`, `authSchemes`), plus an `operations` list per resource. It is generated from the routes, so
+it always matches them. Send `Accept: application/json-home` for that media type; otherwise it is
+`application/json`. Every response from `/home` carries a `Link` header with the same relations.
+`/.well-known/api-catalog` ([RFC 9727](https://www.rfc-editor.org/rfc/rfc9727)) is the
+machine-discovery entry, pointing to `/home`, the OpenAPI description, the docs and `/health`.
+Links are absolute and include the `/api` prefix behind the web proxy (`X-Forwarded-Prefix`).
+
+**Lists** return a page: `{"items": [...], "total": 42, "limit": 20, "offset": 0, "next": "..."}`.
+`limit` is 1–100 (default 20) and `offset` ≥ 0; `next` is the path and query of the next page,
+keeping any filters, or null on the last page. Ordering always ends with an id, so pages never
+repeat or skip an item.
+
+**Review.** An episode is `needs_review` when the fact-check held it back after its rewrites, or,
+for a show with `review_before_voice`, when its script passed and waits for approval. Edit it with
+`PATCH .../script` (a line with `chunk_ids` is a claim citing those passages; without, framing), or
+release it with `POST .../approve`. An edited script is fact-checked again but never regenerated
+over the edit: if it fails, it returns to review.
+
+**Lifecycle.** `cancel` works while an episode is queued, processing or in review; the running stage
+finishes and nothing runs after it. `retry` resumes a failed or cancelled episode at the stage where
+it stopped. `DELETE` refuses a running episode (cancel it first).
+
+**Sources.** A show's `sources` may be web pages or RSS/Atom feeds. Each feed entry with a usable
+summary becomes a section; an entry with no summary or only a teaser is read from its linked page.
+Uploaded PDFs are split at their headings (or per page) and cited with a link to the page.
 
 Interactive docs are at `/docs` (Swagger UI) and `/redoc`; the schema is at `/openapi.json`. Every
 error body is `{"detail": "..."}` (the `ErrorDetail` schema), except 422 validation errors, which
@@ -193,7 +241,5 @@ A new resource gets one file in each layer folder (`<resource>_router.py`, `_con
 
 ## Not built yet
 
-- Editing the script before voicing (FR7). It is stored and readable at `/episodes/{id}/script`,
-  but there is no endpoint to change it and re-run from the gate yet.
-- Source uploads (PDF) and the shared `uploads` volume endpoints.
+- Search results as a source, and pages behind authentication.
 - Authentication and per-creator ownership of shows.

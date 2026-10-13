@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     facts_per_segment: int = Field(default=8, ge=1)  # most sentences quoted per segment
     passages_per_segment: int = Field(default=0, ge=0)  # 0: 3 offline, 6 with an LLM
     migrations_dir: Path = Path("/app/db/migrations")
+    feed_max_items: int = Field(default=10, ge=1, le=100)  # newest entries read from each feed
+    max_upload_mb: int = Field(default=25, ge=1)  # largest PDF a creator may upload
     # Scheduler (FR8): hours between automatic refreshes of each published show; 0 turns it off.
     refresh_interval_hours: float = Field(default=0.0, ge=0.0)
     episode_cost_cap_usd: float = Field(default=1.0, gt=0)

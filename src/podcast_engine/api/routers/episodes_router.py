@@ -3,26 +3,32 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Path, Query, Response, status
+from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response, status
 
 from podcast_engine.api.controllers.episodes_controller import EpisodeController
 from podcast_engine.api.dependencies import get_episode_controller
 from podcast_engine.api.models.episodes_model import (
     AUDIO_MEDIA_TYPE,
     NOTES_MEDIA_TYPE,
+    ClaimDetail,
     EpisodeRead,
     EpisodeScript,
+    ScriptEdit,
     StageRunRead,
 )
+from podcast_engine.api.models.pagination_model import Page
 from podcast_engine.api.openapi import errors, file_response
+from podcast_engine.api.pagination import Paging, to_page
+from podcast_engine.common.models import EpisodeStatus
 
 router = APIRouter(tags=["episodes"])
 
 Controller = Annotated[EpisodeController, Depends(get_episode_controller)]
 ShowId = Annotated[UUID, Path(description="The show's id")]
 EpisodeId = Annotated[UUID, Path(description="The episode's id")]
-Limit = Annotated[int, Query(ge=1, le=100, description="Most episodes to return")]
-Offset = Annotated[int, Query(ge=0, description="Episodes to skip, for paging")]
+StatusFilter = Annotated[
+    EpisodeStatus | None, Query(alias="status", description="Only episodes with this status")
+]
 
 AUDIO_HEADERS = {
     "Accept-Ranges": {
@@ -61,16 +67,44 @@ def start_episode(show_id: ShowId, controller: Controller) -> EpisodeRead:
 
 @router.get(
     "/shows/{show_id}/episodes",
-    response_model=list[EpisodeRead],
+    response_model=Page[EpisodeRead],
     summary="List a show's episodes",
-    response_description="Episodes, newest first",
+    response_description="A page of episodes, newest first",
     responses=errors(e404="Show not found"),
 )
 def list_episodes(
-    show_id: ShowId, controller: Controller, limit: Limit = 20, offset: Offset = 0
-) -> list[EpisodeRead]:
+    show_id: ShowId,
+    controller: Controller,
+    paging: Paging,
+    request: Request,
+    status_filter: StatusFilter = None,
+) -> Page[EpisodeRead]:
     """A page of the show's episodes, newest first, each with its status and links."""
-    return controller.list_for_show(show_id, limit=limit, offset=offset)
+    result = controller.list_for_show(
+        show_id, status=status_filter, limit=paging.limit, offset=paging.offset
+    )
+    return to_page(result, paging, request)
+
+
+@router.get(
+    "/episodes",
+    response_model=Page[EpisodeRead],
+    summary="List episodes across shows",
+    response_description="A page of episodes, newest first",
+)
+def list_all_episodes(
+    controller: Controller,
+    paging: Paging,
+    request: Request,
+    status_filter: StatusFilter = None,
+    show_id: Annotated[UUID | None, Query(description="Only episodes of this show")] = None,
+) -> Page[EpisodeRead]:
+    """Episodes of every show, newest first. With `status=needs_review` this is the review
+    queue: episodes the fact-check held back, or paused for approval before voicing."""
+    result = controller.list_all(
+        status=status_filter, show_id=show_id, limit=paging.limit, offset=paging.offset
+    )
+    return to_page(result, paging, request)
 
 
 @router.get(
@@ -100,17 +134,132 @@ def get_episode_script(episode_id: EpisodeId, controller: Controller) -> Episode
     return controller.get_script(episode_id)
 
 
+@router.patch(
+    "/episodes/{episode_id}/script",
+    response_model=EpisodeRead,
+    summary="Edit an episode's script",
+    response_description="The episode, queued for the fact-check again",
+    responses=errors(
+        e404="Episode not found",
+        e409="The episode is not waiting for review",
+        e422="An unknown segment, speaker or passage",
+        e503="Job queue unavailable; the edit is saved and the episode stays in review",
+    ),
+)
+def edit_episode_script(
+    episode_id: EpisodeId, edit: ScriptEdit, controller: Controller
+) -> EpisodeRead:
+    """Replace the lines of one or more segments of an episode that is waiting for review.
+
+    A line with `chunk_ids` is a claim citing those passages (they must come from the show's
+    sources); a line without is framing. The script is fact-checked again. If it passes it goes
+    on to voicing (or waits for approval, if the show reviews before voicing); if it fails it
+    comes back for review. An edited script is never rewritten automatically.
+    """
+    return controller.edit_script(episode_id, edit)
+
+
+@router.post(
+    "/episodes/{episode_id}/approve",
+    response_model=EpisodeRead,
+    summary="Approve an episode for voicing",
+    response_description="The episode, queued for voicing",
+    responses=errors(
+        e404="Episode not found",
+        e409="The episode is not waiting for review",
+        e503="Job queue unavailable; the episode stays in review",
+    ),
+)
+def approve_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+    """Release an episode that is waiting for review to voicing, with its script as it is. This
+    includes a script the fact-check held back for unsupported claims: the reviewer decides, and
+    the verdicts stay on record."""
+    return controller.approve(episode_id)
+
+
+@router.post(
+    "/episodes/{episode_id}/retry",
+    response_model=EpisodeRead,
+    summary="Retry a failed episode",
+    response_description="The episode, queued at the stage it stopped at",
+    responses=errors(
+        e404="Episode not found",
+        e409="The episode has not failed or been cancelled",
+        e503="Job queue unavailable",
+    ),
+)
+def retry_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+    """Run a failed or cancelled episode again from the stage where it stopped, keeping what the
+    earlier stages produced."""
+    return controller.retry(episode_id)
+
+
+@router.post(
+    "/episodes/{episode_id}/cancel",
+    response_model=EpisodeRead,
+    summary="Cancel an episode",
+    response_description="The episode, `cancelled`",
+    responses=errors(e404="Episode not found", e409="The episode has already finished"),
+)
+def cancel_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+    """Stop an episode that is queued, being generated or waiting for review. A stage that is
+    already running finishes, but no further stage runs. It can be resumed with a retry."""
+    return controller.cancel(episode_id)
+
+
+@router.delete(
+    "/episodes/{episode_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an episode",
+    response_description="Deleted",
+    responses=errors(e404="Episode not found", e409="The episode is running; cancel it first"),
+)
+def delete_episode(episode_id: EpisodeId, controller: Controller) -> None:
+    """Delete an episode, its script, claims and run records, and its audio and show notes. If it
+    was published, the show's feed is rewritten without it."""
+    controller.delete(episode_id)
+
+
 @router.get(
     "/episodes/{episode_id}/runs",
-    response_model=list[StageRunRead],
+    response_model=Page[StageRunRead],
     summary="List an episode's stage runs",
-    response_description="One record per completed stage, oldest first",
+    response_description="A page of stage runs, oldest first",
     responses=errors(e404="Episode not found"),
 )
-def list_episode_runs(episode_id: EpisodeId, controller: Controller) -> list[StageRunRead]:
+def list_episode_runs(
+    episode_id: EpisodeId, controller: Controller, paging: Paging, request: Request
+) -> Page[StageRunRead]:
     """How long each stage took and which model, prompt version and seed it used, so a run can be
-    timed, costed and repeated (transparency and reproducibility requirements)."""
-    return controller.list_runs(episode_id)
+    timed, costed and repeated. Rewrites and retries add runs."""
+    result = controller.list_runs(episode_id, limit=paging.limit, offset=paging.offset)
+    return to_page(result, paging, request)
+
+
+@router.get(
+    "/episodes/{episode_id}/claims",
+    response_model=Page[ClaimDetail],
+    summary="List an episode's claims",
+    response_description="A page of claims, in script order",
+    responses=errors(e404="Episode not found"),
+)
+def list_episode_claims(
+    episode_id: EpisodeId,
+    controller: Controller,
+    paging: Paging,
+    request: Request,
+    supported: Annotated[
+        bool | None,
+        Query(description="`false` for the claims the fact-check rejected, `true` for the rest"),
+    ] = None,
+    segment: Annotated[int | None, Query(ge=1, description="Only claims in this segment")] = None,
+) -> Page[ClaimDetail]:
+    """Every factual claim in the script with the passages it cites and the fact-check's verdict
+    and reason: the material for auditing an episode's accuracy."""
+    result = controller.list_claims(
+        episode_id, supported=supported, segment=segment, limit=paging.limit, offset=paging.offset
+    )
+    return to_page(result, paging, request)
 
 
 @router.get(

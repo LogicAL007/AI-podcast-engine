@@ -53,6 +53,9 @@ class DirectoryStore:
     def exists(self, key: str) -> bool:
         return self._path(key).is_file()
 
+    def delete(self, key: str) -> None:
+        self._path(key).unlink(missing_ok=True)
+
 
 def engine_from_env() -> Engine:
     engine = create_engine(os.environ.get("BENCH_DATABASE_URL", DEFAULT_DATABASE_URL))

@@ -41,7 +41,7 @@ def test_show_crud_round_trip(session: Session) -> None:
         assert updated is not None
         assert updated.host_count == 3
         assert updated.sources == ["https://x.org/b"]
-        assert created.show_id in [s.show_id for s in shows.list_page(limit=100, offset=0)]
+        assert created.show_id in [s.show_id for s in shows.list_page(limit=100, offset=0).items]
     finally:
         assert shows.delete(created.show_id)
     assert shows.get(created.show_id) is None
@@ -59,9 +59,9 @@ def test_episode_lifecycle_and_cascade(session: Session) -> None:
     fetched = episodes.get(episode.episode_id)
     assert fetched is not None
     assert fetched.status is EpisodeStatus.FAILED
-    assert [e.episode_id for e in episodes.list_for_show(show.show_id, limit=10, offset=0)] == [
-        episode.episode_id
-    ]
+    listed = episodes.list_page(show_id=show.show_id, status=None, limit=10, offset=0)
+    assert [e.episode_id for e in listed.items] == [episode.episode_id]
+    assert listed.total == 1
 
     shows.delete(show.show_id)
     assert episodes.get(episode.episode_id) is None

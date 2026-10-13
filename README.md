@@ -94,6 +94,7 @@ passages. The fact-check gate loops back to the script stage, then lines are voi
 -16 LUFS and published as show notes and RSS.
 
 ```bash
+curl localhost:8000/home                                   # every endpoint, auth and health
 curl -X POST localhost:8000/shows -H 'content-type: application/json' -d '{
   "topic": "What ClickHouse is and why it is fast for analytics",
   "sources": ["https://clickhouse.com/docs/get-started/about/intro"],
@@ -141,10 +142,11 @@ settings, which is handy for one-off host runs.
 ## Status
 
 Implemented: the API, all eight stages, the fact-check loop, incremental refresh and the
-scheduler, tested end to end against Postgres with offline settings
-([tests/integration/test_pipeline.py](tests/integration/test_pipeline.py)). Not built yet: RSS
-feeds as a source type, PDF uploads (PyMuPDF), pages behind authentication, MP3 output, script
-editing before voicing (the script is readable at `/episodes/{id}/script`), and authentication.
+scheduler; web pages, RSS/Atom feeds and uploaded PDFs as sources; review and editing before
+voicing (`review_before_voice`, the review queue at `/episodes?status=needs_review`); retry,
+cancel and delete; paginated lists. Tested end to end against Postgres with offline settings
+([tests/integration/](tests/integration/)). Not built yet: search results as a source, pages
+behind authentication, MP3 output, and authentication.
 The Gemini and Claude paths are exercised only against fake SDKs in the notebook tests.
 
 Before the first release: add a dependency lockfile (`uv lock` or `pip-compile`).

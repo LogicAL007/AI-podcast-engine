@@ -1,6 +1,5 @@
 """Publish: RSS feed, show notes and the mandatory AI disclosure."""
 
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -180,7 +179,37 @@ def publish_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> Sta
         note=note,
     )
     ctx.store.put(notes_key(episode_id), notes.encode("utf-8"), "text/markdown; charset=utf-8")
-    published_at: datetime = ctx.now()
+    ctx.repo.update_episode(
+        episode_id,
+        notes_key=notes_key(episode_id),
+        manifest=manifest,
+        status=EpisodeStatus.PUBLISHED,
+        published_at=ctx.now(),
+        error=None,
+    )
+    entries = rebuild_feed(show.show_id, ctx)
+    log.info(
+        "episode_published",
+        episode_id=str(episode_id),
+        revision=episode.revision,
+        feed_entries=entries,
+    )
+    return None
+
+
+def rebuild_feed(show_id: UUID, ctx: PipelineContext | None = None) -> int:
+    """Rewrite the show's feed from its published episodes; returns how many it lists.
+
+    Called after each publish, and after a published episode is deleted. With nothing published
+    the feed is removed, so podcast apps see the show as empty rather than a stale entry.
+    """
+    ctx = ctx or get_context()
+    show = ctx.repo.get_show(show_id)
+    published = ctx.repo.list_published(show_id)
+    if not published:
+        ctx.store.delete(feed_key(show_id))
+        log.info("feed_removed", show_id=str(show_id))
+        return 0
     entries = [
         {
             "episode_id": e.episode_id,
@@ -189,35 +218,11 @@ def publish_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> Sta
             "notes": ctx.store.get(e.notes_key).decode("utf-8") if e.notes_key else AI_DISCLOSURE,
             "bytes": (e.assembly or {}).get("audio_bytes", 0),
         }
-        for e in ctx.repo.list_published(show.show_id)
-        if e.episode_id != episode_id
+        for e in published
     ]
-    entries.append(
-        {
-            "episode_id": episode_id,
-            "revision": episode.revision,
-            "published_at": published_at,
-            "notes": notes,
-            "bytes": episode.assembly.get("audio_bytes", 0),
-        }
-    )
     ctx.store.put(
-        feed_key(show.show_id),
+        feed_key(show_id),
         build_feed(show, entries, ctx.settings.public_feed_base_url),
         "application/rss+xml",
     )
-    ctx.repo.update_episode(
-        episode_id,
-        notes_key=notes_key(episode_id),
-        manifest=manifest,
-        status=EpisodeStatus.PUBLISHED,
-        published_at=published_at,
-        error=None,
-    )
-    log.info(
-        "episode_published",
-        episode_id=str(episode_id),
-        revision=episode.revision,
-        feed_entries=len(entries),
-    )
-    return None
+    return len(entries)
