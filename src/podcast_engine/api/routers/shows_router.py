@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Request, status
 
 from podcast_engine.api.controllers.shows_controller import ShowController
-from podcast_engine.api.dependencies import get_show_controller
+from podcast_engine.api.dependencies import CurrentUserDep, get_show_controller
 from podcast_engine.api.models.pagination_model import Page
 from podcast_engine.api.models.shows_model import ShowCreate, ShowRead, ShowUpdate
 from podcast_engine.api.openapi import errors
@@ -26,9 +26,10 @@ NOT_FOUND = errors(e404="Show not found")
     summary="Create a show",
     response_description="The created show",
 )
-def create_show(data: ShowCreate, controller: Controller) -> ShowRead:
-    """Create a show: its topic, style, hosts and the web pages its episodes are built from."""
-    return controller.create(data)
+def create_show(data: ShowCreate, me: CurrentUserDep, controller: Controller) -> ShowRead:
+    """Create a show, owned by you: its topic, style, hosts and the web pages its episodes are
+    built from. Only you can see or change it."""
+    return controller.create(data, me.user_id)
 
 
 @router.get(
@@ -37,9 +38,12 @@ def create_show(data: ShowCreate, controller: Controller) -> ShowRead:
     summary="List shows",
     response_description="A page of shows, newest first",
 )
-def list_shows(controller: Controller, paging: Paging, request: Request) -> Page[ShowRead]:
-    """A page of shows, newest first."""
-    return to_page(controller.list_page(limit=paging.limit, offset=paging.offset), paging, request)
+def list_shows(
+    me: CurrentUserDep, controller: Controller, paging: Paging, request: Request
+) -> Page[ShowRead]:
+    """A page of your shows, newest first."""
+    result = controller.list_page(me.user_id, limit=paging.limit, offset=paging.offset)
+    return to_page(result, paging, request)
 
 
 @router.get(
@@ -49,9 +53,9 @@ def list_shows(controller: Controller, paging: Paging, request: Request) -> Page
     response_description="The show",
     responses=NOT_FOUND,
 )
-def get_show(show_id: ShowId, controller: Controller) -> ShowRead:
-    """One show's settings."""
-    return controller.get(show_id)
+def get_show(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> ShowRead:
+    """One of your shows' settings. Another user's show is reported as not found."""
+    return controller.get(show_id, me.user_id)
 
 
 @router.patch(
@@ -61,10 +65,12 @@ def get_show(show_id: ShowId, controller: Controller) -> ShowRead:
     response_description="The show after the change",
     responses=NOT_FOUND,
 )
-def update_show(show_id: ShowId, data: ShowUpdate, controller: Controller) -> ShowRead:
+def update_show(
+    show_id: ShowId, data: ShowUpdate, me: CurrentUserDep, controller: Controller
+) -> ShowRead:
     """Change only the fields sent; omitted or null fields are kept. Applies to episodes started
     afterwards."""
-    return controller.update(show_id, data)
+    return controller.update(show_id, me.user_id, data)
 
 
 @router.delete(
@@ -74,7 +80,7 @@ def update_show(show_id: ShowId, data: ShowUpdate, controller: Controller) -> Sh
     response_description="Deleted",
     responses=NOT_FOUND,
 )
-def delete_show(show_id: ShowId, controller: Controller) -> None:
+def delete_show(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> None:
     """Delete a show and, by cascade, its source items, episodes and claims. Files already in object
     storage (audio, notes, feed) are not removed."""
-    controller.delete(show_id)
+    controller.delete(show_id, me.user_id)

@@ -62,7 +62,7 @@ class EpisodeService:
         self._now = now
 
     # ---- creating and reading -------------------------------------------------------------
-    def start(self, show_id: UUID) -> EpisodeRead:
+    def start(self, show_id: UUID, owner: UUID) -> EpisodeRead:
         """Create an episode for a show and hand it to the pipeline.
 
         The first episode builds everything. A later one is a refresh: only segments whose
@@ -71,77 +71,100 @@ class EpisodeService:
         The row is committed before the job is enqueued, so a worker can always read it. If the
         queue is unreachable the episode is marked failed rather than left queued forever.
         """
-        if self._shows.get(show_id) is None:
+        if self._shows.get(show_id, owner) is None:
             raise NotFoundError("show", show_id)
         episode = self._episodes.add(show_id)
         self._dispatch(episode.episode_id, Stage.INGEST)
         return episode
 
-    def get(self, episode_id: UUID) -> EpisodeRead:
-        episode = self._episodes.get(episode_id)
+    def get(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        """The owner's episode; another user's is reported as not found."""
+        episode = self._episodes.get(episode_id, owner)
         if episode is None:
             raise NotFoundError("episode", episode_id)
         return episode
 
     def list_for_show(
-        self, show_id: UUID, *, status: EpisodeStatus | None, limit: int, offset: int
+        self,
+        show_id: UUID,
+        owner: UUID,
+        *,
+        status: EpisodeStatus | None,
+        limit: int,
+        offset: int,
     ) -> Paged[EpisodeRead]:
-        if self._shows.get(show_id) is None:
+        if self._shows.get(show_id, owner) is None:
             raise NotFoundError("show", show_id)
-        return self._episodes.list_page(show_id=show_id, status=status, limit=limit, offset=offset)
+        return self._episodes.list_page(
+            owner, show_id=show_id, status=status, limit=limit, offset=offset
+        )
 
     def list_all(
-        self, *, status: EpisodeStatus | None, show_id: UUID | None, limit: int, offset: int
+        self,
+        owner: UUID,
+        *,
+        status: EpisodeStatus | None,
+        show_id: UUID | None,
+        limit: int,
+        offset: int,
     ) -> Paged[EpisodeRead]:
-        """Episodes across shows; ``status=needs_review`` is the review queue."""
-        return self._episodes.list_page(show_id=show_id, status=status, limit=limit, offset=offset)
+        """The owner's episodes across their shows; ``status=needs_review`` is the review queue."""
+        return self._episodes.list_page(
+            owner, show_id=show_id, status=status, limit=limit, offset=offset
+        )
 
-    def get_script(self, episode_id: UUID) -> EpisodeScript:
+    def get_script(self, episode_id: UUID, owner: UUID) -> EpisodeScript:
+        self.get(episode_id, owner)
         script = self._episodes.get_script(episode_id)
         if script is None:
             raise NotFoundError("episode", episode_id)
         return script
 
-    def list_runs(self, episode_id: UUID, *, limit: int, offset: int) -> Paged[StageRunRead]:
-        self.get(episode_id)
+    def list_runs(
+        self, episode_id: UUID, owner: UUID, *, limit: int, offset: int
+    ) -> Paged[StageRunRead]:
+        self.get(episode_id, owner)
         return self._episodes.list_runs(episode_id, limit=limit, offset=offset)
 
     def list_claims(
         self,
         episode_id: UUID,
+        owner: UUID,
         *,
         supported: bool | None,
         segment: int | None,
         limit: int,
         offset: int,
     ) -> Paged[ClaimDetail]:
-        self.get(episode_id)
+        self.get(episode_id, owner)
         return self._episodes.list_claims(
             episode_id, supported=supported, segment=segment, limit=limit, offset=offset
         )
 
     def get_audio(self, episode_id: UUID) -> bytes:
+        """Public (podcast apps fetch it), so not scoped to an owner: the id is the secret."""
         files = self._episodes.get_files(episode_id)
         if files is None:
             raise NotFoundError("episode", episode_id)
         return self._read(files.audio_key, "audio for episode", episode_id)
 
     def get_notes(self, episode_id: UUID) -> str:
+        """Public, like the audio."""
         files = self._episodes.get_files(episode_id)
         if files is None:
             raise NotFoundError("episode", episode_id)
         return self._read(files.notes_key, "show notes for episode", episode_id).decode("utf-8")
 
     # ---- review -----------------------------------------------------------------------------
-    def edit_script(self, episode_id: UUID, edit: ScriptEdit) -> EpisodeRead:
+    def edit_script(self, episode_id: UUID, owner: UUID, edit: ScriptEdit) -> EpisodeRead:
         """Replace segments' lines, then fact-check the script again.
 
         Only an episode waiting for review can be edited. Edited claims get new ids and are
         judged afresh. An edited script is never rewritten automatically: if it still fails the
         fact-check, it comes back for review instead of being regenerated over the edit.
         """
-        episode = self._require(episode_id, EDITABLE, "edited")
-        show = self._shows.get(episode.show_id)
+        episode = self._require(episode_id, owner, EDITABLE, "edited")
+        show = self._shows.get(episode.show_id, owner)
         if show is None:
             raise NotFoundError("show", episode.show_id)
         positions = set(self._episodes.segment_positions(episode_id))
@@ -192,43 +215,43 @@ class EpisodeService:
             approved_at=None,
         )  # fmt: skip
         self._dispatch(episode_id, Stage.FACTCHECK, revert_to=EpisodeStatus.NEEDS_REVIEW)
-        return self.get(episode_id)
+        return self.get(episode_id, owner)
 
-    def approve(self, episode_id: UUID) -> EpisodeRead:
+    def approve(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
         """Release an episode waiting for review to voicing, as it is.
 
         This is a reviewer's decision, so it also releases a script the fact-check held back
         for unsupported claims; the verdicts stay on record in the script and claims.
         """
-        self._require(episode_id, EDITABLE, "approved")
+        self._require(episode_id, owner, EDITABLE, "approved")
         self._episodes.update(
             episode_id, status=EpisodeStatus.QUEUED, stage=Stage.VOICE.value, error=None,
             approved_at=self._now(),
         )  # fmt: skip
         self._dispatch(episode_id, Stage.VOICE, revert_to=EpisodeStatus.NEEDS_REVIEW)
-        return self.get(episode_id)
+        return self.get(episode_id, owner)
 
     # ---- lifecycle --------------------------------------------------------------------------
-    def retry(self, episode_id: UUID) -> EpisodeRead:
+    def retry(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
         """Run a failed or cancelled episode again from the stage it stopped at."""
-        episode = self._require(episode_id, RETRYABLE, "retried")
+        episode = self._require(episode_id, owner, RETRYABLE, "retried")
         stage = Stage(episode.stage) if episode.stage else Stage.INGEST
         self._episodes.update(episode_id, status=EpisodeStatus.QUEUED, error=None)
         self._dispatch(episode_id, stage, revert_to=episode.status)
-        return self.get(episode_id)
+        return self.get(episode_id, owner)
 
-    def cancel(self, episode_id: UUID) -> EpisodeRead:
+    def cancel(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
         """Stop an episode. A stage already running finishes, but nothing runs after it."""
-        self._require(episode_id, CANCELLABLE, "cancelled")
+        self._require(episode_id, owner, CANCELLABLE, "cancelled")
         self._episodes.update(
             episode_id, status=EpisodeStatus.CANCELLED, error="Cancelled on request."
         )
-        return self.get(episode_id)
+        return self.get(episode_id, owner)
 
-    def delete(self, episode_id: UUID) -> None:
+    def delete(self, episode_id: UUID, owner: UUID) -> None:
         """Delete an episode with its audio and show notes. A running episode must be cancelled
         first. If it was published, the show's feed is rebuilt without it."""
-        episode = self.get(episode_id)
+        episode = self.get(episode_id, owner)
         if episode.status in RUNNING:
             raise ConflictError(
                 f"episode {episode_id} is {episode.status.value}; cancel it before deleting"
@@ -246,8 +269,10 @@ class EpisodeService:
                 log.exception("feed_rebuild_enqueue_failed", show_id=str(episode.show_id))
 
     # ---- helpers ----------------------------------------------------------------------------
-    def _require(self, episode_id: UUID, allowed: set[EpisodeStatus], action: str) -> EpisodeRead:
-        episode = self.get(episode_id)
+    def _require(
+        self, episode_id: UUID, owner: UUID, allowed: set[EpisodeStatus], action: str
+    ) -> EpisodeRead:
+        episode = self.get(episode_id, owner)
         if episode.status not in allowed:
             states = ", ".join(sorted(s.value for s in allowed))
             raise ConflictError(

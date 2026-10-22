@@ -3,13 +3,11 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, status
 
 from podcast_engine.api.controllers.episodes_controller import EpisodeController
-from podcast_engine.api.dependencies import get_episode_controller
+from podcast_engine.api.dependencies import CurrentUserDep, get_episode_controller
 from podcast_engine.api.models.episodes_model import (
-    AUDIO_MEDIA_TYPE,
-    NOTES_MEDIA_TYPE,
     ClaimDetail,
     EpisodeRead,
     EpisodeScript,
@@ -17,7 +15,7 @@ from podcast_engine.api.models.episodes_model import (
     StageRunRead,
 )
 from podcast_engine.api.models.pagination_model import Page
-from podcast_engine.api.openapi import errors, file_response
+from podcast_engine.api.openapi import errors
 from podcast_engine.api.pagination import Paging, to_page
 from podcast_engine.common.models import EpisodeStatus
 
@@ -30,19 +28,6 @@ StatusFilter = Annotated[
     EpisodeStatus | None, Query(alias="status", description="Only episodes with this status")
 ]
 
-AUDIO_HEADERS = {
-    "Accept-Ranges": {
-        "description": "Always `bytes`: ranges are supported",
-        "schema": {"type": "string"},
-    },
-    "Content-Disposition": {
-        "description": (
-            "`inline` to play, or `attachment` with `?download=true`; filename `episode-<id>.wav`"
-        ),
-        "schema": {"type": "string"},
-    },
-}
-
 
 @router.post(
     "/shows/{show_id}/episodes",
@@ -54,7 +39,7 @@ AUDIO_HEADERS = {
         e404="Show not found", e503="Job queue unavailable; the episode is marked `failed`"
     ),
 )
-def start_episode(show_id: ShowId, controller: Controller) -> EpisodeRead:
+def start_episode(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> EpisodeRead:
     """Create an episode and start generating it in the background. Returns at once, with the
     episode `queued`; its status shows progress.
 
@@ -62,7 +47,7 @@ def start_episode(show_id: ShowId, controller: Controller) -> EpisodeRead:
     sources changed are re-scripted and re-voiced, and if no source changed the episode ends as
     `unchanged`.
     """
-    return controller.start(show_id)
+    return controller.start(show_id, me.user_id)
 
 
 @router.get(
@@ -74,6 +59,7 @@ def start_episode(show_id: ShowId, controller: Controller) -> EpisodeRead:
 )
 def list_episodes(
     show_id: ShowId,
+    me: CurrentUserDep,
     controller: Controller,
     paging: Paging,
     request: Request,
@@ -81,7 +67,7 @@ def list_episodes(
 ) -> Page[EpisodeRead]:
     """A page of the show's episodes, newest first, each with its status and links."""
     result = controller.list_for_show(
-        show_id, status=status_filter, limit=paging.limit, offset=paging.offset
+        show_id, me.user_id, status=status_filter, limit=paging.limit, offset=paging.offset
     )
     return to_page(result, paging, request)
 
@@ -93,6 +79,7 @@ def list_episodes(
     response_description="A page of episodes, newest first",
 )
 def list_all_episodes(
+    me: CurrentUserDep,
     controller: Controller,
     paging: Paging,
     request: Request,
@@ -102,7 +89,7 @@ def list_all_episodes(
     """Episodes of every show, newest first. With `status=needs_review` this is the review
     queue: episodes the fact-check held back, or paused for approval before voicing."""
     result = controller.list_all(
-        status=status_filter, show_id=show_id, limit=paging.limit, offset=paging.offset
+        me.user_id, status=status_filter, show_id=show_id, limit=paging.limit, offset=paging.offset
     )
     return to_page(result, paging, request)
 
@@ -114,10 +101,10 @@ def list_all_episodes(
     response_description="The episode, its progress, and links to what it produced",
     responses=errors(e404="Episode not found"),
 )
-def get_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+def get_episode(episode_id: EpisodeId, me: CurrentUserDep, controller: Controller) -> EpisodeRead:
     """The episode's status, current stage and any error, with links to its audio, show notes,
     script, stage runs and feed. The audio and notes links are null until they exist."""
-    return controller.get(episode_id)
+    return controller.get(episode_id, me.user_id)
 
 
 @router.get(
@@ -127,11 +114,13 @@ def get_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
     response_description="Segments and lines, with each claim's citations and verdict",
     responses=errors(e404="Episode not found"),
 )
-def get_episode_script(episode_id: EpisodeId, controller: Controller) -> EpisodeScript:
+def get_episode_script(
+    episode_id: EpisodeId, me: CurrentUserDep, controller: Controller
+) -> EpisodeScript:
     """The script by segment. Each factual claim lists the passages it cites and the
     fact-check verdict, so it can be reviewed before or after voicing. Empty until the
     script stage has run."""
-    return controller.get_script(episode_id)
+    return controller.get_script(episode_id, me.user_id)
 
 
 @router.patch(
@@ -147,7 +136,7 @@ def get_episode_script(episode_id: EpisodeId, controller: Controller) -> Episode
     ),
 )
 def edit_episode_script(
-    episode_id: EpisodeId, edit: ScriptEdit, controller: Controller
+    episode_id: EpisodeId, edit: ScriptEdit, me: CurrentUserDep, controller: Controller
 ) -> EpisodeRead:
     """Replace the lines of one or more segments of an episode that is waiting for review.
 
@@ -156,7 +145,7 @@ def edit_episode_script(
     on to voicing (or waits for approval, if the show reviews before voicing); if it fails it
     comes back for review. An edited script is never rewritten automatically.
     """
-    return controller.edit_script(episode_id, edit)
+    return controller.edit_script(episode_id, me.user_id, edit)
 
 
 @router.post(
@@ -170,11 +159,13 @@ def edit_episode_script(
         e503="Job queue unavailable; the episode stays in review",
     ),
 )
-def approve_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+def approve_episode(
+    episode_id: EpisodeId, me: CurrentUserDep, controller: Controller
+) -> EpisodeRead:
     """Release an episode that is waiting for review to voicing, with its script as it is. This
     includes a script the fact-check held back for unsupported claims: the reviewer decides, and
     the verdicts stay on record."""
-    return controller.approve(episode_id)
+    return controller.approve(episode_id, me.user_id)
 
 
 @router.post(
@@ -188,10 +179,10 @@ def approve_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRea
         e503="Job queue unavailable",
     ),
 )
-def retry_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+def retry_episode(episode_id: EpisodeId, me: CurrentUserDep, controller: Controller) -> EpisodeRead:
     """Run a failed or cancelled episode again from the stage where it stopped, keeping what the
     earlier stages produced."""
-    return controller.retry(episode_id)
+    return controller.retry(episode_id, me.user_id)
 
 
 @router.post(
@@ -201,10 +192,12 @@ def retry_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
     response_description="The episode, `cancelled`",
     responses=errors(e404="Episode not found", e409="The episode has already finished"),
 )
-def cancel_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead:
+def cancel_episode(
+    episode_id: EpisodeId, me: CurrentUserDep, controller: Controller
+) -> EpisodeRead:
     """Stop an episode that is queued, being generated or waiting for review. A stage that is
     already running finishes, but no further stage runs. It can be resumed with a retry."""
-    return controller.cancel(episode_id)
+    return controller.cancel(episode_id, me.user_id)
 
 
 @router.delete(
@@ -214,10 +207,10 @@ def cancel_episode(episode_id: EpisodeId, controller: Controller) -> EpisodeRead
     response_description="Deleted",
     responses=errors(e404="Episode not found", e409="The episode is running; cancel it first"),
 )
-def delete_episode(episode_id: EpisodeId, controller: Controller) -> None:
+def delete_episode(episode_id: EpisodeId, me: CurrentUserDep, controller: Controller) -> None:
     """Delete an episode, its script, claims and run records, and its audio and show notes. If it
     was published, the show's feed is rewritten without it."""
-    controller.delete(episode_id)
+    controller.delete(episode_id, me.user_id)
 
 
 @router.get(
@@ -228,11 +221,15 @@ def delete_episode(episode_id: EpisodeId, controller: Controller) -> None:
     responses=errors(e404="Episode not found"),
 )
 def list_episode_runs(
-    episode_id: EpisodeId, controller: Controller, paging: Paging, request: Request
+    episode_id: EpisodeId,
+    me: CurrentUserDep,
+    controller: Controller,
+    paging: Paging,
+    request: Request,
 ) -> Page[StageRunRead]:
     """How long each stage took and which model, prompt version and seed it used, so a run can be
     timed, costed and repeated. Rewrites and retries add runs."""
-    result = controller.list_runs(episode_id, limit=paging.limit, offset=paging.offset)
+    result = controller.list_runs(episode_id, me.user_id, limit=paging.limit, offset=paging.offset)
     return to_page(result, paging, request)
 
 
@@ -245,6 +242,7 @@ def list_episode_runs(
 )
 def list_episode_claims(
     episode_id: EpisodeId,
+    me: CurrentUserDep,
     controller: Controller,
     paging: Paging,
     request: Request,
@@ -257,85 +255,11 @@ def list_episode_claims(
     """Every factual claim in the script with the passages it cites and the fact-check's verdict
     and reason: the material for auditing an episode's accuracy."""
     result = controller.list_claims(
-        episode_id, supported=supported, segment=segment, limit=paging.limit, offset=paging.offset
+        episode_id,
+        me.user_id,
+        supported=supported,
+        segment=segment,
+        limit=paging.limit,
+        offset=paging.offset,
     )
     return to_page(result, paging, request)
-
-
-@router.get(
-    "/episodes/{episode_id}/audio.wav",
-    response_class=Response,
-    summary="Get an episode's audio",
-    responses={
-        **file_response(AUDIO_MEDIA_TYPE, "The whole episode: 24 kHz mono 16-bit WAV", binary=True),
-        206: {
-            "description": "The requested byte range (`Content-Range` says which)",
-            "content": {AUDIO_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}},
-            "headers": {
-                "Content-Range": {
-                    "schema": {"type": "string"},
-                    "description": "`bytes first-last/size`",
-                }
-            },
-        },
-        **errors(
-            e404="Episode not found, or its audio is not assembled yet",
-            e416="The range is outside the file; `Content-Range: bytes */size` gives the size",
-        ),
-    },
-)
-def get_episode_audio(
-    episode_id: EpisodeId,
-    controller: Controller,
-    byte_range: Annotated[
-        str | None,
-        Header(
-            alias="Range",
-            description="Optional byte range, e.g. `bytes=0-` or `bytes=1000000-1999999`. "
-            "Browsers and "
-            "podcast apps send it to seek and resume.",
-        ),
-    ] = None,
-    download: Annotated[
-        bool, Query(description="`true` to save as a file (`Content-Disposition: attachment`)")
-    ] = False,
-) -> Response:
-    """The finished episode audio, the same file the RSS feed points to.
-
-    Supports HTTP range requests, so it plays and seeks in a browser `<audio>` element and in
-    podcast apps. The AI-generated disclosure is the first thing spoken. Available once the
-    assemble stage has run; 404 before then.
-    """
-    response = controller.get_audio(episode_id, byte_range=byte_range, download=download)
-    response.headers.setdefault("Accept-Ranges", "bytes")
-    return response
-
-
-get_episode_audio_head = router.api_route(
-    "/episodes/{episode_id}/audio.wav",
-    methods=["HEAD"],
-    response_class=Response,
-    summary="Check an episode's audio",
-    description="Headers only (size, ranges, disposition), without the body.",
-    responses={
-        200: {"description": "The audio exists", "headers": AUDIO_HEADERS},
-        **errors(e404="Not available"),
-    },
-    name="head_episode_audio",
-)(get_episode_audio)
-
-
-@router.get(
-    "/episodes/{episode_id}/notes.md",
-    response_class=Response,
-    summary="Get an episode's show notes",
-    responses={
-        **file_response(NOTES_MEDIA_TYPE, "Show notes in Markdown", binary=False),
-        **errors(e404="Episode not found, or not published yet"),
-    },
-)
-def get_episode_notes(episode_id: EpisodeId, controller: Controller) -> Response:
-    """Markdown show notes: the AI-generated disclosure first, then chapters with their start times,
-    each claim with its citation numbers, the numbered sources, the source attribution, and how the
-    episode was made (models, prompts, voices, seed). Available once the episode is published."""
-    return Response(content=controller.get_notes(episode_id), media_type=NOTES_MEDIA_TYPE)

@@ -45,6 +45,20 @@ x-app-env: &app-env
   REFRESH_INTERVAL_HOURS: ${REFRESH_INTERVAL_HOURS:-0}
   EPISODE_COST_CAP_USD: ${EPISODE_COST_CAP_USD:-1.00}
   PUBLIC_FEED_BASE_URL: ${PUBLIC_FEED_BASE_URL:-http://localhost:8080}
+  # Application secrets (LLM and TTS keys, the login-token key) come from Vault, read once at start
+  # with the read-only token that vault-init issues.
+  VAULT_ADDR: https://vault:8200
+  VAULT_TOKEN_FILE: /run/secrets/vault_app_token
+  VAULT_CA_FILE: /run/secrets/vault_ca
+  AUTH_TOKEN_DAYS: ${AUTH_TOKEN_DAYS:-180}
+  # Password-reset email. Mailpit catches it locally (inbox at http://localhost:8025); point these
+  # at a real mail service (password in Vault as smtp_password) to deliver for real.
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+  MAIL_FROM: ${MAIL_FROM:-Podcast Engine <no-reply@localhost>}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:8080}
   # Lets uvicorn's and Celery's several processes report one merged set of metrics.
   PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
 
@@ -65,6 +79,7 @@ x-worker: &worker
     redis: { condition: service_healthy }
     s3-init: { condition: service_completed_successfully }
   environment: *app-env
+  secrets: [vault_app_token, vault_ca]
   expose: ["9100"] # /metrics, scraped by prometheus
   healthcheck:
     test: [CMD, python, -m, podcast_engine.worker, --healthcheck]
@@ -123,6 +138,75 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot, before Vault: the stack's CA (once) and Vault's TLS certificate (renewed within
+  # 30 days of expiry). Runs as root only to hand the key to Vault's user.
+  vault-certs:
+    build:
+      context: .
+      dockerfile: docker/stage.Dockerfile
+      args: { EXTRAS: tls }
+    restart: "no"
+    user: "0"
+    command: ["python", "-m", "podcast_engine.common.vault_tls"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      SECRETS_DIR: /secrets
+      VAULT_TLS_DIR: /tls
+    volumes:
+      - ./secrets:/secrets
+      - vaulttls:/tls
+
+  # Secrets store, over HTTPS. Data persists in the vaultdata volume; vault-init unseals it at every
+  # start. UI: https://localhost:8200 (trust secrets/vault-ca.pem; root token in vault-init.json).
+  vault:
+    image: hashicorp/vault:2.1.2
+    restart: unless-stopped
+    command: ["server"]
+    depends_on:
+      vault-certs: { condition: service_completed_successfully }
+    environment:
+      SKIP_SETCAP: "true" # no memory locking (disable_mlock in vault.hcl)
+      VAULT_ADDR: https://127.0.0.1:8200
+      VAULT_CACERT: /vault/tls/ca.pem
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID] # the entrypoint chowns its data and drops to the vault user
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - vaultdata:/vault/file
+      - vaulttls:/vault/tls:ro
+      - ./docker/vault.hcl:/vault/config/vault.hcl:ro
+    healthcheck:
+      # Healthy once the server answers over verified TLS, sealed or not (exit 2 = sealed;
+      # vault-init then unseals it). Exit 1 means it is not answering.
+      test: ["CMD-SHELL", "vault status >/dev/null 2>&1; [ $$? -ne 1 ]"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: initialises (first run) and unseals Vault, seeds missing secrets, and issues the
+  # app's read-only token into ./secrets. Everything that reads secrets waits for it.
+  vault-init:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: docker/stage.Dockerfile
+    restart: "no"
+    command: ["python", "-m", "podcast_engine.common.vault_init"]
+    depends_on:
+      vault: { condition: service_healthy }
+    environment:
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /secrets/vault-ca.pem
+      SECRETS_DIR: /secrets
+    volumes:
+      - ./secrets:/secrets
+
   # One-shot: creates the bucket (idempotent), then exits. Everything else waits for it.
   s3-init:
     <<: *hardening
@@ -133,7 +217,9 @@ services:
     command: ["python", "-m", "podcast_engine.common.init_storage"]
     depends_on:
       s3: { condition: service_healthy }
+      vault-init: { condition: service_completed_successfully }
     environment: *app-env
+    secrets: [vault_app_token, vault_ca]
 
   # One-shot: applies db/migrations (idempotent, recorded in schema_migrations), then exits.
   # db/init only runs on a brand-new volume; this also upgrades an existing one.
@@ -146,9 +232,21 @@ services:
     command: ["python", "-m", "podcast_engine.common.migrate"]
     depends_on:
       postgres: { condition: service_healthy }
+      vault-init: { condition: service_completed_successfully }
     environment: *app-env
+    secrets: [vault_app_token, vault_ca]
     volumes:
       - ./db/migrations:/app/db/migrations:ro
+
+  # Local mail catcher for password-reset email: SMTP on 1025 inside the stack, inbox UI on
+  # http://localhost:8025. Nothing is delivered to real addresses.
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   # ---------------------------------------------------------------- observability
   # Metrics only (request rates, latency, stage durations and failures). It does not store logs;
@@ -187,6 +285,7 @@ services:
     environment:
       <<: *app-env
       UVICORN_WORKERS: ${API_WORKERS:-2}
+    secrets: [vault_app_token, vault_ca]
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -253,10 +352,6 @@ services:
         EXTRAS: embeddings,llm
         TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
     command: [python, -m, podcast_engine.worker, retrieve_plan]
-    environment:
-      <<: *app-env
-      LLM_API_KEY_FILE: /run/secrets/llm_api_key
-    secrets: [llm_api_key]
     volumes:
       - hf_cache:/home/app/.cache/huggingface
       - ./config:/app/config:ro
@@ -269,10 +364,6 @@ services:
       dockerfile: docker/stage.Dockerfile
       args: { EXTRAS: llm }
     command: [python, -m, podcast_engine.worker, script]
-    environment:
-      <<: *app-env
-      LLM_API_KEY_FILE: /run/secrets/llm_api_key
-    secrets: [llm_api_key]
     volumes:
       - ./config:/app/config:ro
       - ./prompts:/app/prompts:ro
@@ -284,10 +375,6 @@ services:
       dockerfile: docker/stage.Dockerfile
       args: { EXTRAS: llm }
     command: [python, -m, podcast_engine.worker, factcheck]
-    environment:
-      <<: *app-env
-      LLM_API_KEY_FILE: /run/secrets/llm_api_key
-    secrets: [llm_api_key]
     volumes:
       - ./config:/app/config:ro
       - ./prompts:/app/prompts:ro
@@ -299,10 +386,6 @@ services:
       dockerfile: docker/stage.Dockerfile
       args: { EXTRAS: "voice,llm" } # llm brings google-genai for TTS_BACKEND=gemini
     command: [python, -m, podcast_engine.worker, voice]
-    environment:
-      <<: *app-env
-      TTS_API_KEY_FILE: /run/secrets/tts_api_key
-    secrets: [tts_api_key]
     volumes:
       - tts_cache:/data/tts_cache
       - audio_scratch:/data/audio
@@ -334,12 +417,14 @@ services:
       - ./config:/app/config:ro
 
 secrets:
-  llm_api_key:
-    file: ./secrets/llm_api_key.txt
-  tts_api_key:
-    file: ./secrets/tts_api_key.txt
+  vault_app_token: # written by vault-init; `make secrets` creates it empty before the first run
+    file: ./secrets/vault_app_token.txt
+  vault_ca: # the CA that signed Vault's certificate, written by vault-certs
+    file: ./secrets/vault-ca.pem
 
 volumes:
+  vaultdata:
+  vaulttls:
   pgdata:
   redisdata:
   s3data:

@@ -6,7 +6,7 @@ Needs a pgvector database (DATABASE_URL); skipped when it is unreachable, like t
 
 from collections.abc import Iterator
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pymupdf
 import pytest
@@ -39,12 +39,34 @@ BODY = (
 )
 
 
+OWNER: UUID | None = None  # the account owning this module's shows; set per test
+
+
+@pytest.fixture(autouse=True)
+def owner(engine: Engine) -> Iterator[UUID]:
+    """A throwaway account that owns every show a test creates (deleted with them after)."""
+    global OWNER
+    with engine.begin() as connection:
+        OWNER = connection.execute(
+            text(
+                "INSERT INTO users (email, password_hash) VALUES (:email, 'not-a-real-hash')"
+                " RETURNING user_id"
+            ),
+            {"email": f"owner-{uuid4()}@example.invalid"},
+        ).scalar_one()
+    yield OWNER
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM users WHERE user_id = :id"), {"id": OWNER})
+
+
 class Api:
     """The API's episode service over real repositories; enqueued stages run straight away."""
 
     def __init__(self, engine: Engine, ctx: PipelineContext) -> None:
         self.session = Session(engine)
         self.ctx = ctx
+        assert OWNER is not None
+        self.owner: UUID = OWNER
         self.routes: list[list[str]] = []
         self.episodes = EpisodeService(
             PostgresEpisodeRepository(self.session),
@@ -75,12 +97,13 @@ def _show(engine: Engine, *, sources: list[str], review: bool = False) -> UUID:
         show_id: UUID = connection.execute(
             text(
                 "INSERT INTO shows (topic, tone, target_minutes, host_count, sources,"
-                " topic_keywords, max_segments, review_before_voice) VALUES"
+                " topic_keywords, max_segments, review_before_voice, owner_id) VALUES"
                 " ('What Tidewater is and why it is fast', 'casual', 3, 2,"
-                " CAST(:sources AS jsonb), 'Tidewater storage engine columns tables', 6, :review)"
+                " CAST(:sources AS jsonb), 'Tidewater storage engine columns tables', 6, :review,"
+                " :owner)"
                 " RETURNING show_id"
             ),
-            {"sources": str(sources).replace("'", '"'), "review": review},
+            {"sources": str(sources).replace("'", '"'), "review": review, "owner": OWNER},
         ).scalar_one()
     return show_id
 
@@ -101,14 +124,14 @@ def test_review_before_voice_pauses_then_an_edit_and_approval_publish(
     cleanup.append(show_id)
     api = Api(engine, make_context(engine, MemoryStore()))
 
-    started = api.episodes.start(show_id)
+    started = api.episodes.start(show_id, api.owner)
     episode = api.episode(started.episode_id)
     assert api.routes[-1][-1] == "factcheck"  # stopped before voicing
     assert episode.status is EpisodeStatus.NEEDS_REVIEW
     assert "waiting for approval" in (episode.error or "")
     assert episode.audio_key is None
 
-    script = api.episodes.get_script(started.episode_id)
+    script = api.episodes.get_script(started.episode_id, api.owner)
     first = script.segments[0]
     cited = next(claim for line in first.lines for claim in line.claims if claim.chunk_ids)
     edit = ScriptEdit(
@@ -122,11 +145,11 @@ def test_review_before_voice_pauses_then_an_edit_and_approval_publish(
             )
         ]
     )
-    api.episodes.edit_script(started.episode_id, edit)
+    api.episodes.edit_script(started.episode_id, api.owner, edit)
     assert api.routes[-1] == ["factcheck"]  # re-checked, then paused again for approval
     assert api.episode(started.episode_id).status is EpisodeStatus.NEEDS_REVIEW
 
-    api.episodes.approve(started.episode_id)
+    api.episodes.approve(started.episode_id, api.owner)
     episode = api.episode(started.episode_id)
     assert api.routes[-1] == ["voice", "assemble", "publish"]
     assert episode.status is EpisodeStatus.PUBLISHED, episode.error
@@ -143,11 +166,11 @@ def test_an_edited_claim_that_fails_comes_back_for_review_not_a_rewrite(
     show_id = _show(engine, sources=[PAGE_URL], review=True)
     cleanup.append(show_id)
     api = Api(engine, make_context(engine, MemoryStore()))
-    episode_id = api.episodes.start(show_id).episode_id
+    episode_id = api.episodes.start(show_id, api.owner).episode_id
 
     uncited = LineEdit(speaker="Alex", text="Tidewater was invented in 1952.", chunk_ids=[])
     api.episodes.edit_script(
-        episode_id, ScriptEdit(segments=[SegmentEdit(position=1, lines=[uncited])])
+        episode_id, api.owner, ScriptEdit(segments=[SegmentEdit(position=1, lines=[uncited])])
     )
 
     assert api.routes[-1] == ["factcheck"]  # no trip back through the script stage
@@ -155,7 +178,7 @@ def test_an_edited_claim_that_fails_comes_back_for_review_not_a_rewrite(
     assert episode.status is EpisodeStatus.NEEDS_REVIEW
     assert "reviewer's edit" in (episode.error or "")
     unsupported = api.episodes.list_claims(
-        episode_id, supported=False, segment=None, limit=10, offset=0
+        episode_id, api.owner, supported=False, segment=None, limit=10, offset=0
     )
     assert [c.text for c in unsupported.items] == ["Tidewater was invented in 1952."]
 
@@ -173,7 +196,7 @@ def test_cancel_stops_the_pipeline_and_retry_resumes_it(
 
     failing.fetch = unreachable
     api = Api(engine, failing)
-    episode_id = api.episodes.start(show_id).episode_id
+    episode_id = api.episodes.start(show_id, api.owner).episode_id
     assert api.routes[-1] == ["raised ConnectionError"]
     failed = api.episode(episode_id)
     assert failed.status is EpisodeStatus.FAILED
@@ -181,11 +204,11 @@ def test_cancel_stops_the_pipeline_and_retry_resumes_it(
     assert "unreachable" in (failed.error or "")
 
     api.ctx = make_context(engine, store)  # the page is back
-    api.episodes.retry(episode_id)
+    api.episodes.retry(episode_id, api.owner)
     assert api.episode(episode_id).status is EpisodeStatus.PUBLISHED
 
     later = PostgresEpisodeRepository(api.session).add(show_id)
-    api.episodes.cancel(later.episode_id)
+    api.episodes.cancel(later.episode_id, api.owner)
     assert run_inline(later.episode_id, api.ctx) == ["ingest"]  # nothing ran
     assert api.episode(later.episode_id).status is EpisodeStatus.CANCELLED
     assert api.ctx.repo.list_stage_runs(later.episode_id) == []
@@ -198,15 +221,15 @@ def test_deleting_the_published_episode_removes_its_files_and_the_feed(
     cleanup.append(show_id)
     store = MemoryStore()
     api = Api(engine, make_context(engine, store))
-    episode_id = api.episodes.start(show_id).episode_id
+    episode_id = api.episodes.start(show_id, api.owner).episode_id
     episode = api.episode(episode_id)
     assert store.exists(feed_key(show_id))
     PostgresEpisodeRepository(api.session).update(episode_id, status=EpisodeStatus.PROCESSING)
     with pytest.raises(ConflictError):  # a running episode cannot be deleted
-        api.episodes.delete(episode_id)
+        api.episodes.delete(episode_id, api.owner)
     PostgresEpisodeRepository(api.session).update(episode_id, status=EpisodeStatus.PUBLISHED)
 
-    api.episodes.delete(episode_id)
+    api.episodes.delete(episode_id, api.owner)
     assert not store.exists(episode.audio_key or "")
     assert not store.exists(episode.notes_key or "")
     assert not store.exists(feed_key(show_id))  # nothing published any more
@@ -233,9 +256,9 @@ def test_an_uploaded_pdf_is_ingested_and_cited(engine: Engine, cleanup: list[UUI
         PostgresUploadRepository(api.session), PostgresShowRepository(api.session), store,
         max_bytes=1_000_000,
     )  # fmt: skip
-    upload = uploads.add(show_id, filename="tidewater.pdf", data=_pdf())
+    upload = uploads.add(show_id, api.owner, filename="tidewater.pdf", data=_pdf())
 
-    episode = api.episode(api.episodes.start(show_id).episode_id)
+    episode = api.episode(api.episodes.start(show_id, api.owner).episode_id)
     assert episode.status is EpisodeStatus.PUBLISHED, episode.error
     sources = PostgresSourceRepository(api.session).list_page(show_id, limit=10, offset=0)
     assert [s.title for s in sources.items] == ["Storage engine", "Replication"]
@@ -259,7 +282,7 @@ def test_an_rss_feed_source_reads_summaries_and_linked_pages(
     ctx.fetch = lambda url: rss if url == feed_url else PAGE
     api = Api(engine, ctx)
 
-    episode = api.episode(api.episodes.start(show_id).episode_id)
+    episode = api.episode(api.episodes.start(show_id, api.owner).episode_id)
     assert episode.status is EpisodeStatus.PUBLISHED, episode.error
     titles = [
         s.title
@@ -273,17 +296,21 @@ def test_api_lists_page_and_filter_in_sql(engine: Engine, cleanup: list[UUID]) -
     show_id = _show(engine, sources=[PAGE_URL])
     cleanup.append(show_id)
     api = Api(engine, make_context(engine, MemoryStore()))
-    published = api.episodes.start(show_id).episode_id
+    published = api.episodes.start(show_id, api.owner).episode_id
     repo = PostgresEpisodeRepository(api.session)
     repo.add(show_id)  # a second, queued episode
 
-    every = api.episodes.list_for_show(show_id, status=None, limit=1, offset=0)
+    every = api.episodes.list_for_show(show_id, api.owner, status=None, limit=1, offset=0)
     assert every.total == 2
     assert len(every.items) == 1
-    only = api.episodes.list_for_show(show_id, status=EpisodeStatus.PUBLISHED, limit=10, offset=0)
+    only = api.episodes.list_for_show(
+        show_id, api.owner, status=EpisodeStatus.PUBLISHED, limit=10, offset=0
+    )
     assert [e.episode_id for e in only.items] == [published]
-    runs = api.episodes.list_runs(published, limit=3, offset=0)
+    runs = api.episodes.list_runs(published, api.owner, limit=3, offset=0)
     assert (runs.total, len(runs.items)) == (8, 3)
-    claims = api.episodes.list_claims(published, supported=True, segment=1, limit=50, offset=0)
+    claims = api.episodes.list_claims(
+        published, api.owner, supported=True, segment=1, limit=50, offset=0
+    )
     assert claims.total > 0
     assert all(c.segment == 1 and c.supported for c in claims.items)

@@ -32,7 +32,7 @@ config/            show definitions, source reliability tiers, pronunciation lex
 prompts/           versioned prompts (`<name>.v<N>.md`), logged per episode
 assets/audio/      intro/outro/transition audio
 evaluation/        RQ1–RQ3 study material and benchmarks (not containerised)
-docs/              api.md (the API), observability.md (metrics and logs), notebook.md (the flow notebook)
+docs/              api.md (the API), erd.md (the data model), observability.md (metrics and logs), notebook.md
 notebooks/         podcast_flow.ipynb: the whole pipeline, runnable offline
 monitoring/        Prometheus scrape configuration
 docker/            stage.Dockerfile, the one recipe behind every Python image (api and worker targets)
@@ -84,6 +84,35 @@ make check          # ruff, strict mypy, unit tests (what CI runs)
 make notebook-test  # runs notebooks/podcast_flow.ipynb offline and checks the flow
 ```
 
+## Login and secrets
+
+The API needs a login (see [docs/api.md](docs/api.md)). Application secrets live in HashiCorp
+Vault, which runs in the stack over HTTPS (`vault`, UI on https://localhost:8200). Its
+certificate comes from the stack's own CA, made by the one-shot `vault-certs` service and renewed
+before it expires. Trust `secrets/vault-ca.pem` (for example `curl --cacert secrets/vault-ca.pem`),
+and keep `secrets/vault-ca-key.pem` private. Password-reset email goes to Mailpit, a local inbox at
+http://localhost:8025. Set `SMTP_HOST` and the rest to deliver real mail. At every `up`, the one-shot
+`vault-init` service unseals Vault and issues the services a read-only token. On the first run it
+also initialises Vault and generates the login-token key. The unseal key and root token are kept in
+`secrets/vault-init.json`, which is git-ignored. Back it up: without it, Vault's data cannot be
+read. Postgres and S3 passwords stay in `.env`, because those containers need them to start.
+
+```bash
+# store the Gemini (or Claude) key in Vault; the file only seeds it, Vault is the source after
+docker compose run --rm -T vault-init set llm_api_key < secrets/llm_api_key.txt
+docker compose restart retrieve_plan script factcheck   # services read secrets at start
+
+# the first account becomes the admin; then log in for a six-month token
+curl -X POST localhost:8000/auth/register -H 'content-type: application/json' \
+  -d '{"email": "you@example.org", "password": "a long passphrase of your own"}'
+TOKEN=$(curl -s -X POST localhost:8000/auth/login -H 'content-type: application/json' \
+  -d '{"email": "you@example.org", "password": "a long passphrase of your own"}' | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/shows
+```
+
+In `/docs`, use **Authorize** and paste the token. `POST /auth/api-keys` creates a key for scripts.
+It also lasts six months.
+
 ## Running an episode
 
 The stages implement the flow validated in `notebooks/podcast_flow.ipynb`. A web page is split into
@@ -95,15 +124,15 @@ passages. The fact-check gate loops back to the script stage, then lines are voi
 
 ```bash
 curl localhost:8000/home                                   # every endpoint, auth and health
-curl -X POST localhost:8000/shows -H 'content-type: application/json' -d '{
+curl -X POST localhost:8000/shows -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{
   "topic": "What ClickHouse is and why it is fast for analytics",
   "sources": ["https://clickhouse.com/docs/get-started/about/intro"],
   "topic_keywords": "ClickHouse column-oriented database OLAP analytics queries rows columns storage",
   "attribution": "Source material: What is ClickHouse?, ClickHouse Documentation (CC BY-NC-SA 4.0).",
   "max_segments": 6, "tone": "casual", "expertise": "beginner", "target_minutes": 3}'
-curl -X POST localhost:8000/shows/<show_id>/episodes       # 202; starts the pipeline
-curl localhost:8000/episodes/<episode_id>                  # status and current stage
-curl localhost:8000/episodes/<episode_id>/script           # claims, citations, verdicts
+curl -X POST -H "Authorization: Bearer $TOKEN" localhost:8000/shows/<show_id>/episodes       # 202; starts the pipeline
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/episodes/<episode_id>                  # status and current stage
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/episodes/<episode_id>/script           # claims, citations, verdicts
 curl -o episode.wav localhost:8000/episodes/<episode_id>/audio.wav
 curl localhost:8000/feeds/<show_id>/rss.xml
 ```
@@ -146,7 +175,8 @@ scheduler; web pages, RSS/Atom feeds and uploaded PDFs as sources; review and ed
 voicing (`review_before_voice`, the review queue at `/episodes?status=needs_review`); retry,
 cancel and delete; paginated lists. Tested end to end against Postgres with offline settings
 ([tests/integration/](tests/integration/)). Not built yet: search results as a source, pages
-behind authentication, MP3 output, and authentication.
+behind authentication, and MP3 output. Each user sees only their own shows
+([docs/erd.md](docs/erd.md)).
 The Gemini and Claude paths are exercised only against fake SDKs in the notebook tests.
 
 Before the first release: add a dependency lockfile (`uv lock` or `pip-compile`).

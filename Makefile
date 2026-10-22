@@ -25,7 +25,8 @@ setup:  ## Install Python dev dependencies and git hooks
 	pre-commit install
 
 secrets:  ## Create empty secret files (fill them in before running stages)
-	@for f in llm_api_key tts_api_key; do test -f secrets/$$f.txt || : > secrets/$$f.txt; done
+	@for f in llm_api_key tts_api_key vault_app_token; do test -f secrets/$$f.txt || : > secrets/$$f.txt; done
+	@test -f secrets/vault-ca.pem || : > secrets/vault-ca.pem
 	@test -f .env || cp .env.example .env
 
 build:  ## Build every image

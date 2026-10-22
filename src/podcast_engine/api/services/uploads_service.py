@@ -43,13 +43,13 @@ class UploadService:
         self._store = store
         self.max_bytes = max_bytes
 
-    def add(self, show_id: UUID, *, filename: str, data: bytes) -> UploadRead:
+    def add(self, show_id: UUID, owner: UUID, *, filename: str, data: bytes) -> UploadRead:
         """Store a PDF as a source for the show's next episode.
 
         The type is checked from the file's first bytes, not from the name or the type the client
         claims. Larger files than the limit are refused before anything is stored.
         """
-        self._show(show_id)
+        self._show(show_id, owner)
         if len(data) > self.max_bytes:
             raise PayloadTooLargeError(
                 f"the file is larger than {self.max_bytes // (1024 * 1024)} MB"
@@ -69,14 +69,19 @@ class UploadService:
             object_key=key,
         )
 
-    def get(self, show_id: UUID, upload_id: UUID) -> UploadRead:
+    def get(self, show_id: UUID, upload_id: UUID, owner: UUID) -> UploadRead:
+        self._show(show_id, owner)
+        return self._find(show_id, upload_id)
+
+    def _find(self, show_id: UUID, upload_id: UUID) -> UploadRead:
         upload = self._uploads.get(show_id, upload_id)
         if upload is None:
             raise NotFoundError("upload", upload_id)
         return upload
 
     def get_file(self, show_id: UUID, upload_id: UUID) -> UploadContent:
-        upload = self.get(show_id, upload_id)
+        """Public (show notes cite it), so not scoped to an owner: the ids are the secret."""
+        upload = self._find(show_id, upload_id)
         if not self._store.exists(upload.object_key):
             raise NotFoundError("file of upload", upload_id)
         return UploadContent(
@@ -85,16 +90,18 @@ class UploadService:
             data=self._store.get(upload.object_key),
         )
 
-    def list_for_show(self, show_id: UUID, *, limit: int, offset: int) -> Paged[UploadRead]:
-        self._show(show_id)
+    def list_for_show(
+        self, show_id: UUID, owner: UUID, *, limit: int, offset: int
+    ) -> Paged[UploadRead]:
+        self._show(show_id, owner)
         return self._uploads.list_page(show_id, limit=limit, offset=offset)
 
-    def delete(self, show_id: UUID, upload_id: UUID) -> None:
+    def delete(self, show_id: UUID, upload_id: UUID, owner: UUID) -> None:
         """Remove the upload and its file. Its sections leave the show at the next ingest."""
-        upload = self.get(show_id, upload_id)
+        upload = self.get(show_id, upload_id, owner)
         self._uploads.delete(show_id, upload_id)
         self._store.delete(upload.object_key)
 
-    def _show(self, show_id: UUID) -> None:
-        if self._shows.get(show_id) is None:
+    def _show(self, show_id: UUID, owner: UUID) -> None:
+        if self._shows.get(show_id, owner) is None:
             raise NotFoundError("show", show_id)

@@ -12,8 +12,10 @@ class SourceController:
     def __init__(self, service: SourceService) -> None:
         self._service = service
 
-    def list_for_show(self, show_id: UUID, *, limit: int, offset: int) -> Paged[SourceRead]:
+    def list_for_show(
+        self, show_id: UUID, owner: UUID, *, limit: int, offset: int
+    ) -> Paged[SourceRead]:
         try:
-            return self._service.list_for_show(show_id, limit=limit, offset=offset)
+            return self._service.list_for_show(show_id, owner, limit=limit, offset=offset)
         except DomainError as error:
             raise to_http(error) from error

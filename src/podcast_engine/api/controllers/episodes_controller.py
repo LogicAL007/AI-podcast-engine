@@ -23,52 +23,65 @@ class EpisodeController:
     def __init__(self, service: EpisodeService) -> None:
         self._service = service
 
-    def start(self, show_id: UUID) -> EpisodeRead:
-        return http_errors(lambda: self._service.start(show_id))
+    def start(self, show_id: UUID, owner: UUID) -> EpisodeRead:
+        return http_errors(lambda: self._service.start(show_id, owner))
 
-    def get(self, episode_id: UUID) -> EpisodeRead:
-        return http_errors(lambda: self._service.get(episode_id))
+    def get(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        return http_errors(lambda: self._service.get(episode_id, owner))
 
     def list_for_show(
-        self, show_id: UUID, *, status: EpisodeStatus | None, limit: int, offset: int
+        self, show_id: UUID, owner: UUID, *, status: EpisodeStatus | None, limit: int, offset: int
     ) -> Paged[EpisodeRead]:
         return http_errors(
-            lambda: self._service.list_for_show(show_id, status=status, limit=limit, offset=offset)
-        )
-
-    def list_all(
-        self, *, status: EpisodeStatus | None, show_id: UUID | None, limit: int, offset: int
-    ) -> Paged[EpisodeRead]:
-        return http_errors(
-            lambda: self._service.list_all(
-                status=status, show_id=show_id, limit=limit, offset=offset
+            lambda: self._service.list_for_show(
+                show_id, owner, status=status, limit=limit, offset=offset
             )
         )
 
-    def get_script(self, episode_id: UUID) -> EpisodeScript:
-        return http_errors(lambda: self._service.get_script(episode_id))
+    def list_all(
+        self,
+        owner: UUID,
+        *,
+        status: EpisodeStatus | None,
+        show_id: UUID | None,
+        limit: int,
+        offset: int,
+    ) -> Paged[EpisodeRead]:
+        return http_errors(
+            lambda: self._service.list_all(
+                owner, status=status, show_id=show_id, limit=limit, offset=offset
+            )
+        )
 
-    def edit_script(self, episode_id: UUID, edit: ScriptEdit) -> EpisodeRead:
-        return http_errors(lambda: self._service.edit_script(episode_id, edit))
+    def get_script(self, episode_id: UUID, owner: UUID) -> EpisodeScript:
+        return http_errors(lambda: self._service.get_script(episode_id, owner))
 
-    def approve(self, episode_id: UUID) -> EpisodeRead:
-        return http_errors(lambda: self._service.approve(episode_id))
+    def edit_script(self, episode_id: UUID, owner: UUID, edit: ScriptEdit) -> EpisodeRead:
+        return http_errors(lambda: self._service.edit_script(episode_id, owner, edit))
 
-    def retry(self, episode_id: UUID) -> EpisodeRead:
-        return http_errors(lambda: self._service.retry(episode_id))
+    def approve(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        return http_errors(lambda: self._service.approve(episode_id, owner))
 
-    def cancel(self, episode_id: UUID) -> EpisodeRead:
-        return http_errors(lambda: self._service.cancel(episode_id))
+    def retry(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        return http_errors(lambda: self._service.retry(episode_id, owner))
 
-    def delete(self, episode_id: UUID) -> None:
-        http_errors(lambda: self._service.delete(episode_id))
+    def cancel(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        return http_errors(lambda: self._service.cancel(episode_id, owner))
 
-    def list_runs(self, episode_id: UUID, *, limit: int, offset: int) -> Paged[StageRunRead]:
-        return http_errors(lambda: self._service.list_runs(episode_id, limit=limit, offset=offset))
+    def delete(self, episode_id: UUID, owner: UUID) -> None:
+        http_errors(lambda: self._service.delete(episode_id, owner))
+
+    def list_runs(
+        self, episode_id: UUID, owner: UUID, *, limit: int, offset: int
+    ) -> Paged[StageRunRead]:
+        return http_errors(
+            lambda: self._service.list_runs(episode_id, owner, limit=limit, offset=offset)
+        )
 
     def list_claims(
         self,
         episode_id: UUID,
+        owner: UUID,
         *,
         supported: bool | None,
         segment: int | None,
@@ -77,7 +90,7 @@ class EpisodeController:
     ) -> Paged[ClaimDetail]:
         return http_errors(
             lambda: self._service.list_claims(
-                episode_id, supported=supported, segment=segment, limit=limit, offset=offset
+                episode_id, owner, supported=supported, segment=segment, limit=limit, offset=offset
             )
         )
 

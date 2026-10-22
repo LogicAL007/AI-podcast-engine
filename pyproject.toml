@@ -25,7 +25,7 @@ dependencies = [
 
 # One extra per container image, so each stage installs only what it needs.
 [project.optional-dependencies]
-api = ["fastapi>=0.110", "python-multipart>=0.0.9", "uvicorn[standard]>=0.29"]
+api = ["argon2-cffi>=25.1", "fastapi>=0.110", "python-multipart>=0.0.9", "uvicorn[standard]>=0.29"]
 ingest = ["feedparser>=6.0", "httpx>=0.27", "lxml>=5.0", "pymupdf>=1.24", "trafilatura>=1.9"]
 embeddings = ["pgvector>=0.3", "sentence-transformers>=3.0"]
 llm = ["google-genai>=1.0"]
@@ -33,6 +33,8 @@ anthropic = ["anthropic>=0.40"]
 voice = ["httpx>=0.27"]
 assemble = ["numpy>=1.26", "pydub>=0.25", "pyloudnorm>=0.1"]
 publish = ["feedgen>=1.0"]
+# The vault-certs one-shot: creates the local CA and Vault's TLS certificate.
+tls = ["cryptography>=43"]
 # Voice cloning backend (Chatterbox, MIT). Heavy: pulls torch and pins transformers and gradio, so
 # install it in its own environment rather than next to `embeddings`. setuptools is pinned because
 # resemble-perth (Chatterbox's watermarker) imports pkg_resources, which setuptools 81+ removed, and
@@ -91,7 +93,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ARG"]
+"tests/**" = ["S101", "S105", "S106", "ARG"]  # test passwords and tokens are fixtures
 # Evaluation scripts are command-line tools that print their reports.
 "evaluation/**" = ["T201"]
 # Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the

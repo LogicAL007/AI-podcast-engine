@@ -25,6 +25,8 @@ _COLUMNS = (
     "episode_id, show_id, status, stage, error, revision, rewrite_count, created_at, published_at,"
     " approved_at, audio_key IS NOT NULL AS has_audio, notes_key IS NOT NULL AS has_notes"
 )
+# An episode is someone's through its show.
+_OWNED = "show_id IN (SELECT show_id FROM shows WHERE owner_id = :owner_id)"
 # Episode columns the API may change, mostly to move an episode through its lifecycle.
 _UPDATABLE = frozenset({"status", "stage", "error", "approved_at", "rewrite_count"})
 
@@ -32,10 +34,11 @@ _UPDATABLE = frozenset({"status", "stage", "error", "approved_at", "rewrite_coun
 class EpisodeRepository(Protocol):
     def add(self, show_id: UUID) -> EpisodeRead: ...
 
-    def get(self, episode_id: UUID) -> EpisodeRead | None: ...
+    def get(self, episode_id: UUID, owner_id: UUID) -> EpisodeRead | None: ...
 
     def list_page(
         self,
+        owner_id: UUID,
         *,
         show_id: UUID | None,
         status: EpisodeStatus | None,
@@ -95,11 +98,16 @@ class PostgresEpisodeRepository:
         self._session.commit()
         return EpisodeRead.model_validate(row)
 
-    def get(self, episode_id: UUID) -> EpisodeRead | None:
+    def get(self, episode_id: UUID, owner_id: UUID) -> EpisodeRead | None:
+        """The episode if its show belongs to ``owner_id``; otherwise None, as if it did not
+        exist."""
         row = (
             self._session.execute(
-                text(f"SELECT {_COLUMNS} FROM episodes WHERE episode_id = :episode_id"),  # noqa: S608
-                {"episode_id": episode_id},
+                text(
+                    f"SELECT {_COLUMNS} FROM episodes WHERE episode_id = :episode_id"  # noqa: S608
+                    f" AND {_OWNED}"
+                ),
+                {"episode_id": episode_id, "owner_id": owner_id},
             )
             .mappings()
             .one_or_none()
@@ -108,15 +116,17 @@ class PostgresEpisodeRepository:
 
     def list_page(
         self,
+        owner_id: UUID,
         *,
         show_id: UUID | None,
         status: EpisodeStatus | None,
         limit: int,
         offset: int,
     ) -> Paged[EpisodeRead]:
-        """Newest first. Filters are fixed SQL fragments; their values are bound parameters."""
-        where = ["TRUE"]
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        """The owner's episodes, newest first. Filters are fixed SQL fragments; their values are
+        bound parameters."""
+        where = [_OWNED]
+        params: dict[str, Any] = {"owner_id": owner_id, "limit": limit, "offset": offset}
         if show_id is not None:
             where.append("show_id = :show_id")
             params["show_id"] = show_id

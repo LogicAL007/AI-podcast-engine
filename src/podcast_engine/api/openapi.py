@@ -34,6 +34,13 @@ TAGS: list[dict[str, Any]] = [
             "automatic discovery."
         ),
     },
+    {
+        "name": "auth",
+        "description": (
+            "Accounts, login tokens and API keys. Tokens and keys are sent as "
+            "`Authorization: Bearer <token>` and last six months."
+        ),
+    },
     {"name": "shows", "description": "A show: its topic, style, hosts and source pages."},
     {
         "name": "episodes",

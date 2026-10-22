@@ -5,7 +5,7 @@ Needs the schema from db/init applied. Start it with ``docker compose up -d post
 """
 
 from collections.abc import Iterator
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text
@@ -32,36 +32,62 @@ def session() -> Iterator[Session]:
         yield db
 
 
+def _owner(session: Session) -> UUID:
+    user_id: UUID = session.execute(
+        text("INSERT INTO users (email, password_hash) VALUES (:email, 'x') RETURNING user_id"),
+        {"email": f"repo-{uuid4()}@example.invalid"},
+    ).scalar_one()
+    session.commit()
+    return user_id
+
+
 def test_show_crud_round_trip(session: Session) -> None:
     shows = PostgresShowRepository(session)
-    created = shows.add(ShowCreate(topic="Integration topic", sources=["https://example.org/a"]))
+    owner = _owner(session)
+    created = shows.add(
+        ShowCreate(topic="Integration topic", sources=["https://example.org/a"]), owner
+    )
     try:
-        assert shows.get(created.show_id) == created
-        updated = shows.update(created.show_id, {"host_count": 3, "sources": ["https://x.org/b"]})
+        assert shows.get(created.show_id, owner) == created
+        assert shows.get(created.show_id, uuid4()) is None  # someone else's: not there
+        updated = shows.update(
+            created.show_id, owner, {"host_count": 3, "sources": ["https://x.org/b"]}
+        )
         assert updated is not None
         assert updated.host_count == 3
         assert updated.sources == ["https://x.org/b"]
-        assert created.show_id in [s.show_id for s in shows.list_page(limit=100, offset=0).items]
+        listed = shows.list_page(owner, limit=100, offset=0).items
+        assert created.show_id in [s.show_id for s in listed]
+        assert shows.list_page(uuid4(), limit=100, offset=0).total == 0
     finally:
-        assert shows.delete(created.show_id)
-    assert shows.get(created.show_id) is None
-    assert shows.update(uuid4(), {"topic": "nope"}) is None
+        assert not shows.delete(created.show_id, uuid4())  # not someone else's to delete
+        assert shows.delete(created.show_id, owner)
+    assert shows.get(created.show_id, owner) is None
+    assert shows.update(uuid4(), owner, {"topic": "nope"}) is None
 
 
 def test_episode_lifecycle_and_cascade(session: Session) -> None:
     shows = PostgresShowRepository(session)
     episodes = PostgresEpisodeRepository(session)
-    show = shows.add(ShowCreate(topic="Episode owner"))
+    owner = _owner(session)
+    show = shows.add(ShowCreate(topic="Episode owner"), owner)
     episode = episodes.add(show.show_id)
     assert episode.status is EpisodeStatus.QUEUED
 
     episodes.set_status(episode.episode_id, EpisodeStatus.FAILED)
-    fetched = episodes.get(episode.episode_id)
+    fetched = episodes.get(episode.episode_id, owner)
     assert fetched is not None
     assert fetched.status is EpisodeStatus.FAILED
-    listed = episodes.list_page(show_id=show.show_id, status=None, limit=10, offset=0)
+    listed = episodes.list_page(owner, show_id=show.show_id, status=None, limit=10, offset=0)
     assert [e.episode_id for e in listed.items] == [episode.episode_id]
     assert listed.total == 1
+    stranger = _owner(session)  # another account: the episode is not theirs, so not there
+    assert episodes.get(episode.episode_id, stranger) is None
+    assert episodes.list_page(stranger, show_id=None, status=None, limit=10, offset=0).total == 0
+    assert (
+        episodes.list_page(stranger, show_id=show.show_id, status=None, limit=10, offset=0).items
+        == []
+    )
 
-    shows.delete(show.show_id)
-    assert episodes.get(episode.episode_id) is None
+    shows.delete(show.show_id, owner)
+    assert episodes.get(episode.episode_id, owner) is None

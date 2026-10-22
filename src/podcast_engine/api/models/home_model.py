@@ -56,6 +56,7 @@ class Operation(BaseModel):
     operation_id: str = Field(alias="operationId", description="Its id in the OpenAPI description")
     paginated: bool = Field(description="Returns a page (`limit`, `offset`, `next`)")
     filters: list[str] = Field(description="Query parameters other than paging")
+    authenticated: bool = Field(description="Accepts or needs a bearer token")
     success: list[int] = Field(description="Success status codes", examples=[[200]])
     errors: list[int] = Field(description="Error status codes it documents", examples=[[404]])
     docs: str = Field(description="This operation in the interactive documentation")
@@ -85,6 +86,10 @@ class Auth(BaseModel):
     required: bool = Field(description="Whether any request needs credentials")
     schemes: list[AuthScheme] = Field(description="Authentication schemes the API accepts")
     login: str | None = Field(description="Where to obtain credentials; null when there is none")
+    api_keys: str | None = Field(default=None, description="Where to create API keys")
+    token_lifetime_days: int | None = Field(
+        default=None, description="How long a login token or API key works after it is issued"
+    )
     note: str = Field(description="What a client should know")
 
 

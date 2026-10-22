@@ -10,7 +10,7 @@ from podcast_engine.api.models.home_model import (
     JSON_HOME_MEDIA_TYPE,
     LINKSET_MEDIA_TYPE,
 )
-from podcast_engine.api.services.home_service import build_catalog, build_home
+from podcast_engine.api.services.home_service import bearer_auth, build_catalog, build_home
 
 CACHE = "public, max-age=300"  # it changes only when the API is redeployed
 
@@ -39,10 +39,15 @@ def discovery_links(base: str) -> str:
 
 
 class HomeController:
+    def __init__(self, *, token_days: int) -> None:
+        self._token_days = token_days
+
     def home(self, request: Request, schema: dict[str, Any]) -> Response:
         """The home document, as ``application/json-home`` when the client asks for it."""
         base = public_base(request)
-        document = build_home(schema, base=base)
+        document = build_home(
+            schema, base=base, auth=bearer_auth(base=base, token_days=self._token_days)
+        )
         accept = request.headers.get("accept", "")
         media_type = JSON_HOME_MEDIA_TYPE if JSON_HOME_MEDIA_TYPE in accept else "application/json"
         body = document.model_dump(mode="json", by_alias=True, exclude_none=True)

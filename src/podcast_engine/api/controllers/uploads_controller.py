@@ -16,17 +16,21 @@ class UploadController:
     def max_bytes(self) -> int:
         return self._service.max_bytes
 
-    def add(self, show_id: UUID, *, filename: str, data: bytes) -> UploadRead:
-        return http_errors(lambda: self._service.add(show_id, filename=filename, data=data))
+    def add(self, show_id: UUID, owner: UUID, *, filename: str, data: bytes) -> UploadRead:
+        return http_errors(lambda: self._service.add(show_id, owner, filename=filename, data=data))
 
-    def get(self, show_id: UUID, upload_id: UUID) -> UploadRead:
-        return http_errors(lambda: self._service.get(show_id, upload_id))
+    def get(self, show_id: UUID, upload_id: UUID, owner: UUID) -> UploadRead:
+        return http_errors(lambda: self._service.get(show_id, upload_id, owner))
 
     def get_file(self, show_id: UUID, upload_id: UUID) -> UploadContent:
         return http_errors(lambda: self._service.get_file(show_id, upload_id))
 
-    def list_for_show(self, show_id: UUID, *, limit: int, offset: int) -> Paged[UploadRead]:
-        return http_errors(lambda: self._service.list_for_show(show_id, limit=limit, offset=offset))
+    def list_for_show(
+        self, show_id: UUID, owner: UUID, *, limit: int, offset: int
+    ) -> Paged[UploadRead]:
+        return http_errors(
+            lambda: self._service.list_for_show(show_id, owner, limit=limit, offset=offset)
+        )
 
-    def delete(self, show_id: UUID, upload_id: UUID) -> None:
-        http_errors(lambda: self._service.delete(show_id, upload_id))
+    def delete(self, show_id: UUID, upload_id: UUID, owner: UUID) -> None:
+        http_errors(lambda: self._service.delete(show_id, upload_id, owner))

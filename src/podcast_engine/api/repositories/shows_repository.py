@@ -17,10 +17,10 @@ _COLUMNS = (
 )
 _INSERT = (
     "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources,"  # noqa: S608
-    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice)"
+    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, owner_id)"
     " VALUES (:topic, :tone, :target_minutes, :host_count, :language, :expertise,"
     " CAST(:sources AS jsonb), :topic_keywords, :attribution, :max_segments, :ranking_profile,"
-    " :review_before_voice)"
+    " :review_before_voice, :owner_id)"
     f" RETURNING {_COLUMNS}"
 )
 _UPDATABLE = frozenset(
@@ -42,15 +42,27 @@ _UPDATABLE = frozenset(
 
 
 class ShowRepository(Protocol):
-    def add(self, data: ShowCreate) -> ShowRead: ...
+    """Every method is scoped to one owner: another user's show does not exist for them."""
 
-    def get(self, show_id: UUID) -> ShowRead | None: ...
+    def add(self, data: ShowCreate, owner_id: UUID) -> ShowRead: ...
 
-    def list_page(self, *, limit: int, offset: int) -> Paged[ShowRead]: ...
+    def get(self, show_id: UUID, owner_id: UUID) -> ShowRead | None: ...
 
-    def update(self, show_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None: ...
+    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[ShowRead]: ...
 
-    def delete(self, show_id: UUID) -> bool: ...
+    def update(
+        self, show_id: UUID, owner_id: UUID, changes: Mapping[str, Any]
+    ) -> ShowRead | None: ...
+
+    def delete(self, show_id: UUID, owner_id: UUID) -> bool: ...
+
+    def claim_unowned(self, owner_id: UUID) -> int: ...
+
+    def stored_files(
+        self, *, owner_id: UUID | None = None, show_id: UUID | None = None
+    ) -> list[str]:
+        """Object-storage keys of the files under a user's shows (or one show)."""
+        ...
 
 
 class PostgresShowRepository:
@@ -59,11 +71,11 @@ class PostgresShowRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(self, data: ShowCreate) -> ShowRead:
+    def add(self, data: ShowCreate, owner_id: UUID) -> ShowRead:
         row = (
             self._session.execute(
                 text(_INSERT),
-                _to_params(data.model_dump(mode="json")),
+                {**_to_params(data.model_dump(mode="json")), "owner_id": owner_id},
             )
             .mappings()
             .one()
@@ -71,29 +83,35 @@ class PostgresShowRepository:
         self._session.commit()
         return ShowRead.model_validate(row)
 
-    def get(self, show_id: UUID) -> ShowRead | None:
+    def get(self, show_id: UUID, owner_id: UUID) -> ShowRead | None:
         row = (
             self._session.execute(
-                text(f"SELECT {_COLUMNS} FROM shows WHERE show_id = :show_id"),  # noqa: S608
-                {"show_id": show_id},
+                text(
+                    f"SELECT {_COLUMNS} FROM shows"  # noqa: S608 - constant column list
+                    " WHERE show_id = :show_id AND owner_id = :owner_id"
+                ),
+                {"show_id": show_id, "owner_id": owner_id},
             )
             .mappings()
             .one_or_none()
         )
         return ShowRead.model_validate(row) if row else None
 
-    def list_page(self, *, limit: int, offset: int) -> Paged[ShowRead]:
+    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[ShowRead]:
+        params = {"owner_id": owner_id, "limit": limit, "offset": offset}
         rows = self._session.execute(
             text(
-                f"SELECT {_COLUMNS} FROM shows"  # noqa: S608 - constant column list
+                f"SELECT {_COLUMNS} FROM shows WHERE owner_id = :owner_id"  # noqa: S608
                 " ORDER BY created_at DESC, show_id LIMIT :limit OFFSET :offset"
             ),
-            {"limit": limit, "offset": offset},
+            params,
         ).mappings()
-        total = self._session.execute(text("SELECT count(*) FROM shows")).scalar_one()
+        total = self._session.execute(
+            text("SELECT count(*) FROM shows WHERE owner_id = :owner_id"), params
+        ).scalar_one()
         return Paged([ShowRead.model_validate(row) for row in rows], int(total))
 
-    def update(self, show_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None:
+    def update(self, show_id: UUID, owner_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None:
         unknown = set(changes) - _UPDATABLE
         if unknown:
             raise ValueError(f"not updatable: {sorted(unknown)}")
@@ -107,10 +125,11 @@ class PostgresShowRepository:
         row = (
             self._session.execute(
                 text(
-                    f"UPDATE shows SET {assignments} WHERE show_id = :show_id"  # noqa: S608
+                    f"UPDATE shows SET {assignments}"  # noqa: S608
+                    " WHERE show_id = :show_id AND owner_id = :owner_id"
                     f" RETURNING {_COLUMNS}"
                 ),
-                {**_to_params(changes), "show_id": show_id},
+                {**_to_params(changes), "show_id": show_id, "owner_id": owner_id},
             )
             .mappings()
             .one_or_none()
@@ -118,12 +137,45 @@ class PostgresShowRepository:
         self._session.commit()
         return ShowRead.model_validate(row) if row else None
 
-    def delete(self, show_id: UUID) -> bool:
+    def delete(self, show_id: UUID, owner_id: UUID) -> bool:
         result = self._session.execute(
-            text("DELETE FROM shows WHERE show_id = :show_id"), {"show_id": show_id}
+            text("DELETE FROM shows WHERE show_id = :show_id AND owner_id = :owner_id"),
+            {"show_id": show_id, "owner_id": owner_id},
         )
         self._session.commit()
         return bool(result.rowcount)  # type: ignore[attr-defined]
+
+    def claim_unowned(self, owner_id: UUID) -> int:
+        """Give shows made before login existed to this user (the first admin)."""
+        result = self._session.execute(
+            text("UPDATE shows SET owner_id = :owner_id WHERE owner_id IS NULL"),
+            {"owner_id": owner_id},
+        )
+        self._session.commit()
+        return int(result.rowcount)  # type: ignore[attr-defined]
+
+    def stored_files(
+        self, *, owner_id: UUID | None = None, show_id: UUID | None = None
+    ) -> list[str]:
+        """Every object-storage key belonging to the owner's shows (or one show): episode audio
+        (WAV and MP3) and notes, uploaded PDFs, and the shows' feeds. Read before deleting rows,
+        so the files can be removed too."""
+        if (owner_id is None) == (show_id is None):
+            raise ValueError("give exactly one of owner_id or show_id")
+        scope = "s.owner_id = :id" if owner_id is not None else "s.show_id = :id"
+        query = (  # noqa: S608, UP032
+            "SELECT k FROM (SELECT unnest(ARRAY[e.audio_key, e.audio_mp3_key, e.notes_key]) AS k"
+            " FROM episodes e JOIN shows s ON s.show_id = e.show_id WHERE {scope}"
+            " UNION ALL SELECT u.object_key"
+            " FROM uploads u JOIN shows s ON s.show_id = u.show_id WHERE {scope}"
+            " UNION ALL SELECT 'feeds/' || s.show_id || '.xml' FROM shows s WHERE {scope}) keys"
+            " WHERE k IS NOT NULL"
+        ).format(scope=scope)  # scope is one of two fixed strings
+        rows = self._session.execute(
+            text(query),
+            {"id": owner_id or show_id},
+        )
+        return [row.k for row in rows]
 
 
 def _to_params(values: Mapping[str, Any]) -> dict[str, Any]:

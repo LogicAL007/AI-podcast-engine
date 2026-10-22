@@ -1,16 +1,15 @@
 """Routes for uploaded sources: paths, status codes and OpenAPI metadata only."""
 
 from typing import Annotated
-from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Path, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Path, Request, UploadFile, status
 
 from podcast_engine.api.controllers.uploads_controller import UploadController
-from podcast_engine.api.dependencies import get_upload_controller
+from podcast_engine.api.dependencies import CurrentUserDep, get_upload_controller
 from podcast_engine.api.models.pagination_model import Page
-from podcast_engine.api.models.uploads_model import PDF_MEDIA_TYPE, UploadRead
-from podcast_engine.api.openapi import errors, file_response
+from podcast_engine.api.models.uploads_model import UploadRead
+from podcast_engine.api.openapi import errors
 from podcast_engine.api.pagination import Paging, to_page
 
 router = APIRouter(prefix="/shows/{show_id}/uploads", tags=["uploads"])
@@ -33,6 +32,7 @@ NOT_FOUND = errors(e404="Show or upload not found")
 )
 def upload_source(
     show_id: ShowId,
+    me: CurrentUserDep,
     controller: Controller,
     file: Annotated[UploadFile, File(description="A PDF; the limit is 25 MB unless configured")],
 ) -> UploadRead:
@@ -40,7 +40,7 @@ def upload_source(
     starts a citable section (or each page, if the PDF has no headings), and citations in the show
     notes link to the page they come from. Uploads are private to the API."""
     data = file.file.read(controller.max_bytes + 1)  # one byte over the limit is enough to refuse
-    return controller.add(show_id, filename=file.filename or "upload.pdf", data=data)
+    return controller.add(show_id, me.user_id, filename=file.filename or "upload.pdf", data=data)
 
 
 @router.get(
@@ -51,10 +51,14 @@ def upload_source(
     responses=errors(e404="Show not found"),
 )
 def list_uploads(
-    show_id: ShowId, controller: Controller, paging: Paging, request: Request
+    show_id: ShowId,
+    me: CurrentUserDep,
+    controller: Controller,
+    paging: Paging,
+    request: Request,
 ) -> Page[UploadRead]:
     """The files uploaded as sources for the show, newest first."""
-    result = controller.list_for_show(show_id, limit=paging.limit, offset=paging.offset)
+    result = controller.list_for_show(show_id, me.user_id, limit=paging.limit, offset=paging.offset)
     return to_page(result, paging, request)
 
 
@@ -65,26 +69,11 @@ def list_uploads(
     response_description="The upload",
     responses=NOT_FOUND,
 )
-def get_upload(show_id: ShowId, upload_id: UploadId, controller: Controller) -> UploadRead:
+def get_upload(
+    show_id: ShowId, upload_id: UploadId, me: CurrentUserDep, controller: Controller
+) -> UploadRead:
     """One upload's name, size and download link."""
-    return controller.get(show_id, upload_id)
-
-
-@router.get(
-    "/{upload_id}/file",
-    response_class=Response,
-    summary="Download an uploaded file",
-    responses={**file_response(PDF_MEDIA_TYPE, "The PDF", binary=True), **NOT_FOUND},
-)
-def download_upload(show_id: ShowId, upload_id: UploadId, controller: Controller) -> Response:
-    """The uploaded PDF, as it was uploaded. Show-note citations of uploaded sources link here,
-    with `#page=N` so a PDF viewer opens at the cited page."""
-    content = controller.get_file(show_id, upload_id)
-    return Response(
-        content.data,
-        media_type=content.content_type,
-        headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(content.filename)}"},
-    )
+    return controller.get(show_id, upload_id, me.user_id)
 
 
 @router.delete(
@@ -94,7 +83,9 @@ def download_upload(show_id: ShowId, upload_id: UploadId, controller: Controller
     response_description="Deleted",
     responses=NOT_FOUND,
 )
-def delete_upload(show_id: ShowId, upload_id: UploadId, controller: Controller) -> None:
+def delete_upload(
+    show_id: ShowId, upload_id: UploadId, me: CurrentUserDep, controller: Controller
+) -> None:
     """Remove the upload and its file. Its sections leave the show's sources at the next episode,
     which regenerates the segments that used them."""
-    controller.delete(show_id, upload_id)
+    controller.delete(show_id, upload_id, me.user_id)

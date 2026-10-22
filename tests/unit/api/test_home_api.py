@@ -46,7 +46,9 @@ def test_every_endpoint_is_listed_with_its_methods(
         variables = re.findall(r"{(\w+)}", path)
         assert sorted(resource.get("hrefVars", {})) == sorted(variables), path
         assert resource["hints"]["docs"].startswith("http://testserver/docs#/")
-        assert resource["hints"]["authSchemes"] == []
+        protected = any(op.get("security") for op in schema["paths"][path].values())
+        expected_auth = [{"scheme": "Bearer", "realms": []}] if protected else []
+        assert resource["hints"]["authSchemes"] == expected_auth, path
         assert {op["operationId"] for op in resource["operations"]} == {
             op["operationId"] for op in schema["paths"][path].values()
         }
@@ -76,8 +78,15 @@ def test_home_states_authentication_and_health(
 ) -> None:
     _, home, _ = client_docs
     auth = home["api"]["auth"]
-    assert auth == {"required": False, "schemes": [], "login": None, "note": auth["note"]}
-    assert "trusted network" in auth["note"]
+    assert auth["required"] is True
+    assert auth["schemes"] == [{"scheme": "Bearer", "realms": []}]
+    assert auth["login"] == "http://testserver/auth/login"
+    assert auth["api_keys"] == "http://testserver/auth/api-keys"
+    assert auth["token_lifetime_days"] == 180
+    resources = home["resources"]
+    assert resources[PREFIX + "shows"]["hints"]["authSchemes"]  # protected
+    assert resources[PREFIX + "episode-audio"]["hints"]["authSchemes"] == []  # public for apps
+    assert resources[PREFIX + "feed-rss"]["hints"]["authSchemes"] == []
     assert home["api"]["health"] == {
         "live": "http://testserver/health",
         "ready": "http://testserver/ready",

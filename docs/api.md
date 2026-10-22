@@ -61,6 +61,17 @@ the unit tests run the whole API with in-memory fakes.
 
 | Method | Path | Operation id | Success | Errors | Notes |
 |---|---|---|---|---|---|
+| POST | `/auth/register` | `register` | 201 | 401, 403, 409, 422 | First account needs no token and becomes admin; later ones need an admin's token |
+| POST | `/auth/login` | `login` | 200 | 401, 422 | Email + password → login token (six months) |
+| POST | `/auth/password-reset` | `request_password_reset` | 202 | 422, 429 | Emails a single-use link (30 min); same answer for any email |
+| POST | `/auth/password-reset/confirm` | `confirm_password_reset` | 204 | 422, 429 | New password with the link's token; ends every sign-in |
+| POST | `/auth/password` | `change_password` | 204 | 401, 403 | Change your password; ends your other sign-ins |
+| POST | `/auth/logout` | `logout` | 204 | 401 | Revokes the token used |
+| GET | `/auth/me` | `whoami` | 200 | 401 | The account and token behind the request |
+| GET | `/auth/users` | `list_users` | 200 | 401, 403 | Page of accounts (admins) |
+| POST | `/auth/api-keys` | `create_api_key` | 201 | 401, 422 | New API key, shown once (six months) |
+| GET | `/auth/api-keys` | `list_api_keys` | 200 | 401 | Page of your keys, without the keys |
+| DELETE | `/auth/api-keys/{token_id}` | `revoke_api_key` | 204 | 401, 404 | Revoke one of your keys |
 | GET | `/home` (also `/`) | `home` | 200 | | Start here: every resource with its URI or template, methods, formats, ranges, paging and docs link; authentication; health links; conventions |
 | GET, HEAD | `/.well-known/api-catalog` | `api_catalog`, `api_catalog_head` | 200 | | RFC 9727 API catalog (`application/linkset+json`) for automatic discovery |
 | POST | `/shows` | `create_show` | 201 | 422 | Create a show (FR1) |
@@ -92,6 +103,46 @@ the unit tests run the whole API with in-memory fakes.
 | GET | `/health` | `health` | 200 | | Liveness only |
 | GET | `/ready` | `ready` | 200 | 503 | Database, queue and storage; 503 names the failing one |
 | GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema |
+
+**Login.** Every route under `/shows`, `/episodes` (except an episode's audio and notes) and
+`/shows/{id}/sources` or `/uploads` (except an upload's file) needs `Authorization: Bearer <token>`.
+The token is a login token from `POST /auth/login` (prefix `pes_`) or an API key from
+`POST /auth/api-keys` (prefix `pek_`). Both are random strings that expire 180 days after issue
+(`AUTH_TOKEN_DAYS`), and both can be revoked sooner: `POST /auth/logout` for the token in use, or
+`DELETE /auth/api-keys/{id}`. Only an HMAC-SHA256 of each is stored, keyed with a secret held in
+Vault. Passwords are hashed with Argon2id and need at least 12 characters. A wrong email and a
+wrong password get the same answer and take the same time. The first account to register becomes
+the admin, and only an admin can add accounts after that. Public, so podcast apps and listeners
+can use them: discovery (`/home`, `/.well-known/api-catalog`), `/auth/login` and `/auth/register`,
+`/health`, `/ready`, feeds, episode audio and notes, and uploaded PDFs (their URLs carry random ids).
+Without a token key configured, login answers 503.
+
+**Attempt limits** (after OWASP's authentication guidance):
+
+- **Account lock:** five failed logins on one account within 15 minutes lock it for 15 minutes.
+  The lock is temporary, and a password reset lifts it. The answer stays "wrong email or password"
+  throughout, and unknown emails are counted the same way, so a lock reveals nothing.
+- **Per-address limit:** 50 failures from one address in 15 minutes get `429` with `Retry-After`.
+- **Shared and private:** the counters are in Redis, shared by every API process, and keyed by a
+  hash of the email.
+- **All settable:** `LOGIN_MAX_FAILURES`, `LOGIN_IP_MAX_FAILURES`, `LOGIN_WINDOW_MINUTES` and
+  `LOGIN_LOCKOUT_MINUTES`.
+
+**Password reset** (after OWASP's forgot-password guidance):
+
+- **The request** answers the same for any email, and sends the email after the response.
+- **The link** is single-use, valid for 30 minutes, and only the newest one works. It is stored
+  only as an HMAC. It is built from `PUBLIC_WEB_URL`, never from the request, and carries the
+  token in the fragment (`/reset-password#token=...`), which browsers never send to servers.
+- **Confirming** sets the password, revokes every token and API key, lifts any lock, emails a
+  notice, and does not sign you in.
+- **Limits:** three requests per account per hour, and per-address limits on guessing tokens.
+- **Changing your password** while signed in ends your other sign-ins.
+
+**Ownership.** Every show belongs to the account that created it, and everything under it
+(episodes, sources, uploads, claims, runs) follows from that. A user sees only their own shows.
+Another user's show, episode or upload answers 404, the same as one that does not exist. Admins
+are no exception. See [the data model](erd.md).
 
 **Discovery.** `/home` is a JSON home document ([draft-nottingham-json-home-06](https://datatracker.ietf.org/doc/html/draft-nottingham-json-home)):
 `api` holds the title, version, links (by [RFC 8631](https://www.rfc-editor.org/rfc/rfc8631)
@@ -242,4 +293,4 @@ A new resource gets one file in each layer folder (`<resource>_router.py`, `_con
 ## Not built yet
 
 - Search results as a source, and pages behind authentication.
-- Authentication and per-creator ownership of shows.
+- Login rate limiting and password reset.

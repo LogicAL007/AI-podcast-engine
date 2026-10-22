@@ -14,7 +14,9 @@ class SourceService:
         self._sources = sources
         self._shows = shows
 
-    def list_for_show(self, show_id: UUID, *, limit: int, offset: int) -> Paged[SourceRead]:
-        if self._shows.get(show_id) is None:
+    def list_for_show(
+        self, show_id: UUID, owner: UUID, *, limit: int, offset: int
+    ) -> Paged[SourceRead]:
+        if self._shows.get(show_id, owner) is None:
             raise NotFoundError("show", show_id)
         return self._sources.list_page(show_id, limit=limit, offset=offset)

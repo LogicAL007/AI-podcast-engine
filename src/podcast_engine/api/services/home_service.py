@@ -11,6 +11,7 @@ from podcast_engine.api.models.home_model import (
     ApiCatalog,
     ApiInfo,
     Auth,
+    AuthScheme,
     HealthLinks,
     Hints,
     HomeDocument,
@@ -68,7 +69,7 @@ def _media_types(responses: dict[str, Any], *, success: bool) -> list[str]:
     return list(dict.fromkeys(types))
 
 
-def build_home(schema: dict[str, Any], *, base: str, auth_required: bool = False) -> HomeDocument:
+def build_home(schema: dict[str, Any], *, base: str, auth: Auth) -> HomeDocument:
     """The home document for an OpenAPI description. ``base`` is the API's public base URL."""
     info = schema["info"]
     resources: dict[str, Resource] = {}
@@ -104,6 +105,7 @@ def build_home(schema: dict[str, Any], *, base: str, auth_required: bool = False
                     operationId=op["operationId"],
                     paginated=set(queries) >= PAGING,
                     filters=[q for q in queries if q not in PAGING],
+                    authenticated=bool(op.get("security")),
                     success=sorted(int(c) for c in op["responses"] if c[0] in "23"),
                     errors=sorted(int(c) for c in op["responses"] if c[0] in "45"),
                     docs=f"{base}/docs#/{tag}/{op['operationId']}",
@@ -116,7 +118,9 @@ def build_home(schema: dict[str, Any], *, base: str, auth_required: bool = False
             accept_patch=accept_patch,
             accept_ranges=["bytes"] if ranges else None,
             docs=listed[ordered.index("GET") if "GET" in ordered else 0].docs,
-            auth_schemes=[],
+            auth_schemes=(
+                [AuthScheme(scheme="Bearer")] if any(o.authenticated for o in listed) else []
+            ),
             status="deprecated" if all(op.get("deprecated") for op in methods.values()) else None,
         )
         resource = Resource(
@@ -134,15 +138,6 @@ def build_home(schema: dict[str, Any], *, base: str, auth_required: bool = False
         )
         resources[relation_for(path)] = resource
 
-    auth = Auth(
-        required=auth_required,
-        schemes=[],
-        login=None,
-        note=(
-            "No authentication: every endpoint is open. Run the API only on a trusted network "
-            "(the compose stack binds it to localhost)."
-        ),
-    )
     api = ApiInfo(
         title=info["title"],
         version=info["version"],
@@ -160,6 +155,24 @@ def build_home(schema: dict[str, Any], *, base: str, auth_required: bool = False
         conventions=CONVENTIONS,
     )
     return HomeDocument(api=api, resources=resources)
+
+
+def bearer_auth(*, base: str, token_days: int) -> Auth:
+    """How this API authenticates, for the home document."""
+    return Auth(
+        required=True,
+        schemes=[AuthScheme(scheme="Bearer")],
+        login=f"{base}/auth/login",
+        api_keys=f"{base}/auth/api-keys",
+        token_lifetime_days=token_days,
+        note=(
+            "Send `Authorization: Bearer <token>`. Get a login token from POST /auth/login (email "
+            "and password), or create an API key at POST /auth/api-keys; both work for "
+            f"{token_days} days and can be revoked sooner. Discovery, login, health, feeds, "
+            "episode audio, show notes and uploaded PDFs are public, so podcast apps can fetch "
+            "them."
+        ),
+    )
 
 
 def build_catalog(*, base: str, title: str) -> ApiCatalog:
