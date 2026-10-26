@@ -38,6 +38,7 @@ class ShowRecord(_Record):
     max_segments: int
     ranking_profile: str
     review_before_voice: bool = False
+    host_voices: dict[str, str] = {}  # host name -> voice_id of a registered (consented) voice
 
 
 class EpisodeRecord(_Record):
@@ -59,6 +60,17 @@ class EpisodeRecord(_Record):
     created_at: datetime
     published_at: datetime | None
     approved_at: datetime | None = None
+
+
+class VoiceRecord(_Record):
+    """A registered voice and its consent record; the recording is in storage at ``object_key``."""
+
+    voice_id: UUID
+    speaker: str
+    license: str
+    consent: dict[str, Any]
+    object_key: str
+    sha256: str
 
 
 class UploadRecord(_Record):
@@ -193,7 +205,7 @@ class PipelineRepository:
                         "SELECT show_id, topic, tone, target_minutes, host_count, language, "
                         "expertise, "
                         "sources, topic_keywords, attribution, max_segments, ranking_profile, "
-                        "review_before_voice "
+                        "review_before_voice, host_voices "
                         "FROM shows WHERE show_id = :id"
                     ),
                     {"id": show_id},
@@ -272,6 +284,22 @@ class PipelineRepository:
                 {"id": show_id},
             ).mappings()
             return [UploadRecord.model_validate(dict(row)) for row in rows]
+
+    def get_voices(self, voice_ids: Iterable[str]) -> dict[str, VoiceRecord]:
+        """Registered voices by id (as text); ids that no longer exist are left out."""
+        ids = sorted(set(voice_ids))
+        if not ids:
+            return {}
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT voice_id, speaker, license, consent, object_key, sha256 FROM voices"
+                    " WHERE voice_id = ANY(CAST(:ids AS uuid[]))"
+                ),
+                {"ids": ids},
+            ).mappings()
+            records = [VoiceRecord.model_validate(dict(row)) for row in rows]
+        return {str(record.voice_id): record for record in records}
 
     def list_published(self, show_id: UUID) -> list[EpisodeRecord]:
         with self._engine.connect() as connection:

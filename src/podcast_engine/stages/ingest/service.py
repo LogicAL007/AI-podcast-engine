@@ -37,7 +37,11 @@ def load_docs(show: ShowRecord, ctx: PipelineContext) -> list[SourceDoc]:
     fetch = ctx.fetch or fetch_html
     docs: list[SourceDoc] = []
 
-    def add(url: str, section: Section, published: datetime | None, tier: ReliabilityTier) -> None:
+    # "Section" is quoted: it is imported only for type checking, and Python 3.12 (the images)
+    # evaluates a nested function's annotations when it is defined, unlike 3.14.
+    def add(
+        url: str, section: "Section", published: datetime | None, tier: ReliabilityTier
+    ) -> None:
         docs.append(
             SourceDoc(
                 url=f"{url}#{section.anchor}" if section.anchor and "#" not in url else url,
@@ -74,7 +78,7 @@ def load_docs(show: ShowRecord, ctx: PipelineContext) -> list[SourceDoc]:
             raise ValueError(f"No usable text found in the upload {upload.filename}")
         # Citations link to the file through the API, at the page the passage is on.
         file_url = (
-            f"{ctx.settings.public_feed_base_url}/api/shows/{show.show_id}"
+            f"{ctx.settings.public_feed_base_url}/api/v1/shows/{show.show_id}"
             f"/uploads/{upload.upload_id}/file"
         )
         for section in pdf.sections:

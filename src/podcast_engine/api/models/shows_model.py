@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, AnyHttpUrl, BaseModel, ConfigDict, Field
 
+from podcast_engine.common.context import HOST_NAMES
 from podcast_engine.common.models import ExpertiseLevel, Tone
 
 Topic = Annotated[
@@ -67,6 +68,27 @@ ReviewBeforeVoice = Annotated[
         )
     ),
 ]
+
+
+def _known_hosts(value: dict[str, UUID]) -> dict[str, UUID]:
+    unknown = sorted(set(value) - set(HOST_NAMES))
+    if unknown:
+        raise ValueError(f"hosts are named {', '.join(HOST_NAMES)}; not {', '.join(unknown)}")
+    return value
+
+
+HostVoices = Annotated[
+    dict[str, UUID],
+    AfterValidator(_known_hosts),
+    Field(
+        description=(
+            "A registered voice (see /voices) for each host who should speak with it, by host "
+            "name: Alex, Sam, Jordan, Riley. Used by the Chatterbox voice backend; other hosts, "
+            "and other backends, keep their own voices"
+        ),
+        examples=[{"Alex": "6f1c2e8a-0d5b-4f7e-9a3c-2b8d1e4f5a6b"}],
+    ),
+]
 RankingProfile = Annotated[
     Literal["daily", "explainer"],
     Field(description="`daily` favours fresh sources; `explainer` favours authoritative ones"),
@@ -105,6 +127,7 @@ class ShowCreate(BaseModel):
     max_segments: MaxSegments = 6
     ranking_profile: RankingProfile = "explainer"
     review_before_voice: ReviewBeforeVoice = False
+    host_voices: HostVoices = {}
 
 
 class ShowUpdate(BaseModel):
@@ -126,6 +149,7 @@ class ShowUpdate(BaseModel):
     max_segments: MaxSegments | None = None
     ranking_profile: RankingProfile | None = None
     review_before_voice: ReviewBeforeVoice | None = None
+    host_voices: HostVoices | None = None
 
 
 class ShowRead(BaseModel):
@@ -147,5 +171,8 @@ class ShowRead(BaseModel):
     ranking_profile: str = Field(default="explainer", description="`daily` or `explainer`")
     review_before_voice: bool = Field(
         default=False, description="Episodes pause for approval before voicing"
+    )
+    host_voices: dict[str, UUID] = Field(
+        default_factory=dict, description="Registered voice per host name, for Chatterbox"
     )
     created_at: datetime = Field(description="When the show was created")

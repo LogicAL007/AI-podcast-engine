@@ -153,3 +153,18 @@ def test_account_management_and_security_log_in_sql(engine: Engine) -> None:
         with engine.begin() as connection:
             connection.execute(text("DELETE FROM users"))
             connection.execute(text("DELETE FROM security_events"))
+
+
+def test_the_chosen_bot_is_stored_and_returned_with_the_user(
+    service: tuple[AuthService, list[datetime]],
+) -> None:
+    from podcast_engine.api.models.auth_model import Avatar
+
+    auth, _ = service
+    auth.register("ada@example.org", PASSWORD, "creator", by=None)
+    token = auth.login("ada@example.org", PASSWORD).access_token
+    me = auth.authenticate(token)
+    assert me.avatar is None
+    auth.set_avatar(me, Avatar(character="rex", name="Rex", color="sky", accessory="headphones"))
+    again = auth.authenticate(token)
+    assert again.avatar == Avatar(character="rex", name="Rex", color="sky", accessory="headphones")

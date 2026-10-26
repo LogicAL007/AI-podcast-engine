@@ -10,7 +10,10 @@ passage. See the PRD for goals, requirements (FR1–FR13) and the evaluation pla
 ingest → index → retrieve_plan → script ⇄ factcheck → voice → assemble → publish
 ```
 
-Every stage is its own worker container consuming its own Redis queue. Workers are stateless:
+Every stage has its own Redis queue, so it retries on its own. Five worker containers serve the
+eight queues, grouped by what they need installed (`ingest_publish`, `index_plan`,
+`script_factcheck`, `voice`, `assemble`); scale a group with `docker compose up -d --scale`.
+Workers are stateless:
 they pass only the episode id, and read and write state in Postgres (pgvector) and S3-compatible storage.
 `factcheck` sends scripts with unsupported claims back to `script` until `MAX_REWRITES` is
 spent, then holds the episode for human review.
@@ -23,7 +26,7 @@ src/podcast_engine/
   stages/<stage>/  service.py (typed logic) + tasks.py (queue entrypoint), one per stage
   api/             routers/ controllers/ services/ models/ repositories/, one <resource>_<layer>.py each
   scheduler/       periodic refresh of published shows (FR8)
-  worker.py        `python -m podcast_engine.worker <stage>`
+  worker.py        `python -m podcast_engine.worker <stage> [<stage> ...]`
   pipeline.py      `python -m podcast_engine.pipeline`: every stage in one process (tests, host runs)
 web/               React + Vite UI, served by nginx
 db/init/           SQL run when the Postgres volume is first created
@@ -41,9 +44,11 @@ tests/             unit/ (no services needed), integration/ (marked `integration
 
 ## Docker
 
-`docker-compose.yml` builds one service per stage plus `api`, `web`, `scheduler`, Postgres,
+`docker-compose.yml` runs five pipeline workers plus `api`, `web`, `scheduler`, Postgres,
 Redis and RustFS (S3-compatible; MinIO no longer publishes images). Python images share `docker/stage.Dockerfile`; build args pick the extras and
-system packages each stage needs (for example only `assemble` installs `ffmpeg`).
+system packages each worker needs (for example only `assemble` installs `ffmpeg`). The one-shot
+jobs (`vault-certs`, `vault-init`, `s3-init`, `db-migrate`) and the scheduler share one image,
+`podcast-engine-tools`.
 
 | Service | Volumes |
 |---|---|
@@ -55,14 +60,11 @@ system packages each stage needs (for example only `assemble` installs `ffmpeg`)
 | api | `uploads` → `/data/uploads`; `./config` (ro); runs uvicorn (`api` image target) |
 | web | `./web/nginx.conf` (ro) |
 | scheduler | `scheduler_state` → `/data/scheduler`; `./config` (ro) |
-| ingest | `ingest_cache` → `/data/ingest`; `uploads` (ro); `./config` (ro) |
-| index | `hf_cache` → `/home/app/.cache/huggingface`; `./config` (ro) |
-| retrieve_plan | `hf_cache`; `./config` (ro); `./prompts` (ro) |
-| script | `./config` (ro); `./prompts` (ro) |
-| factcheck | `./config` (ro); `./prompts` (ro) |
-| voice | `tts_cache` → `/data/tts_cache`; `audio_scratch` → `/data/audio`; `./config` (ro); `./assets` (ro) |
+| ingest_publish (ingest, publish) | `ingest_cache` → `/data/ingest`; `uploads` (ro); `feed_staging` → `/data/feeds`; `./config` (ro) |
+| index_plan (index, retrieve_plan) | `hf_cache` → `/home/app/.cache/huggingface`; `./config` (ro); `./prompts` (ro) |
+| script_factcheck (script, factcheck) | `./config` (ro); `./prompts` (ro) |
+| voice | `hf_cache`; `tts_cache` → `/data/tts_cache`; `audio_scratch` → `/data/audio`; `./config` (ro); `./assets` (ro) |
 | assemble | `audio_scratch` → `/data/audio`; `./assets` (ro) |
-| publish | `feed_staging` → `/data/feeds`; `./config` (ro) |
 | prometheus | `prometheus_data` → `/prometheus`; `./monitoring/prometheus.yml` (ro) |
 
 Containers run as a non-root user with a read-only root filesystem, all capabilities dropped
@@ -84,6 +86,29 @@ make check          # ruff, strict mypy, unit tests (what CI runs)
 make notebook-test  # runs notebooks/podcast_flow.ipynb offline and checks the flow
 ```
 
+## Web app
+
+The web app is at http://localhost:8080 (`make up`). It is React and Vite, in white and dark orange,
+served by nginx in front of the API. On a fresh stack it asks you to create the first account (the
+admin), then signs you in. From there you can:
+
+- **Shows:** create, edit and delete them, see their sources, and upload PDFs.
+- **Episodes:** generate one, then follow its progress live, step by step.
+- **Review:** read the script with its fact-check verdicts, edit lines, and approve it.
+- **Results:** listen to the audio, read the show notes, and see what each stage ran.
+
+Sign-in is a secure cookie the page cannot read, and changes carry a CSRF token (see
+[docs/api.md](docs/api.md)). The pages aim at WCAG 2.0 AA: AA contrast, labelled fields, keyboard
+tabs and dialogs, a skip link, and progress announced to screen readers.
+
+```bash
+cd web && npm ci
+npm run dev           # http://localhost:5173, proxies /api to the API on :8000
+npm test              # Vitest + Testing Library
+npm run build         # type-check, then build into web/dist
+make web-client       # after changing the API: regenerate web/src/api/schema.d.ts
+```
+
 ## Login and secrets
 
 The API needs a login (see [docs/api.md](docs/api.md)). Application secrets live in HashiCorp
@@ -100,17 +125,17 @@ read. Postgres and S3 passwords stay in `.env`, because those containers need th
 ```bash
 # store the Gemini (or Claude) key in Vault; the file only seeds it, Vault is the source after
 docker compose run --rm -T vault-init set llm_api_key < secrets/llm_api_key.txt
-docker compose restart retrieve_plan script factcheck   # services read secrets at start
+docker compose restart index_plan script_factcheck voice   # services read secrets at start
 
 # the first account becomes the admin; then log in for a six-month token
-curl -X POST localhost:8000/auth/register -H 'content-type: application/json' \
+curl -X POST localhost:8000/v1/auth/register -H 'content-type: application/json' \
   -d '{"email": "you@example.org", "password": "a long passphrase of your own"}'
-TOKEN=$(curl -s -X POST localhost:8000/auth/login -H 'content-type: application/json' \
+TOKEN=$(curl -s -X POST localhost:8000/v1/auth/login -H 'content-type: application/json' \
   -d '{"email": "you@example.org", "password": "a long passphrase of your own"}' | jq -r .access_token)
-curl -H "Authorization: Bearer $TOKEN" localhost:8000/shows
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/v1/shows
 ```
 
-In `/docs`, use **Authorize** and paste the token. `POST /auth/api-keys` creates a key for scripts.
+In `/docs`, use **Authorize** and paste the token. `POST /v1/auth/api-keys` creates a key for scripts.
 It also lasts six months.
 
 ## Running an episode
@@ -124,17 +149,17 @@ passages. The fact-check gate loops back to the script stage, then lines are voi
 
 ```bash
 curl localhost:8000/home                                   # every endpoint, auth and health
-curl -X POST localhost:8000/shows -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{
+curl -X POST localhost:8000/v1/shows -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{
   "topic": "What ClickHouse is and why it is fast for analytics",
   "sources": ["https://clickhouse.com/docs/get-started/about/intro"],
   "topic_keywords": "ClickHouse column-oriented database OLAP analytics queries rows columns storage",
   "attribution": "Source material: What is ClickHouse?, ClickHouse Documentation (CC BY-NC-SA 4.0).",
   "max_segments": 6, "tone": "casual", "expertise": "beginner", "target_minutes": 3}'
-curl -X POST -H "Authorization: Bearer $TOKEN" localhost:8000/shows/<show_id>/episodes       # 202; starts the pipeline
-curl -H "Authorization: Bearer $TOKEN" localhost:8000/episodes/<episode_id>                  # status and current stage
-curl -H "Authorization: Bearer $TOKEN" localhost:8000/episodes/<episode_id>/script           # claims, citations, verdicts
-curl -o episode.wav localhost:8000/episodes/<episode_id>/audio.wav
-curl localhost:8000/feeds/<show_id>/rss.xml
+curl -X POST -H "Authorization: Bearer $TOKEN" localhost:8000/v1/shows/<show_id>/episodes       # 202; starts the pipeline
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/v1/episodes/<episode_id>                  # status and current stage
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/v1/episodes/<episode_id>/script           # claims, citations, verdicts
+curl -o episode.wav localhost:8000/v1/episodes/<episode_id>/audio.wav
+curl localhost:8000/v1/feeds/<show_id>/rss.xml
 ```
 
 Posting another episode for the same show is a **refresh** (FR8). Only segments whose sections
@@ -146,6 +171,8 @@ changed are re-scripted and re-voiced. If nothing changed, the episode ends as `
 | `LLM_ENABLED` | `false` | `false`: offline extractive writer and word-overlap judge, no key and no cost. `true`: `LLM_PROVIDER`/`LLM_MODEL` (Gemini `gemini-3.8-flash`, or `anthropic`) plan, write and judge, with the key in `secrets/llm_api_key.txt` |
 | `EMBEDDING_MODEL` | `hashing` | Offline. A sentence-transformers id works if it has 384 dimensions (for example `BAAI/bge-small-en-v1.5`) |
 | `TTS_BACKEND` | `placeholder` | `placeholder` (tones, for testing) or `gemini` (prebuilt voices, key in `secrets/tts_api_key.txt`, else the LLM key) in containers. `say` and `chatterbox` run on a host, see below |
+| `TTS_REQUESTS_PER_MINUTE` | `0` | `gemini` only: space voice requests out to this rate (the free tier allows 3 a minute); `0` = no limit. Rate-limited requests are retried after the wait Gemini asks for |
+| `SIGNUP_OPEN` | `false` | `true`: anyone can create their own `creator` account at `/signup` (throttled per address). Each account can spend your LLM and TTS quota |
 | `MAX_REWRITES` | `2` | Gate loops before an episode is held as `needs_review` |
 | `REFRESH_INTERVAL_HOURS` | `0` | Scheduler refresh period for published shows; `0` is off |
 

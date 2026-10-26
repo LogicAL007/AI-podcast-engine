@@ -8,8 +8,8 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, Request, Security
+from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,8 @@ from podcast_engine.api.controllers.ops_controller import OpsController
 from podcast_engine.api.controllers.shows_controller import ShowController
 from podcast_engine.api.controllers.sources_controller import SourceController
 from podcast_engine.api.controllers.uploads_controller import UploadController
+from podcast_engine.api.controllers.voices_controller import VoiceController
+from podcast_engine.api.cookies import CSRF_COOKIE, CSRF_HEADER, SAFE_METHODS, SESSION_COOKIE
 from podcast_engine.api.errors import (
     AuthNotConfiguredError,
     UnauthenticatedError,
@@ -28,6 +30,7 @@ from podcast_engine.api.errors import (
     to_http,
 )
 from podcast_engine.api.models.auth_model import CurrentUser
+from podcast_engine.api.models.episodes_model import EpisodeRead
 from podcast_engine.api.repositories.auth_repository import PostgresAuthRepository
 from podcast_engine.api.repositories.episodes_repository import PostgresEpisodeRepository
 from podcast_engine.api.repositories.login_attempts_repository import (
@@ -41,13 +44,21 @@ from podcast_engine.api.repositories.security_events_repository import (
 from podcast_engine.api.repositories.shows_repository import PostgresShowRepository
 from podcast_engine.api.repositories.sources_repository import PostgresSourceRepository
 from podcast_engine.api.repositories.uploads_repository import PostgresUploadRepository
+from podcast_engine.api.repositories.voices_repository import PostgresVoiceRepository
 from podcast_engine.api.services.auth_service import AuthService
-from podcast_engine.api.services.episodes_service import EnqueueStage, EpisodeService, RebuildFeed
+from podcast_engine.api.services.episodes_service import (
+    EnqueueStage,
+    EpisodeLoader,
+    EpisodeService,
+    ProgressPacing,
+    RebuildFeed,
+)
 from podcast_engine.api.services.feeds_service import FeedService
 from podcast_engine.api.services.ops_service import Check, OpsService
 from podcast_engine.api.services.shows_service import ShowService
 from podcast_engine.api.services.sources_service import SourceService
 from podcast_engine.api.services.uploads_service import UploadService
+from podcast_engine.api.services.voices_service import VoiceService
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.db import get_engine
 from podcast_engine.common.logging import get_logger
@@ -87,7 +98,9 @@ def get_rebuild_feed() -> RebuildFeed:
 
 
 def get_show_controller(session: SessionDep) -> ShowController:
-    return ShowController(ShowService(PostgresShowRepository(session)))
+    return ShowController(
+        ShowService(PostgresShowRepository(session), PostgresVoiceRepository(session))
+    )
 
 
 def get_episode_controller(
@@ -106,6 +119,20 @@ def get_episode_controller(
     return EpisodeController(service)
 
 
+def get_episode_loader() -> EpisodeLoader:
+    """Reads an episode with its own short-lived session, for the progress stream."""
+
+    def load(episode_id: UUID, owner: UUID) -> EpisodeRead | None:
+        with Session(get_engine()) as session:
+            return PostgresEpisodeRepository(session).get(episode_id, owner)
+
+    return load
+
+
+def get_progress_pacing() -> ProgressPacing:
+    return ProgressPacing()
+
+
 def get_feed_controller(store: Annotated[ObjectStore, Depends(get_object_store)]) -> FeedController:
     return FeedController(FeedService(store))
 
@@ -114,6 +141,12 @@ def get_source_controller(session: SessionDep) -> SourceController:
     return SourceController(
         SourceService(PostgresSourceRepository(session), PostgresShowRepository(session))
     )
+
+
+def get_voice_controller(
+    session: SessionDep, store: Annotated[ObjectStore, Depends(get_object_store)]
+) -> VoiceController:
+    return VoiceController(VoiceService(PostgresVoiceRepository(session), store))
 
 
 def get_upload_controller(
@@ -168,6 +201,17 @@ bearer = HTTPBearer(
     ),
 )
 Credentials = Annotated[HTTPAuthorizationCredentials | None, Security(bearer)]
+session_cookie = APIKeyCookie(
+    name=SESSION_COOKIE,
+    auto_error=False,
+    scheme_name="SessionCookie",
+    description=(
+        "The web app's sign-in, set by `POST /v1/auth/browser-session` (HttpOnly). Requests that "
+        f"change something must also send `{CSRF_HEADER}` with the value of the `{CSRF_COOKIE}` "
+        "cookie."
+    ),
+)
+SessionCookie = Annotated[str | None, Security(session_cookie)]
 
 
 def get_auth_service(session: SessionDep) -> AuthService:
@@ -188,11 +232,14 @@ def get_auth_service(session: SessionDep) -> AuthService:
         attempts=get_login_attempts(),
         events=PostgresSecurityEventRepository(session),
         purge_files=lambda user_id: purge_stored_files(
-            PostgresShowRepository(session).stored_files(owner_id=user_id), get_object_store()
+            PostgresShowRepository(session).stored_files(owner_id=user_id)
+            + PostgresVoiceRepository(session).object_keys(user_id),
+            get_object_store(),
         ),
         reset_minutes=settings.password_reset_minutes,
         reset_max_requests=settings.password_reset_max_requests,
         web_url=settings.public_web_url,
+        signup_open=settings.signup_open,
     )
 
 
@@ -232,21 +279,37 @@ def get_mailer() -> Mailer:
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-def get_current_user(credentials: Credentials, service: AuthServiceDep) -> CurrentUser:
-    """The authenticated caller; 401 with ``WWW-Authenticate: Bearer`` otherwise."""
-    if credentials is None:
-        return http_errors(lambda: _missing())
-    return http_errors(lambda: service.authenticate(credentials.credentials))
+def _from_cookie(request: Request, cookie: str, service: AuthService) -> CurrentUser:
+    """The browser's session. A request that changes something must carry the CSRF token."""
+    current = http_errors(lambda: service.authenticate_session_cookie(cookie))
+    if request.method not in SAFE_METHODS:
+        http_errors(lambda: service.check_csrf(current, request.headers.get(CSRF_HEADER)))
+    return current
+
+
+def get_current_user(
+    request: Request, credentials: Credentials, cookie: SessionCookie, service: AuthServiceDep
+) -> CurrentUser:
+    """The authenticated caller, by bearer token or the browser's session cookie; 401 otherwise."""
+    if credentials is not None:
+        return http_errors(lambda: service.authenticate(credentials.credentials))
+    if cookie:
+        return _from_cookie(request, cookie, service)
+    return http_errors(lambda: _missing())
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 
 
-def get_optional_user(credentials: Credentials, service: AuthServiceDep) -> CurrentUser | None:
-    """The caller if a token was sent (and is valid), else None. For registration."""
-    if credentials is None:
-        return None
-    return http_errors(lambda: service.authenticate(credentials.credentials))
+def get_optional_user(
+    request: Request, credentials: Credentials, cookie: SessionCookie, service: AuthServiceDep
+) -> CurrentUser | None:
+    """The caller if a token or session cookie was sent (and is valid), else None."""
+    if credentials is not None:
+        return http_errors(lambda: service.authenticate(credentials.credentials))
+    if cookie:
+        return _from_cookie(request, cookie, service)
+    return None
 
 
 def _missing() -> CurrentUser:
@@ -256,4 +319,10 @@ def _missing() -> CurrentUser:
 def get_auth_controller(
     service: AuthServiceDep, mailer: Annotated[Mailer, Depends(get_mailer)]
 ) -> AuthController:
-    return AuthController(service, mailer)
+    settings = get_settings()
+    return AuthController(
+        service,
+        mailer,
+        cookie_secure=settings.public_web_url.startswith("https://"),
+        token_days=settings.auth_token_days,
+    )

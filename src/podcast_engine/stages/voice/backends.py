@@ -10,20 +10,27 @@
 import os
 import subprocess
 import tempfile
+import time
 import warnings
+from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
 from podcast_engine.common.audio import SR, read_wav_bytes
 from podcast_engine.common.config import Settings
+from podcast_engine.common.llm import GeminiQuotaError, is_daily_quota, retry_after_seconds
+from podcast_engine.common.logging import get_logger
 from podcast_engine.stages.voice.registry import (
     ClonedVoice,
     fingerprint,
     load_registry,
     resolve_voices,
+    with_overrides,
 )
+
+log = get_logger("voice")
 
 SAY_VOICES = {"Alex": "Samantha", "Sam": "Daniel", "Jordan": "Karen", "Riley": "Moira"}
 GEMINI_VOICES = {"Alex": "Kore", "Sam": "Puck", "Jordan": "Charon", "Riley": "Aoede"}
@@ -44,6 +51,15 @@ class TtsBackend(Protocol):
     def consent_record(self, speaker: str) -> dict[str, str]: ...
 
     def synthesise(self, speaker: str, text: str) -> np.ndarray: ...
+
+
+@runtime_checkable
+class DialogueBackend(TtsBackend, Protocol):
+    """A backend that voices several lines, by at most two speakers, in one request."""
+
+    max_dialogue_chars: int
+
+    def synthesise_dialogue(self, lines: list[tuple[str, str]]) -> np.ndarray: ...
 
 
 class _NoConsentNeeded:
@@ -117,11 +133,19 @@ class ChatterboxBackend:
     EXAGGERATION = 0.5
     CFG_WEIGHT = 0.5
 
-    def __init__(self, hosts: list[str], voices_file: Path, root: Path, seed: int) -> None:
+    def __init__(
+        self,
+        hosts: list[str],
+        voices_file: Path,
+        root: Path,
+        seed: int,
+        overrides: dict[str, ClonedVoice] | None = None,
+    ) -> None:
         self.root = root
-        self.voices: dict[str, ClonedVoice] = resolve_voices(
-            load_registry(voices_file), hosts, root
-        )
+        # Voices registered in the web app (with their signed consent) replace the file's entry
+        # for their host; both go through the same consent check.
+        registry = with_overrides(load_registry(voices_file), overrides or {})
+        self.voices: dict[str, ClonedVoice] = resolve_voices(registry, hosts, root)
         os.environ["TQDM_DISABLE"] = "1"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -174,15 +198,68 @@ class ChatterboxBackend:
 
 
 class GeminiTtsBackend(_NoConsentNeeded):
-    """Gemini's prebuilt voices (no cloning). Returns 24 kHz 16-bit PCM, the pipeline's format."""
+    """Gemini's prebuilt voices (no cloning). Returns 24 kHz 16-bit PCM, the pipeline's format.
+
+    The voice stage sends a whole part of the episode (the opening, a segment, the closing) as one
+    two-speaker request, so an episode costs a handful of requests and fits the free tier's daily
+    cap. On a rate limit it waits as long as Gemini asks and tries again, and
+    with ``requests_per_minute`` set it spaces requests out so the limit is not hit at all (the
+    free tier allows 3 a minute). A used-up daily quota fails at once with a plain message.
+    """
 
     provider = "gemini-tts"
+    ATTEMPTS = 8  # per request, across rate limits and brief server errors
+    max_dialogue_chars = 3000  # about three minutes of speech per request
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        requests_per_minute: int = 0,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         from google import genai
 
         self.model = model
         self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
+        self.interval = 60.0 / requests_per_minute if requests_per_minute > 0 else 0.0
+        self.sleep = sleep
+        self.clock = clock
+        self.last_request: float | None = None
+
+    def _pace(self) -> None:
+        if self.interval and self.last_request is not None:
+            wait = self.last_request + self.interval - self.clock()
+            if wait > 0:
+                self.sleep(wait)
+        self.last_request = self.clock()
+
+    def _generate(self, config: Any, text: str) -> Any:
+        from google.genai import errors
+
+        for attempt in range(self.ATTEMPTS):
+            self._pace()
+            try:
+                return self.client.models.generate_content(
+                    model=self.model, contents=text, config=config
+                )
+            except (errors.ServerError, errors.ClientError) as error:
+                limited = isinstance(error, errors.ClientError) and error.code == 429
+                if limited and is_daily_quota(error):
+                    raise GeminiQuotaError(
+                        f"Gemini's daily quota for {self.model} is used up. Try again tomorrow, "
+                        "enable billing on the key, or set TTS_BACKEND to another voice."
+                    ) from error
+                if not (limited or isinstance(error, errors.ServerError)):
+                    raise
+                if attempt == self.ATTEMPTS - 1:
+                    raise
+                asked = retry_after_seconds(error) if limited else None
+                wait = (asked or min(2 ** (attempt + 1), 30)) + 1
+                log.warning("tts_busy", model=self.model, code=error.code, retry_in_s=round(wait))
+                self.sleep(wait)
+        raise AssertionError("unreachable")
 
     def voice_id(self, speaker: str) -> str:
         return f"{self.model}:{GEMINI_VOICES[speaker]}"
@@ -190,23 +267,14 @@ class GeminiTtsBackend(_NoConsentNeeded):
     def credit(self, speaker: str) -> str:
         return f"Gemini TTS prebuilt voice {GEMINI_VOICES[speaker]} (no real person cloned)"
 
-    def synthesise(self, speaker: str, text: str) -> np.ndarray:
+    def _voice(self, speaker: str) -> Any:
         from google.genai import types
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=text,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name=GEMINI_VOICES[speaker]
-                        )
-                    )
-                ),
-            ),
+        return types.VoiceConfig(
+            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=GEMINI_VOICES[speaker])
         )
+
+    def _audio(self, response: Any, who: str) -> np.ndarray:
         candidate = response.candidates[0] if response.candidates else None
         part = (
             candidate.content.parts[0]
@@ -215,11 +283,55 @@ class GeminiTtsBackend(_NoConsentNeeded):
         )
         data = part.inline_data.data if part and part.inline_data else None
         if not data:
-            raise RuntimeError(f"Gemini TTS returned no audio for {speaker} ({self.model}).")
+            raise RuntimeError(f"Gemini TTS returned no audio for {who} ({self.model}).")
         return np.frombuffer(data, dtype="<i2").astype(np.float32) / 32768.0
 
+    def synthesise(self, speaker: str, text: str) -> np.ndarray:
+        from google.genai import types
 
-def make_backend(settings: Settings, hosts: list[str], voices_file: Path) -> TtsBackend:
+        config = types.GenerateContentConfig(
+            response_modalities=["AUDIO"],
+            speech_config=types.SpeechConfig(voice_config=self._voice(speaker)),
+        )
+        return self._audio(self._generate(config, text), speaker)
+
+    def synthesise_dialogue(self, lines: list[tuple[str, str]]) -> np.ndarray:
+        """Several lines in one request, so a whole segment costs one request, not one a line.
+
+        Two speakers use Gemini's multi-speaker mode, each with their own prebuilt voice.
+        """
+        from google.genai import types
+
+        speakers = list(dict.fromkeys(speaker for speaker, _ in lines))
+        if len(speakers) == 1:
+            return self.synthesise(speakers[0], "\n".join(text for _, text in lines))
+        if len(speakers) > 2:
+            raise ValueError(f"Gemini voices at most two speakers per request, not {speakers}.")
+        config = types.GenerateContentConfig(
+            response_modalities=["AUDIO"],
+            speech_config=types.SpeechConfig(
+                multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
+                    speaker_voice_configs=[
+                        types.SpeakerVoiceConfig(speaker=speaker, voice_config=self._voice(speaker))
+                        for speaker in speakers
+                    ]
+                )
+            ),
+        )
+        conversation = "\n".join(f"{speaker}: {text}" for speaker, text in lines)
+        prompt = (
+            f"Read this conversation between {speakers[0]} and {speakers[1]} aloud, word for word:"
+            f"\n{conversation}"
+        )
+        return self._audio(self._generate(config, prompt), " and ".join(speakers))
+
+
+def make_backend(
+    settings: Settings,
+    hosts: list[str],
+    voices_file: Path,
+    overrides: dict[str, ClonedVoice] | None = None,
+) -> TtsBackend:
     choice = settings.tts_backend
     if choice == "placeholder":
         return PlaceholderBackend()
@@ -227,8 +339,10 @@ def make_backend(settings: Settings, hosts: list[str], voices_file: Path) -> Tts
         return SayBackend()
     if choice == "chatterbox":
         # Reference recordings are named from the repository root (assets/voices/...).
-        return ChatterboxBackend(hosts, voices_file, settings.assets_dir.parent, settings.seed)
+        return ChatterboxBackend(
+            hosts, voices_file, settings.assets_dir.parent, settings.seed, overrides
+        )
     if choice == "gemini":
         key = settings.tts_api_key.get_secret_value() or settings.llm_api_key.get_secret_value()
-        return GeminiTtsBackend(key, settings.tts_model)
+        return GeminiTtsBackend(key, settings.tts_model, settings.tts_requests_per_minute)
     raise ValueError(f"TTS_BACKEND must be placeholder, say, chatterbox or gemini, not {choice!r}")

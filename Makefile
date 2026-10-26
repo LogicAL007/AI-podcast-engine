@@ -1,13 +1,19 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help api bench-db notebook-test notebook-clean setup secrets build up dev down logs lint format typecheck test check
+.PHONY: help api openapi web-client test-312 bench-db notebook-test notebook-clean setup secrets build up dev down logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
 
 api:  ## Run the API locally with auto-reload (needs Postgres, Redis and S3 up)
 	uvicorn podcast_engine.api.main:app --reload
+
+openapi:  ## Write web/openapi.json, the API description the web client is typed from
+	python -c "import json; from podcast_engine.api.main import create_app; print(json.dumps(create_app().openapi(), indent=2))" > web/openapi.json
+
+web-client: openapi  ## Regenerate the web app's API types (web/src/api/schema.d.ts)
+	cd web && npm run gen:api
 
 bench-db:  ## Start a throwaway pgvector database for evaluation/ on localhost:55433
 	docker start podcast-bench-pg 2>/dev/null || docker run -d --name podcast-bench-pg \
@@ -57,5 +63,12 @@ typecheck:  ## mypy (strict)
 
 test:  ## Unit tests
 	pytest tests/unit
+
+test-312:  ## Unit tests on Python 3.12, the images' version (3.14 hides some bugs), in Docker
+	tar --exclude=.venv --exclude=.venv-cloning --exclude=node_modules --exclude=.git \
+		--exclude=evaluation/results --exclude=web --exclude=data --exclude=assets -cf - . 2>/dev/null \
+	| docker run --rm -i python:3.12-slim sh -c 'mkdir /w && cd /w && tar -xf - 2>/dev/null \
+		&& pip install -q --root-user-action=ignore -e ".[api,ingest,llm,anthropic,voice,assemble,publish,tls,dev]" \
+		&& python -m pytest tests/unit -q --no-cov -p no:cacheprovider'
 
 check: lint typecheck test  ## Everything CI runs

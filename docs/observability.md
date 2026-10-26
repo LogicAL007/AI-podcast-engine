@@ -7,13 +7,13 @@ different places:
 | | Where | How to use it |
 |---|---|---|
 | Metrics | Prometheus, <http://localhost:9090> | PromQL queries below |
-| Logs | JSON lines on each container's stdout | `docker compose logs -f ingest` |
+| Logs | JSON lines on each container's stdout | `docker compose logs -f ingest_publish` |
 
 Searching logs across containers needs a log store such as Loki. It is not set up yet.
 
 ## What is measured
 
-The API serves `/metrics` and each stage worker serves it on port 9100, both only on the compose
+The API serves `/metrics` and each of the five stage workers serves it on port 9100 (stage metrics carry a `stage` label, so stages sharing a worker stay apart), both only on the compose
 network. Prometheus scrapes them every 15 seconds
 ([monitoring/prometheus.yml](../monitoring/prometheus.yml)).
 

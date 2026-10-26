@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from podcast_engine.api.paths import V1
+
 PDF_MEDIA_TYPE = "application/pdf"
 
 
@@ -24,7 +26,7 @@ class UploadRead(BaseModel):
     @computed_field(description="Where to download the file")  # type: ignore[prop-decorator]
     @property
     def file(self) -> str:
-        return f"/shows/{self.show_id}/uploads/{self.upload_id}/file"
+        return f"{V1}/shows/{self.show_id}/uploads/{self.upload_id}/file"
 
 
 class UploadContent(BaseModel):

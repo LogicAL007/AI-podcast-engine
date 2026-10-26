@@ -3,8 +3,10 @@
 from uuid import UUID
 
 from fastapi import HTTPException, Response, status
+from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
-from podcast_engine.api.errors import http_errors
+from podcast_engine.api.errors import NotFoundError, http_errors, to_http
 from podcast_engine.api.http_range import RangeNotSatisfiableError, parse_range
 from podcast_engine.api.models.episodes_model import (
     AUDIO_MEDIA_TYPE,
@@ -15,7 +17,12 @@ from podcast_engine.api.models.episodes_model import (
     StageRunRead,
 )
 from podcast_engine.api.models.pagination_model import Paged
-from podcast_engine.api.services.episodes_service import EpisodeService
+from podcast_engine.api.services.episodes_service import (
+    EpisodeLoader,
+    EpisodeService,
+    ProgressPacing,
+    stream_progress,
+)
 from podcast_engine.common.models import EpisodeStatus
 
 
@@ -125,3 +132,24 @@ class EpisodeController:
 
     def get_notes(self, episode_id: UUID) -> str:
         return http_errors(lambda: self._service.get_notes(episode_id))
+
+
+EVENT_STREAM = "text/event-stream"
+
+
+async def follow_progress(
+    episode_id: UUID, owner: UUID, load: EpisodeLoader, pacing: ProgressPacing
+) -> StreamingResponse:
+    """The episode's progress as server-sent events. Each check runs the (blocking) database
+    read in a worker thread, so an open stream holds neither a thread nor a connection."""
+
+    async def load_once() -> EpisodeRead | None:
+        return await run_in_threadpool(load, episode_id, owner)
+
+    if await load_once() is None:  # someone else's episode is not found, as everywhere else
+        raise to_http(NotFoundError("episode", episode_id))
+    return StreamingResponse(
+        stream_progress(load_once, pacing),
+        media_type=EVENT_STREAM,
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},  # nginx: don't buffer
+    )

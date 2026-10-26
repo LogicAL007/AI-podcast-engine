@@ -13,16 +13,19 @@ from podcast_engine.api.models.shows_model import ShowCreate, ShowRead
 
 _COLUMNS = (
     "show_id, topic, tone, target_minutes, host_count, language, expertise, sources,"
-    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, created_at"
+    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, host_voices,"
+    " created_at"
 )
 _INSERT = (
     "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources,"  # noqa: S608
-    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, owner_id)"
+    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, host_voices,"
+    " owner_id)"
     " VALUES (:topic, :tone, :target_minutes, :host_count, :language, :expertise,"
     " CAST(:sources AS jsonb), :topic_keywords, :attribution, :max_segments, :ranking_profile,"
-    " :review_before_voice, :owner_id)"
+    " :review_before_voice, CAST(:host_voices AS jsonb), :owner_id)"
     f" RETURNING {_COLUMNS}"
 )
+_JSON_COLUMNS = frozenset({"sources", "host_voices"})
 _UPDATABLE = frozenset(
     {
         "topic",
@@ -37,6 +40,7 @@ _UPDATABLE = frozenset(
         "max_segments",
         "ranking_profile",
         "review_before_voice",
+        "host_voices",
     }
 )
 
@@ -118,7 +122,7 @@ class PostgresShowRepository:
         # Column names come from the whitelist above; values are always bound parameters.
         assignments = ", ".join(
             f"{column} = CAST(:{column} AS jsonb)"
-            if column == "sources"
+            if column in _JSON_COLUMNS
             else f"{column} = :{column}"
             for column in changes
         )
@@ -179,8 +183,10 @@ class PostgresShowRepository:
 
 
 def _to_params(values: Mapping[str, Any]) -> dict[str, Any]:
-    """Serialise the jsonb column; everything else binds as-is."""
+    """Serialise the jsonb columns; everything else binds as-is."""
     params = dict(values)
     if "sources" in params:
         params["sources"] = json.dumps([str(url) for url in params["sources"]])
+    if "host_voices" in params:
+        params["host_voices"] = json.dumps({h: str(v) for h, v in params["host_voices"].items()})
     return params

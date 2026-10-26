@@ -1,6 +1,10 @@
 """Business rules for episodes. No HTTP and no SQL in here."""
 
-from collections.abc import Callable
+import asyncio
+import json
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -24,7 +28,7 @@ from podcast_engine.api.repositories.shows_repository import ShowRepository
 from podcast_engine.common.context import HOST_NAMES
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.models import EpisodeStatus
-from podcast_engine.common.queue import Stage
+from podcast_engine.common.queue import PIPELINE_ORDER, Stage
 from podcast_engine.common.storage import ObjectStore
 
 # Enqueues a pipeline stage for an episode.
@@ -301,3 +305,68 @@ class EpisodeService:
         if key is None or self._store is None or not self._store.exists(key):
             raise NotFoundError(what, episode_id)
         return self._store.get(key)
+
+
+# ---- live progress -------------------------------------------------------------------------
+EpisodeLoader = Callable[[UUID, UUID], EpisodeRead | None]  # (episode, owner) -> episode or None
+
+
+@dataclass(frozen=True)
+class ProgressPacing:
+    """How often the stream checks the episode, when it sends a keep-alive, and when it stops
+    (the browser reconnects by itself). Injected, so tests run without waiting."""
+
+    poll_s: float = 1.0
+    heartbeat_s: float = 15.0
+    max_s: float = 3600.0
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
+    clock: Callable[[], float] = time.monotonic
+
+
+def progress_of(episode: EpisodeRead) -> dict[str, Any]:
+    """What the web app shows while an episode is made: status, stage, and step N of 8."""
+    stages = [stage.value for stage in PIPELINE_ORDER]
+    if episode.status in {EpisodeStatus.PUBLISHED, EpisodeStatus.UNCHANGED}:
+        step = len(stages)
+    elif episode.stage in stages:
+        step = stages.index(episode.stage) + 1
+    else:
+        step = 0
+    return {
+        "episode_id": str(episode.episode_id),
+        "status": episode.status.value,
+        "stage": episode.stage,
+        "step": step,
+        "steps": len(stages),
+        "error": episode.error,
+        "rewrite_count": episode.rewrite_count,
+        "running": episode.status in RUNNING,
+    }
+
+
+async def stream_progress(
+    load: Callable[[], Awaitable[EpisodeRead | None]], pacing: ProgressPacing
+) -> AsyncIterator[str]:
+    """Server-sent events: an ``episode`` event whenever the progress changes, a comment as a
+    keep-alive, and the end of the stream once nothing is running (published, held for review,
+    unchanged, cancelled or failed), or when the episode is deleted (a ``gone`` event)."""
+    yield "retry: 3000\n\n"  # reconnect after 3 s if the connection drops
+    started = last_sent = pacing.clock()
+    last: dict[str, Any] | None = None
+    while True:
+        episode = await load()
+        if episode is None:
+            yield "event: gone\ndata: {}\n\n"
+            return
+        progress = progress_of(episode)
+        if progress != last:
+            yield f"event: episode\ndata: {json.dumps(progress)}\n\n"
+            last, last_sent = progress, pacing.clock()
+        if not progress["running"]:
+            return
+        if pacing.clock() - started >= pacing.max_s:
+            return
+        if pacing.clock() - last_sent >= pacing.heartbeat_s:
+            yield ": keep-alive\n\n"
+            last_sent = pacing.clock()
+        await pacing.sleep(pacing.poll_s)

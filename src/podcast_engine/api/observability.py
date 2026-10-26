@@ -34,8 +34,11 @@ def add_metrics(app: FastAPI) -> None:
         finally:
             # The route template ("/shows/{show_id}"), never the raw path: raw ids would create
             # one time series per show. Requests that match no route share one label.
+            # Routes in an included router know only their own path; FastAPI records the full
+            # template, with the router's prefix (/v1), as the effective route.
+            effective = request.scope.get("fastapi", {}).get("effective_route_context")
             route = request.scope.get("route")
-            path = getattr(route, "path", UNMATCHED_ROUTE)
+            path = getattr(effective, "path", None) or getattr(route, "path", UNMATCHED_ROUTE)
             HTTP_REQUESTS.labels(request.method, path, str(status_code)).inc()
             HTTP_DURATION.labels(request.method, path).observe(time.perf_counter() - started)
 

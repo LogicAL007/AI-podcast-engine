@@ -8,6 +8,7 @@ from uuid import UUID
 
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_context
+from podcast_engine.common.llm import GeminiQuotaError
 from podcast_engine.common.logging import configure_logging, get_logger
 from podcast_engine.common.models import EpisodeStatus
 from podcast_engine.common.queue import Stage, celery_app, dispatch, task_name
@@ -20,9 +21,9 @@ class StageFunction(Protocol):
     def __call__(self, episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None: ...
 
 
-# Bad input or configuration (no sources, an unknown ranking profile, an unvoiced script):
-# retrying cannot help, so the episode fails at once with the reason.
-PERMANENT_ERRORS: tuple[type[Exception], ...] = (ValueError, LookupError)
+# Bad input or configuration (no sources, an unknown ranking profile, an unvoiced script) or a
+# used-up daily quota: retrying cannot help, so the episode fails at once with the reason.
+PERMANENT_ERRORS: tuple[type[Exception], ...] = (ValueError, LookupError, GeminiQuotaError)
 
 log = get_logger("runner")
 

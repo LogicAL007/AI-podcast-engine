@@ -14,16 +14,13 @@ scrape_configs:
     static_configs:
       - targets: ["api:8000"]
 
-  # Stage attempts, failures and durations. One worker container per pipeline stage;
-  # a stage that is not running shows as down (`up == 0`).
+  # Stage attempts, failures and durations, labelled by stage. Five worker containers serve
+  # the eight stages; a worker that is not running shows as down (`up == 0`).
   - job_name: stage_workers
     static_configs:
       - targets:
-          - ingest:9100
-          - index:9100
-          - retrieve_plan:9100
-          - script:9100
-          - factcheck:9100
+          - ingest_publish:9100
+          - index_plan:9100
+          - script_factcheck:9100
           - voice:9100
           - assemble:9100
-          - publish:9100

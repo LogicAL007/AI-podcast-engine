@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     llm_fallback_model: str = ""  # opt-in: another model if llm_model stays overloaded
     tts_backend: str = "placeholder"  # "placeholder", "say", "chatterbox" or "gemini"
     tts_model: str = "gemini-3.8-flash-tts"  # used by the "gemini" backend
+    signup_open: bool = False  # True: anyone may create a creator account at /signup
+    tts_requests_per_minute: int = 0  # "gemini": space requests out (free tier: 3); 0 = no limit
     voices_file: Path | None = None  # defaults to <config_dir>/voices.yaml
     llm_api_key: SecretStr = SecretStr("")
     llm_api_key_file: Path | None = None

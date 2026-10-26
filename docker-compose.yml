@@ -1,20 +1,27 @@
 name: podcast-engine
 
 # Pipeline: ingest -> index -> retrieve_plan -> script <-> factcheck -> voice -> assemble -> publish
-# Every stage is its own worker container consuming its own queue, so stages scale and retry
-# independently. State lives in Postgres, Redis and S3 storage; workers are stateless.
+# Every stage has its own queue, so it retries on its own. Five worker containers serve them,
+# grouped by what they need installed:
+#   ingest_publish    ingest, publish          fetching and parsing; rendering and uploading feeds
+#   index_plan        index, retrieve_plan     both use the embedding model, loaded once
+#   script_factcheck  script, factcheck        both call the LLM
+#   voice             voice                    slow, and heavy with Chatterbox, so alone
+#   assemble          assemble                 needs ffmpeg
+# Scale a group with `docker compose up -d --scale <service>=N`. State lives in Postgres, Redis
+# and S3 storage; workers are stateless.
 #
 # Volume map
 #   Named volumes (managed by Docker):
 #     pgdata         postgres:/var/lib/postgresql/data      database files
 #     redisdata      redis:/data                            queue persistence (AOF)
 #     s3data         s3:/data                               episode audio, feeds, cached objects
-#     uploads        api (rw) + ingest (ro):/data/uploads   private user uploads (PDFs)
-#     ingest_cache   ingest:/data/ingest                    raw fetch cache, ETags
-#     hf_cache       index, retrieve_plan                   embedding model weights
+#     uploads        api (rw) + ingest_publish (ro):/data/uploads   private user uploads (PDFs)
+#     ingest_cache   ingest_publish:/data/ingest            raw fetch cache, ETags
+#     hf_cache       index_plan, voice                      embedding (and Chatterbox) weights
 #     tts_cache      voice:/data/tts_cache                  synthesised lines, reused on regen
 #     audio_scratch  voice (rw) + assemble (rw):/data/audio working audio between stages
-#     feed_staging   publish:/data/feeds                    rendered RSS before upload
+#     feed_staging   ingest_publish:/data/feeds             rendered RSS before upload
 #     scheduler_state scheduler:/data/scheduler             last-seen hashes / run markers
 #     prometheus_data prometheus:/prometheus                metrics time series (15 days)
 #   Bind mounts (read-only, edited on the host):
@@ -37,9 +44,11 @@ x-app-env: &app-env
   LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
   LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
   LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
-  # placeholder (tones, for testing) or gemini. say and chatterbox run on a host: see the README.
+  # placeholder (tones, for testing), gemini, or chatterbox (with the voice image's cloning extra,
+  # see the voice service). say runs on a macOS host only: see the README.
   TTS_BACKEND: ${TTS_BACKEND:-placeholder}
   TTS_MODEL: ${TTS_MODEL:-gemini-3.8-flash-tts}
+  TTS_REQUESTS_PER_MINUTE: ${TTS_REQUESTS_PER_MINUTE:-0} # gemini free tier: 3
   MAX_REWRITES: ${MAX_REWRITES:-2}
   TOPIC_THRESHOLD: ${TOPIC_THRESHOLD:-0.0}
   REFRESH_INTERVAL_HOURS: ${REFRESH_INTERVAL_HOURS:-0}
@@ -51,6 +60,8 @@ x-app-env: &app-env
   VAULT_TOKEN_FILE: /run/secrets/vault_app_token
   VAULT_CA_FILE: /run/secrets/vault_ca
   AUTH_TOKEN_DAYS: ${AUTH_TOKEN_DAYS:-180}
+  # true: anyone can create their own creator account at /signup (each one can spend LLM/TTS quota)
+  SIGNUP_OPEN: ${SIGNUP_OPEN:-false}
   # Password-reset email. Mailpit catches it locally (inbox at http://localhost:8025); point these
   # at a real mail service (password in Vault as smtp_password) to deliver for real.
   SMTP_HOST: ${SMTP_HOST:-mailpit}
@@ -71,6 +82,15 @@ x-hardening: &hardening
   logging:
     driver: json-file
     options: { max-size: "10m", max-file: "3" }
+
+# One image for the one-shot jobs and the scheduler: built once (by vault-certs, which runs first)
+# and reused by the others, which only name it.
+x-tools-image: &tools-image
+  image: podcast-engine-tools
+  build:
+    context: .
+    dockerfile: docker/stage.Dockerfile
+    args: { EXTRAS: tls }
 
 x-worker: &worker
   <<: *hardening
@@ -141,10 +161,7 @@ services:
   # One-shot, before Vault: the stack's CA (once) and Vault's TLS certificate (renewed within
   # 30 days of expiry). Runs as root only to hand the key to Vault's user.
   vault-certs:
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: tls }
+    <<: *tools-image
     restart: "no"
     user: "0"
     command: ["python", "-m", "podcast_engine.common.vault_tls"]
@@ -192,10 +209,7 @@ services:
   # One-shot: initialises (first run) and unseals Vault, seeds missing secrets, and issues the
   # app's read-only token into ./secrets. Everything that reads secrets waits for it.
   vault-init:
-    <<: *hardening
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
+    <<: [*hardening, *tools-image]
     restart: "no"
     command: ["python", "-m", "podcast_engine.common.vault_init"]
     depends_on:
@@ -209,10 +223,7 @@ services:
 
   # One-shot: creates the bucket (idempotent), then exits. Everything else waits for it.
   s3-init:
-    <<: *hardening
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
+    <<: [*hardening, *tools-image]
     restart: "no"
     command: ["python", "-m", "podcast_engine.common.init_storage"]
     depends_on:
@@ -224,10 +235,7 @@ services:
   # One-shot: applies db/migrations (idempotent, recorded in schema_migrations), then exits.
   # db/init only runs on a brand-new volume; this also upgrades an existing one.
   db-migrate:
-    <<: *hardening
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
+    <<: [*hardening, *tools-image]
     restart: "no"
     command: ["python", "-m", "podcast_engine.common.migrate"]
     depends_on:
@@ -306,10 +314,7 @@ services:
     cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
 
   scheduler:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
+    <<: [*worker, *tools-image]
     command: ["python", "-m", "podcast_engine.scheduler"]
     healthcheck:
       disable: true
@@ -318,32 +323,22 @@ services:
       - ./config:/app/config:ro
 
   # ---------------------------------------------------------------- pipeline stages
-  ingest:
+  # Five workers for the eight stages (see the top of this file). Each runs WORKER_CONCURRENCY
+  # tasks at once (2 by default), so one episode's long stage does not hold up another's.
+  ingest_publish:
     <<: *worker
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: ingest }
-    command: [python, -m, podcast_engine.worker, ingest]
+      args: { EXTRAS: "ingest,publish" }
+    command: [python, -m, podcast_engine.worker, ingest, publish]
     volumes:
       - ingest_cache:/data/ingest
       - uploads:/data/uploads:ro
+      - feed_staging:/data/feeds
       - ./config:/app/config:ro
 
-  index:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args:
-        EXTRAS: embeddings
-        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
-    command: [python, -m, podcast_engine.worker, index]
-    volumes:
-      - hf_cache:/home/app/.cache/huggingface
-      - ./config:/app/config:ro
-
-  retrieve_plan:
+  index_plan:
     <<: *worker
     build:
       context: .
@@ -351,30 +346,19 @@ services:
       args:
         EXTRAS: embeddings,llm
         TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
-    command: [python, -m, podcast_engine.worker, retrieve_plan]
+    command: [python, -m, podcast_engine.worker, index, retrieve_plan]
     volumes:
       - hf_cache:/home/app/.cache/huggingface
       - ./config:/app/config:ro
       - ./prompts:/app/prompts:ro
 
-  script:
+  script_factcheck:
     <<: *worker
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
       args: { EXTRAS: llm }
-    command: [python, -m, podcast_engine.worker, script]
-    volumes:
-      - ./config:/app/config:ro
-      - ./prompts:/app/prompts:ro
-
-  factcheck:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: llm }
-    command: [python, -m, podcast_engine.worker, factcheck]
+    command: [python, -m, podcast_engine.worker, script, factcheck]
     volumes:
       - ./config:/app/config:ro
       - ./prompts:/app/prompts:ro
@@ -384,9 +368,15 @@ services:
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: "voice,llm" } # llm brings google-genai for TTS_BACKEND=gemini
+      # llm brings google-genai for TTS_BACKEND=gemini. For TTS_BACKEND=chatterbox set, in .env,
+      # VOICE_EXTRAS=voice,llm,cloning and VOICE_TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+      # (CPU only in a container, so slow; a host worker with MPS or CUDA is faster, see README).
+      args:
+        EXTRAS: ${VOICE_EXTRAS:-voice,llm}
+        TORCH_INDEX_URL: ${VOICE_TORCH_INDEX_URL:-}
     command: [python, -m, podcast_engine.worker, voice]
     volumes:
+      - hf_cache:/home/app/.cache/huggingface # Chatterbox's model weights, downloaded once
       - tts_cache:/data/tts_cache
       - audio_scratch:/data/audio
       - ./config:/app/config:ro
@@ -404,17 +394,6 @@ services:
     volumes:
       - audio_scratch:/data/audio
       - ./assets:/app/assets:ro
-
-  publish:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: publish }
-    command: [python, -m, podcast_engine.worker, publish]
-    volumes:
-      - feed_staging:/data/feeds
-      - ./config:/app/config:ro
 
 secrets:
   vault_app_token: # written by vault-init; `make secrets` creates it empty before the first run

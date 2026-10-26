@@ -1,10 +1,10 @@
 """Request and response schemas for login, users and API keys."""
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Role = Literal["admin", "creator"]
 TokenKind = Literal["session", "api_key"]
@@ -87,6 +87,35 @@ class ApiKeyCreated(ApiKeyRead):
     key: str = Field(description="The key; shown only now, never again. Send it as a bearer token")
 
 
+class Avatar(BaseModel):
+    """The assistant bot a person chose: which character, what it is called and how it looks."""
+
+    character: Literal["rex", "pod"] = Field(
+        default="pod",
+        description="`rex`: the full-body robot with moves; `pod`: the floating podcast bot",
+    )
+    name: str = Field(
+        default="Scout", min_length=1, max_length=24, description="What the bot is called"
+    )
+    color: Literal["pearl", "peach", "mint", "sky", "graphite"] = Field(
+        default="pearl", description="Body colour"
+    )
+    glow: Literal["amber", "gold", "cyan", "lime", "pink"] = Field(
+        default="amber", description="Colour of its eyes and lights"
+    )
+    accessory: Literal["none", "antenna", "headphones", "bowtie"] = Field(
+        default="antenna", description="What it wears"
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _tidy_name(cls, value: str) -> str:
+        name = " ".join(value.split())
+        if not name:
+            raise ValueError("the name needs at least one visible character")
+        return name
+
+
 class CurrentUser(BaseModel):
     """Who is making the request, and with which token."""
 
@@ -96,6 +125,9 @@ class CurrentUser(BaseModel):
     token_id: UUID = Field(description="The token this request used")
     token_kind: TokenKind = Field(description="`session` (from login) or `api_key`")
     expires_at: datetime = Field(description="When that token stops working")
+    avatar: Avatar | None = Field(
+        default=None, description="Their chosen assistant bot; null until they choose one"
+    )
 
 
 class StoredToken(BaseModel):
@@ -110,6 +142,7 @@ class StoredToken(BaseModel):
     email: str
     role: Role
     disabled: bool
+    avatar: dict[str, Any] | None = None
 
 
 class StoredUser(UserRead):
@@ -209,3 +242,15 @@ class SecurityEventRead(BaseModel):
     address: str = Field(description="The client address it came from")
     detail: dict[str, object] = Field(description="Extra facts, never secrets")
     created_at: datetime = Field(description="When")
+
+
+class SetupStatus(BaseModel):
+    """Whether accounts can be created without signing in: the first one, or anyone's own."""
+
+    first_account_open: bool = Field(
+        description="True until the first account exists; that account becomes the admin"
+    )
+    signup_open: bool = Field(
+        default=False,
+        description="True when anyone may create their own account (always a `creator`)",
+    )

@@ -76,14 +76,14 @@ def test_request_and_response_fields_are_described(schema: dict[str, Any]) -> No
 
 
 def test_audio_is_documented_as_a_binary_file_with_ranges(schema: dict[str, Any]) -> None:
-    op = schema["paths"]["/episodes/{episode_id}/audio.wav"]["get"]
+    op = schema["paths"]["/v1/episodes/{episode_id}/audio.wav"]["get"]
     assert op["responses"]["200"]["content"]["audio/wav"]["schema"] == {
         "type": "string",
         "format": "binary",
     }
     assert {"200", "206", "404", "416"} <= set(op["responses"])
     assert "Range" in {p["name"] for p in op["parameters"]}
-    assert "head" in schema["paths"]["/episodes/{episode_id}/audio.wav"]
+    assert "head" in schema["paths"]["/v1/episodes/{episode_id}/audio.wav"]
 
 
 def test_episode_links_are_in_the_response_schema(schema: dict[str, Any]) -> None:

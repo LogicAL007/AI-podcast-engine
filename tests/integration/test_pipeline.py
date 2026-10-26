@@ -147,7 +147,7 @@ def test_first_episode_runs_every_stage_and_publishes(engine: Engine, show_id: U
     feed = feedparser.parse(store.get(feed_key(show_id)))
     assert len(feed.entries) == 1
     assert "AI-generated" in feed.entries[0].title
-    assert feed.entries[0].enclosures[0].href.endswith(f"/api/episodes/{episode_id}/audio.wav")
+    assert feed.entries[0].enclosures[0].href.endswith(f"/api/v1/episodes/{episode_id}/audio.wav")
 
     runs = ctx.repo.list_stage_runs(episode_id)
     assert [r.stage for r in runs] == [stage.value for stage in Stage]

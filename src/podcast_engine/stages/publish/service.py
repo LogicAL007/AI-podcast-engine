@@ -103,7 +103,7 @@ def build_feed(show: ShowRecord, entries: list[dict[str, Any]], base_url: str) -
     feed = FeedGenerator()
     feed.load_extension("podcast")
     feed.title(f"{show.topic} [AI-generated]")
-    feed.link(href=f"{base_url}/api/feeds/{show.show_id}/rss.xml", rel="self")
+    feed.link(href=f"{base_url}/api/v1/feeds/{show.show_id}/rss.xml", rel="self")
     feed.description(with_disclosure(f"An AI-generated show about {show.topic}."))
     feed.language(show.language)
     feed.podcast.itunes_category("Technology")
@@ -117,7 +117,7 @@ def build_feed(show: ShowRecord, entries: list[dict[str, Any]], base_url: str) -
         entry.description(item["notes"])
         entry.published(item["published_at"])
         entry.enclosure(
-            f"{base_url}/api/episodes/{item['episode_id']}/audio.wav",
+            f"{base_url}/api/v1/episodes/{item['episode_id']}/audio.wav",
             str(item["bytes"]),
             "audio/wav",
         )

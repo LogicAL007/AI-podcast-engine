@@ -80,8 +80,8 @@ def test_home_states_authentication_and_health(
     auth = home["api"]["auth"]
     assert auth["required"] is True
     assert auth["schemes"] == [{"scheme": "Bearer", "realms": []}]
-    assert auth["login"] == "http://testserver/auth/login"
-    assert auth["api_keys"] == "http://testserver/auth/api-keys"
+    assert auth["login"] == "http://testserver/v1/auth/login"
+    assert auth["api_keys"] == "http://testserver/v1/auth/api-keys"
     assert auth["token_lifetime_days"] == 180
     resources = home["resources"]
     assert resources[PREFIX + "shows"]["hints"]["authSchemes"]  # protected

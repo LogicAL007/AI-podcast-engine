@@ -8,8 +8,10 @@ stand-ins, so nothing here is imported or called.
 
 import json
 import random
+import re
 import time
 from collections import Counter
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -28,6 +30,29 @@ KEY_HELP = {
 
 class LlmError(RuntimeError):
     """The model could not produce a usable answer; the stage fails and Celery retries it."""
+
+
+class GeminiQuotaError(LlmError):
+    """Gemini's quota for today is used up; waiting minutes will not help, so nothing retries."""
+
+
+def retry_after_seconds(error: Any) -> float | None:
+    """The wait Gemini asks for on a 429, from its RetryInfo detail or its message."""
+    body = getattr(error, "details", None) or {}
+    for detail in (body.get("error") or {}).get("details") or []:
+        delay = str(detail.get("retryDelay", ""))
+        if delay.endswith("s"):
+            try:
+                return float(delay[:-1])
+            except ValueError:
+                pass
+    found = re.search(r"retry in ([\d.]+)s", str(error))
+    return float(found.group(1)) if found else None
+
+
+def is_daily_quota(error: Any) -> bool:
+    """True when the exhausted quota is a per-day one (for example the free tier's daily cap)."""
+    return "PerDay" in str(getattr(error, "details", "") or error)
 
 
 class LlmClient:
@@ -61,10 +86,19 @@ class GeminiClient(LlmClient):
         3  # with a fallback configured: waits of about 2 and 4 seconds, then switch
     )
 
-    def __init__(self, api_key: str, model: str, *, seed: int, fallback: str = "") -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        *,
+        seed: int,
+        fallback: str = "",
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         super().__init__(model, seed)
         from google import genai
 
+        self.sleep = sleep
         self.fallback = fallback if fallback != model else ""
         self.active = model  # becomes the fallback once the main model stays busy
         self.busy_retries = 0
@@ -74,7 +108,10 @@ class GeminiClient(LlmClient):
             raise LlmError(f"No Gemini credentials were found. {KEY_HELP['gemini']}") from error
 
     def _call(self, model: str, user: str, config: Any, tries: int) -> Any:
-        """One request, patiently retried: 503 "high demand" and 429 rate limits are brief."""
+        """One request, patiently retried: 503 "high demand", 429 rate limits and network blips
+        are brief. A used-up daily quota is not, so it fails at once.
+        """
+        import httpx
         from google.genai import errors
 
         for attempt in range(tries):
@@ -82,14 +119,23 @@ class GeminiClient(LlmClient):
                 return self.client.models.generate_content(
                     model=model, contents=user, config=config
                 )
-            except (errors.ServerError, errors.ClientError) as error:
-                busy = isinstance(error, errors.ServerError) or error.code == 429
+            except (errors.ServerError, errors.ClientError, httpx.TransportError) as error:
+                limited = isinstance(error, errors.ClientError) and error.code == 429
+                if limited and is_daily_quota(error):
+                    raise GeminiQuotaError(
+                        f"Gemini's daily quota for {model} is used up. Try again tomorrow, "
+                        "enable billing on the key, or set LLM_ENABLED=false to plan and write "
+                        "offline."
+                    ) from error
+                busy = limited or not isinstance(error, errors.ClientError)
                 if not busy or attempt == tries - 1:
                     raise
                 self.busy_retries += 1
-                wait = min(2 ** (attempt + 1), 32) + random.random()  # noqa: S311 - jitter, not security
-                log.warning("llm_busy", model=model, code=error.code, retry_in_s=round(wait))
-                time.sleep(wait)
+                asked = retry_after_seconds(error) if limited else None
+                wait = (asked + 1) if asked else min(2 ** (attempt + 1), 32) + random.random()  # noqa: S311 - jitter, not security
+                code = getattr(error, "code", None) or type(error).__name__
+                log.warning("llm_busy", model=model, code=code, retry_in_s=round(wait))
+                self.sleep(wait)
         raise AssertionError("unreachable")
 
     def parse(
@@ -130,8 +176,9 @@ class GeminiClient(LlmClient):
                         raise
                     response = self._call(model, user, plain_json, tries)
                 break
-            except (errors.ServerError, errors.ClientError) as error:
-                still_busy = isinstance(error, errors.ServerError) or error.code == 429
+            except (errors.ServerError, errors.ClientError, GeminiQuotaError) as error:
+                # Busy, rate-limited or out of quota for today: the fallback has its own quota.
+                still_busy = not isinstance(error, errors.ClientError) or error.code == 429
                 if not still_busy or not has_next:
                     raise
                 self.active = candidates[position + 1]  # do not wait on the busy model again

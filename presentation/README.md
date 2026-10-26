@@ -2,7 +2,7 @@
 
 This folder holds the COMP 5112 research methodology proposal deck, [AI_Podcast_Proposal.pptx](AI_Podcast_Proposal.pptx). This guide covers it page by page: what each slide shows, what to say, and what the cited research found and why it supports that slide.
 
-- **Length:** 25 slides, 22 of them presented, plus 3 reference pages. At the pace of the scripts below, the talk takes about 16 to 18 minutes.
+- **Length:** 25 slides, 22 of them presented, plus 3 reference pages. The scripts below total about 1,570 words: about 10½ minutes read at 150 words a minute, or 12 to 14 minutes with pauses and slide changes.
 - **Speaker notes:** each slide's script is also in its notes, so presenter view shows it.
 - **Design:** white pages, near-black Arial text and one muted green accent. There is one message per page. The three research questions are named by topic (Accuracy, Format, Trust), never by number.
 - **References:** 30 sources in APA style, each cited on the slide it supports.

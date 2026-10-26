@@ -1,3 +1,4 @@
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -12,6 +13,7 @@ from podcast_engine.api.controllers.ops_controller import OpsController
 from podcast_engine.api.controllers.shows_controller import ShowController
 from podcast_engine.api.controllers.sources_controller import SourceController
 from podcast_engine.api.controllers.uploads_controller import UploadController
+from podcast_engine.api.controllers.voices_controller import VoiceController
 from podcast_engine.api.main import create_app
 from podcast_engine.api.models.auth_model import CurrentUser
 from podcast_engine.api.repositories.login_attempts_repository import (
@@ -19,12 +21,13 @@ from podcast_engine.api.repositories.login_attempts_repository import (
     MemoryLoginAttempts,
 )
 from podcast_engine.api.services.auth_service import AuthService
-from podcast_engine.api.services.episodes_service import EpisodeService
+from podcast_engine.api.services.episodes_service import EpisodeService, ProgressPacing
 from podcast_engine.api.services.feeds_service import FeedService
 from podcast_engine.api.services.ops_service import Check, OpsService
 from podcast_engine.api.services.shows_service import ShowService
 from podcast_engine.api.services.sources_service import SourceService
 from podcast_engine.api.services.uploads_service import UploadService
+from podcast_engine.api.services.voices_service import VoiceService
 from podcast_engine.common.mailer import Email
 from podcast_engine.common.queue import Stage
 from tests.unit.api.fakes import (
@@ -35,6 +38,7 @@ from tests.unit.api.fakes import (
     FakeShowRepository,
     FakeSourceRepository,
     FakeUploadRepository,
+    FakeVoiceRepository,
 )
 
 MAX_UPLOAD_BYTES = 1024
@@ -65,7 +69,7 @@ LIMITS = LimitsConfig(
 class Harness:
     """A test client plus handles on everything behind it."""
 
-    def __init__(self, *, signed_in: bool = True) -> None:
+    def __init__(self, *, signed_in: bool = True, signup_open: bool = False) -> None:
         """``signed_in``: every request acts as an admin. False: requests go through real login."""
         self.auth = FakeAuthRepository()
         self.now = datetime.now(UTC)
@@ -87,12 +91,14 @@ class Harness:
             reset_minutes=30,
             reset_max_requests=3,
             web_url="https://podcasts.example",
+            signup_open=signup_open,
         )
         self.shows = FakeShowRepository()
         self.episodes = FakeEpisodeRepository(self.shows)
         self.sources = FakeSourceRepository()
         self.uploads = FakeUploadRepository()
         self.store = FakeObjectStore()
+        self.voices = FakeVoiceRepository(self.shows)
         self.auth.on_delete.append(self.shows.drop_owner)
         self.enqueued: list[UUID] = []
         self.stages: list[tuple[UUID, Stage]] = []
@@ -102,7 +108,10 @@ class Harness:
         app = create_app()
         overrides = app.dependency_overrides
         overrides[dependencies.get_show_controller] = lambda: ShowController(
-            ShowService(self.shows)
+            ShowService(self.shows, self.voices)
+        )
+        overrides[dependencies.get_voice_controller] = lambda: VoiceController(
+            VoiceService(self.voices, self.store)
         )
         overrides[dependencies.get_episode_controller] = lambda: EpisodeController(
             EpisodeService(
@@ -119,6 +128,13 @@ class Harness:
             FeedService(self.store)
         )
         overrides[dependencies.get_ops_controller] = lambda: OpsController(OpsService(self.checks))
+        overrides[dependencies.get_session] = _no_database
+        overrides[dependencies.get_episode_loader] = lambda: self.episodes.get
+        # The progress stream polls through this; tests replace sleep to move the episode on.
+        self.pacing = ProgressPacing(poll_s=1.0, heartbeat_s=15.0, max_s=3600.0,
+                                     sleep=self._advance, clock=lambda: self.seconds)  # fmt: skip
+        self.on_poll: list[Callable[[], None]] = []
+        overrides[dependencies.get_progress_pacing] = lambda: self.pacing
         overrides[dependencies.get_auth_service] = lambda: self.auth_service
         overrides[dependencies.get_auth_controller] = lambda: AuthController(
             self.auth_service, self.mailer
@@ -126,6 +142,12 @@ class Harness:
         if signed_in:
             overrides[dependencies.get_current_user] = lambda: ADMIN
         self.client = TestClient(app)
+
+    async def _advance(self, seconds: float) -> None:
+        """The stream's sleep: time moves on, and the next scripted change happens."""
+        self.seconds += seconds
+        if self.on_poll:
+            self.on_poll.pop(0)()
 
     def _enqueue(self, episode_id: UUID, stage: Stage) -> None:
         if self.queue_down:
@@ -137,3 +159,14 @@ class Harness:
 @pytest.fixture
 def harness() -> Harness:
     return Harness()
+
+
+class _UnusedSession:
+    """Stands in for the request's database session; routes under test never query it."""
+
+    def close(self) -> None:
+        pass
+
+
+def _no_database() -> Iterator[_UnusedSession]:
+    yield _UnusedSession()

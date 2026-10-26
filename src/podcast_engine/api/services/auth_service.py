@@ -17,6 +17,7 @@ from uuid import UUID
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
+from pydantic import ValidationError
 
 from podcast_engine.api.errors import (
     ConflictError,
@@ -29,6 +30,7 @@ from podcast_engine.api.errors import (
 from podcast_engine.api.models.auth_model import (
     ApiKeyCreated,
     ApiKeyRead,
+    Avatar,
     CurrentUser,
     Role,
     SecurityEventName,
@@ -53,11 +55,22 @@ SHOWN_PREFIX = 8  # characters kept to recognise a key: "pek_" and four random o
 TOUCH_EVERY = timedelta(minutes=5)  # record last use at most this often
 BAD_LOGIN = "wrong email or password"
 BAD_TOKEN = "the token is missing, invalid, expired or revoked"  # noqa: S105
+BAD_CSRF = "send the X-CSRF-Token header with the value of the pe_csrf cookie"
 BAD_RESET = "the reset link is invalid or has expired; ask for a new one"
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _avatar_or_none(stored: dict[str, Any] | None) -> Avatar | None:
+    """The saved avatar, or None if there is none or it no longer fits the allowed choices."""
+    if not stored:
+        return None
+    try:
+        return Avatar.model_validate(stored)
+    except ValidationError:
+        return None
 
 
 class AuthService:
@@ -76,10 +89,12 @@ class AuthService:
         reset_minutes: int = 30,
         reset_max_requests: int = 3,
         web_url: str = "http://localhost:8080",
+        signup_open: bool = False,
     ) -> None:
         if not token_key:
             raise ValueError("token_key must not be empty")
         self._repository = repository
+        self._signup_open = signup_open
         self._key = token_key
         self._lifetime = timedelta(days=token_days)
         self._now = now
@@ -139,7 +154,36 @@ class AuthService:
             token_id=found.token_id,
             token_kind=found.kind,
             expires_at=found.expires_at,
+            avatar=_avatar_or_none(found.avatar),
         )
+
+    def authenticate_session_cookie(self, token: str) -> CurrentUser:
+        """Like ``authenticate``, for the browser's cookie, which only a login token may be in."""
+        current = self.authenticate(token)
+        if current.token_kind != "session":  # noqa: S105 (a token kind, not a password)
+            raise UnauthenticatedError(BAD_TOKEN)
+        return current
+
+    def csrf_for(self, token_id: UUID) -> str:
+        """The CSRF token of a browser session: bound to it and unforgeable without the key."""
+        return hmac.new(self._key, f"csrf:{token_id}".encode(), hashlib.sha256).hexdigest()
+
+    def check_csrf(self, current: CurrentUser, presented: str | None) -> None:
+        if not presented or not hmac.compare_digest(presented, self.csrf_for(current.token_id)):
+            raise ForbiddenError(BAD_CSRF)
+
+    def set_avatar(self, user: CurrentUser, avatar: Avatar) -> CurrentUser:
+        """Keep the assistant bot this person chose; returns them with it."""
+        self._repository.set_avatar(user.user_id, avatar.model_dump())
+        return user.model_copy(update={"avatar": avatar})
+
+    def setup_open(self) -> bool:
+        """True until the first account exists (it is created without signing in)."""
+        return self._repository.count_users() == 0
+
+    def signup_open(self) -> bool:
+        """True when anyone may create their own (creator) account, the SIGNUP_OPEN setting."""
+        return self._signup_open
 
     def _verify(self, user: StoredUser | None, password: str) -> bool:
         try:
@@ -158,7 +202,8 @@ class AuthService:
         self, email: str, password: str, role: Role, *, by: CurrentUser | None, address: str = ""
     ) -> UserRead:
         """Create an account. The first account is the admin, and takes over any shows made
-        before login existed; after that only an admin can add accounts."""
+        before login existed. After that an admin can add accounts of either role, and, with
+        sign-up open, anyone can create their own account, always as a creator."""
         if self._repository.count_users() == 0:
             admin = self._repository.add_user(email, self._hasher.hash(password), "admin")
             claimed = self._claim_unowned(admin.user_id) if self._claim_unowned else 0
@@ -171,6 +216,15 @@ class AuthService:
                 shows_claimed=claimed,
             )
             return admin
+        if by is None and self._signup_open:
+            # Each self-service sign-up counts against the address's attempt budget, so one
+            # machine cannot create accounts in bulk.
+            self._slow_down(address)
+            user = self._repository.add_user(email, self._hasher.hash(password), "creator")
+            if self._attempts is not None:
+                self._attempts.record_failure(None, address)
+            self._event("user_registered", user.user_id, address, role="creator", self_service=True)
+            return user
         if by is None:
             raise UnauthenticatedError("log in as an admin to add accounts")
         if by.role != "admin":

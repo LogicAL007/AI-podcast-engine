@@ -4,9 +4,20 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Request, status
+from fastapi.responses import StreamingResponse
 
-from podcast_engine.api.controllers.episodes_controller import EpisodeController
-from podcast_engine.api.dependencies import CurrentUserDep, get_episode_controller
+from podcast_engine.api.controllers.episodes_controller import (
+    EVENT_STREAM,
+    EpisodeController,
+    follow_progress,
+)
+from podcast_engine.api.dependencies import (
+    CurrentUserDep,
+    SessionDep,
+    get_episode_controller,
+    get_episode_loader,
+    get_progress_pacing,
+)
 from podcast_engine.api.models.episodes_model import (
     ClaimDetail,
     EpisodeRead,
@@ -17,6 +28,7 @@ from podcast_engine.api.models.episodes_model import (
 from podcast_engine.api.models.pagination_model import Page
 from podcast_engine.api.openapi import errors
 from podcast_engine.api.pagination import Paging, to_page
+from podcast_engine.api.services.episodes_service import EpisodeLoader, ProgressPacing
 from podcast_engine.common.models import EpisodeStatus
 
 router = APIRouter(tags=["episodes"])
@@ -105,6 +117,37 @@ def get_episode(episode_id: EpisodeId, me: CurrentUserDep, controller: Controlle
     """The episode's status, current stage and any error, with links to its audio, show notes,
     script, stage runs and feed. The audio and notes links are null until they exist."""
     return controller.get(episode_id, me.user_id)
+
+
+@router.get(
+    "/episodes/{episode_id}/events",
+    response_class=StreamingResponse,
+    summary="Follow an episode's progress",
+    response_description="A stream of server-sent events",
+    responses={
+        200: {
+            "description": (
+                "Server-sent events. `episode` carries the status, stage, step (of 8), error and "
+                "rewrite count, sent whenever they change. `gone` means the episode was deleted. "
+                "Comment lines keep the connection alive."
+            ),
+            "content": {EVENT_STREAM: {"schema": {"type": "string"}}},
+        },
+        **errors(e404="Episode not found"),
+    },
+)
+async def follow_episode(
+    episode_id: EpisodeId,
+    me: CurrentUserDep,
+    session: SessionDep,
+    load: Annotated[EpisodeLoader, Depends(get_episode_loader)],
+    pacing: Annotated[ProgressPacing, Depends(get_progress_pacing)],
+) -> StreamingResponse:
+    """Watch an episode being made, live: an event whenever its status or stage changes, until
+    nothing is running (published, held for review, unchanged, cancelled or failed). Browsers
+    connect with `EventSource`, which sends the sign-in cookie and reconnects by itself."""
+    session.close()  # the stream can stay open for an hour; it must not hold this connection
+    return await follow_progress(episode_id, me.user_id, load, pacing)
 
 
 @router.get(

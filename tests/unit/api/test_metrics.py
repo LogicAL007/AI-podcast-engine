@@ -13,10 +13,10 @@ def _count(method: str, route: str, status: str) -> float:
 
 
 def test_requests_are_counted_by_route_template_not_raw_path(harness: Harness) -> None:
-    before = _count("GET", "/shows/{show_id}", "404")
-    harness.client.get(f"/shows/{uuid4()}")
-    harness.client.get(f"/shows/{uuid4()}")
-    assert _count("GET", "/shows/{show_id}", "404") == before + 2
+    before = _count("GET", "/v1/shows/{show_id}", "404")
+    harness.client.get(f"/v1/shows/{uuid4()}")
+    harness.client.get(f"/v1/shows/{uuid4()}")
+    assert _count("GET", "/v1/shows/{show_id}", "404") == before + 2
 
 
 def test_unmatched_paths_share_one_label(harness: Harness) -> None:

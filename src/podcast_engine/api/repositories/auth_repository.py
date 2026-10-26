@@ -1,7 +1,8 @@
 """Persistence for login: the only module that knows the ``users`` and ``auth_tokens`` tables."""
 
+import json
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import text
@@ -56,6 +57,8 @@ class AuthRepository(Protocol):
     def list_api_keys(self, user_id: UUID, *, limit: int, offset: int) -> Paged[ApiKeyRead]: ...
 
     def get_user(self, user_id: UUID) -> StoredUser | None: ...
+
+    def set_avatar(self, user_id: UUID, avatar: dict[str, Any]) -> None: ...
 
     def revoke_all(self, user_id: UUID, when: datetime, *, keep: UUID | None = None) -> int: ...
 
@@ -179,7 +182,7 @@ class PostgresAuthRepository:
             self._session.execute(
                 text(
                     "SELECT t.token_id, t.user_id, t.kind, t.expires_at, t.revoked_at,"
-                    " t.last_used_at, u.email, u.role, u.disabled"
+                    " t.last_used_at, u.email, u.role, u.disabled, u.avatar"
                     " FROM auth_tokens t JOIN users u ON u.user_id = t.user_id"
                     " WHERE t.token_hash = :hash"
                 ),
@@ -189,6 +192,13 @@ class PostgresAuthRepository:
             .one_or_none()
         )
         return StoredToken.model_validate(row) if row else None
+
+    def set_avatar(self, user_id: UUID, avatar: dict[str, Any]) -> None:
+        self._session.execute(
+            text("UPDATE users SET avatar = CAST(:avatar AS jsonb) WHERE user_id = :id"),
+            {"avatar": json.dumps(avatar), "id": user_id},
+        )
+        self._session.commit()
 
     def touch(self, token_id: UUID, when: datetime) -> None:
         self._session.execute(

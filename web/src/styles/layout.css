@@ -1,0 +1,997 @@
+/* A faint warm wash behind the signed-in app, for the glass to catch. */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 0% 0%, var(--wash-deep), transparent 70%),
+    radial-gradient(
+      50rem 36rem at 100% 100%,
+      var(--wash-light),
+      transparent 70%
+    ),
+    var(--color-bg);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand:hover {
+  color: var(--color-text);
+}
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* ---- the signed-in layout: a sidebar beside the page ----------------------------------------- */
+.app-layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 200ms ease;
+}
+.app-main {
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6) var(--space-7);
+}
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  height: 100vh;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-4);
+  border-right: 1px solid var(--glass-edge);
+  background: var(--glass-header);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 1px 0 0 var(--color-border);
+}
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-2);
+}
+.brand-link {
+  text-decoration: none;
+}
+.sidebar-nav,
+.sidebar-section {
+  display: grid;
+  gap: var(--space-1);
+}
+.sidebar-heading {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.side-link svg {
+  flex: none;
+  color: var(--color-text-muted);
+}
+.side-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface-strong);
+}
+.side-link.active,
+.side-link[aria-current="page"] {
+  color: var(--color-accent-hover);
+  background: var(--color-accent-soft);
+}
+.side-link.active svg,
+.side-link[aria-current="page"] svg {
+  color: var(--color-accent);
+}
+.side-link-quiet {
+  font-weight: 500;
+}
+.sidebar-cta {
+  justify-content: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.sidebar-bottom {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.companion-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.companion-card:hover {
+  background: var(--color-surface-strong);
+}
+.companion-card-name {
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+.companion-card-role {
+  font-size: var(--text-xs);
+}
+.sidebar-email {
+  margin: 0;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu-button {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.mobile-bar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--glass-edge);
+  background: var(--glass-header);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 1px 0 var(--color-border);
+}
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgb(28 25 23 / 35%);
+  animation: logo-in 200ms ease-out both;
+}
+.collapse-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.collapse-button:hover {
+  color: var(--color-text);
+  background: var(--color-surface-strong);
+}
+.sidebar-signout {
+  gap: var(--space-2);
+}
+/* Collapsed: a slim rail of icons. Labels are hidden from sight only, so links keep their names
+ * for screen readers, and each icon shows its label as a tooltip on hover. */
+.sidebar-collapsed {
+  grid-template-columns: 4.75rem minmax(0, 1fr);
+}
+.sidebar-collapsed .sidebar {
+  align-items: center;
+  padding-inline: var(--space-2);
+}
+.sidebar-collapsed .sidebar-top {
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0;
+}
+.sidebar-collapsed .brand-name,
+.sidebar-collapsed .side-label,
+.sidebar-collapsed .companion-card .stack {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.sidebar-collapsed .sidebar-heading,
+.sidebar-collapsed .sidebar-email {
+  display: none;
+}
+.sidebar-collapsed .sidebar-nav,
+.sidebar-collapsed .sidebar-section,
+.sidebar-collapsed .sidebar-bottom {
+  justify-items: center;
+  width: 100%;
+}
+.sidebar-collapsed .side-link,
+.sidebar-collapsed .sidebar-cta,
+.sidebar-collapsed .sidebar-signout {
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+}
+.sidebar-collapsed .companion-card {
+  padding: var(--space-1);
+}
+/* Narrow screens: the sidebar is a drawer that slides in over the page. */
+@media (max-width: 56rem) {
+  .app-layout {
+    display: block;
+  }
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(18rem, 85vw);
+    background: var(
+      --color-bg
+    ); /* solid: the page must not show through the open drawer */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+  }
+  .sidebar-open {
+    transform: none;
+    box-shadow: 0 0 40px rgb(28 25 23 / 25%);
+  }
+  .app-main {
+    padding: var(--space-5) var(--space-4) var(--space-6);
+  }
+}
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+.breadcrumb {
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+}
+
+.public-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: var(--color-surface);
+}
+.public-card {
+  width: 100%;
+  max-width: 26rem;
+  padding: var(--space-6);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.public-card .brand {
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 40rem) {
+  .app-main {
+    padding: var(--space-5) var(--space-4) var(--space-6);
+  }
+  .line {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* ---- liquid logo, backdrop, glass ------------------------------------------------------------ */
+.liquid-logo {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.liquid-logo > * {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+/* The same mark, still, in the metal's colours: shown first and under any transparent pixels. */
+.liquid-logo-still {
+  background: linear-gradient(160deg, #fdba74, #c2410c 55%, #7c2d12);
+  mask: url("/logo-mark.svg") center / 90% no-repeat;
+  -webkit-mask: url("/logo-mark.svg") center / 90% no-repeat;
+}
+.liquid-logo-metal {
+  animation: logo-in 600ms ease-out both;
+}
+@keyframes logo-in {
+  from {
+    opacity: 0;
+  }
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 20% 20%, #fed7aa, transparent 55%),
+    radial-gradient(circle at 80% 70%, #fdba74, transparent 50%), #fff7f0;
+}
+.glass-panel {
+  position: relative;
+  isolation: isolate;
+  background: rgb(255 255 255 / 55%);
+  border: 1px solid rgb(255 255 255 / 70%);
+  box-shadow:
+    0 10px 40px rgb(124 45 18 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 80%);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+}
+.glass-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+  /* The library's glass is inline-flex; without this the line box adds a gap below it. */
+  line-height: 0;
+}
+/* Its edge highlights are sized from a measurement it takes once and can miss; every layer is
+ * centred on the panel, so filling the panel lines them all up. */
+.glass-layer > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+.glass-content {
+  position: relative;
+  z-index: 1;
+}
+.public-page .public-card {
+  position: relative;
+  z-index: 1;
+  background: rgb(255 255 255 / 62%);
+  border: 1px solid rgb(255 255 255 / 75%);
+}
+
+/* ---- assistant dock ----------------------------------------------------------------------------- */
+.assistant-dock {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 20;
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+}
+.dock-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+}
+.dock-bot {
+  flex: none;
+  width: 112px;
+  height: 112px;
+}
+.dock-bot-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgb(253 186 116 / 55%),
+    transparent 62%
+  );
+  animation: glow 1.6s ease-in-out infinite alternate;
+}
+@keyframes glow {
+  to {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+}
+.bot-canvas {
+  animation: logo-in 500ms ease-out both;
+}
+.bot-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+.dock-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.dock-name {
+  font-weight: 800;
+  color: var(--color-accent-hover);
+}
+.dock-close {
+  align-self: flex-start;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: var(--space-1);
+  border-radius: 6px;
+}
+.dock-close:hover {
+  color: var(--color-text);
+}
+.dock-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+.dock-got-it {
+  align-self: flex-start;
+  padding: 0;
+  font-size: var(--text-xs);
+}
+/* The dock, closed: a small glass bot button in the same corner. */
+.dock-reopen {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 70%);
+  color: var(--color-text-muted);
+  box-shadow: 0 8px 28px rgb(124 45 18 / 18%);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  cursor: pointer;
+  animation: logo-in 300ms ease-out both;
+}
+.dock-reopen:hover {
+  transform: translateY(-2px);
+}
+/* On a phone the dock is a slim pill across the bottom, and the page leaves room for it. */
+@media (max-width: 40rem) {
+  .assistant-dock {
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: var(--space-3);
+    width: auto;
+  }
+  .dock-inner {
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  }
+  .dock-bot {
+    width: 60px;
+    height: 60px;
+  }
+  .dock-line {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-size: var(--text-xs);
+  }
+  .dock-close {
+    align-self: center;
+  }
+  .dock-reopen {
+    right: var(--space-3);
+    bottom: var(--space-3);
+  }
+  .app-main:has(.assistant-dock) {
+    padding-bottom: 6.5rem;
+  }
+}
+
+/* ---- first-run welcome ---------------------------------------------------------------------- */
+/* A warm wash behind the card, so its glass has something to catch. */
+.welcome {
+  position: relative;
+  padding: var(--space-5);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 15% 20%, #fed7aa, transparent 55%),
+    radial-gradient(circle at 85% 80%, #fdba74, transparent 50%), #fff7f0;
+}
+.welcome-inner {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-5);
+}
+.welcome-bot {
+  width: 160px;
+  height: 160px;
+}
+.welcome h2 {
+  font-size: var(--text-xl);
+}
+.welcome-steps {
+  counter-reset: step;
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.welcome-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  column-gap: var(--space-3);
+}
+.welcome-steps li::before {
+  content: counter(step);
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+}
+.welcome-steps .muted {
+  font-size: var(--text-sm);
+}
+@media (max-width: 40rem) {
+  .welcome {
+    padding: var(--space-3);
+  }
+  .welcome-inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+  .welcome-bot {
+    width: 104px;
+    height: 104px;
+    margin: 0 auto;
+  }
+}
+
+/* ---- onboarding (/welcome) and sign-up -------------------------------------------------------- */
+.signup-prompt {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgb(28 25 23 / 10%);
+  font-size: var(--text-sm);
+}
+.onboarding-page {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+}
+.onboarding-page .onboarding-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 52rem;
+  /* 80% white keeps muted text above 5.5:1 even over the backdrop's deepest orange. */
+  background: rgb(255 255 255 / 80%);
+}
+.onboarding-top,
+.onboarding-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+}
+.onboarding-body {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-2) var(--space-6) var(--space-4);
+  min-height: 19rem;
+  animation: rise 220ms ease-out backwards;
+}
+.onboarding-bot {
+  width: 200px;
+  height: 200px;
+}
+.onboarding-body h1 {
+  font-size: var(--text-2xl);
+  line-height: 1.15;
+}
+/* Focus is moved here so each step is announced; the heading is not a control, so no ring. */
+.onboarding-body h1:focus,
+.onboarding-body h1:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.onboarding-lead {
+  font-size: var(--text-lg);
+}
+.onboarding-points {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.onboarding-stages {
+  counter-reset: stage;
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.onboarding-stages li {
+  counter-increment: stage;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  column-gap: var(--space-3);
+}
+.onboarding-stages li::before {
+  content: counter(stage);
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+}
+.onboarding-stages .muted {
+  font-size: var(--text-sm);
+}
+.onboarding-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.onboarding-choice {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-card);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+.onboarding-choice:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--glass-shadow);
+}
+.onboarding-choice strong {
+  color: var(--color-accent-hover);
+}
+.onboarding-choice .muted {
+  font-size: var(--text-sm);
+}
+.onboarding-dots {
+  display: flex;
+  gap: var(--space-2);
+}
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgb(28 25 23 / 20%);
+  transition:
+    width 200ms ease,
+    background-color 200ms ease;
+}
+.dot-on {
+  width: 1.5rem;
+  background: var(--color-accent);
+}
+.onboarding-help {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+@media (max-width: 40rem) {
+  .onboarding-top,
+  .onboarding-foot {
+    padding: var(--space-4);
+  }
+  .onboarding-body {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    padding: 0 var(--space-4) var(--space-3);
+    min-height: 0;
+  }
+  .onboarding-bot {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+  }
+  .onboarding-body h1 {
+    font-size: var(--text-xl);
+  }
+  .onboarding-choices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- companion: interactive bots, the picker and the header chip ------------------------------ */
+.bot-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: pan-y; /* a sideways drag spins the bot; the page still scrolls up and down */
+  -webkit-tap-highlight-color: transparent;
+}
+.bot-stage:active {
+  cursor: grabbing;
+}
+.bot-stage:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+/* The bot's speech bubble, above its head. */
+.bot-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 0.5rem);
+  z-index: 2;
+  width: max-content;
+  max-width: 13rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 14px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  transform: translateX(-50%);
+  box-shadow: 0 6px 20px rgb(28 25 23 / 25%);
+  pointer-events: none;
+  animation: bubble-in 220ms ease-out both;
+}
+.bot-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  border: 6px solid transparent;
+  border-top-color: var(--color-text);
+  transform: translateX(-50%);
+}
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.92);
+  }
+}
+.companion {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+.companion-preview {
+  position: sticky;
+  top: var(--space-6);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-6); /* room for the speech bubble */
+}
+.companion-preview .bot-stage {
+  width: 14rem;
+  height: 14rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 55%,
+    rgb(253 186 116 / 35%),
+    transparent 65%
+  );
+}
+.companion-tip {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.choice-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice-group legend {
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.character-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+.character-card {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-card);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.character-card:has(input:checked) {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgb(194 65 12 / 20%);
+}
+.character-card:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.character-card input,
+.swatch input,
+.choice-pill input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.character-name {
+  font-weight: 700;
+  color: var(--color-accent-hover);
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.swatch {
+  position: relative;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 1px solid rgb(28 25 23 / 25%);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.swatch:hover {
+  transform: scale(1.08);
+}
+.swatch-glow {
+  box-shadow: 0 0 10px var(--swatch);
+}
+.swatch:has(input:checked) {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.swatch:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.choice-pill {
+  position: relative;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.choice-pill:has(input:checked) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  font-weight: 600;
+}
+.choice-pill:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.companion-chip {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--glass-card);
+  border: 1px solid var(--color-border);
+  transition: transform 150ms ease;
+}
+.companion-chip:hover {
+  transform: translateY(-1px) rotate(-6deg);
+}
+.companion-chip.active {
+  border-color: var(--color-accent);
+}
+.onboarding-body-wide {
+  grid-template-columns: 1fr;
+}
+.dock-bot .bot-stage {
+  border-radius: 50%;
+}
+@media (max-width: 40rem) {
+  .companion {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .companion-preview {
+    position: static;
+  }
+  .companion-preview .bot-stage {
+    width: 11rem;
+    height: 11rem;
+  }
+  .character-cards {
+    grid-template-columns: 1fr;
+  }
+}

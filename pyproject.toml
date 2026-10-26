@@ -99,6 +99,8 @@ select = [
 # Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the
 # text goes in on stdin, never through a shell). The RNG only picks banter lines.
 "notebooks/**" = ["A004", "ARG001", "ARG002", "E402", "E501", "S101", "S311", "S603", "S607", "SIM905", "T201"]
+# Architecture diagrams: long lines are diagram text; '·' and '−' are typography; build prints.
+"presentation/diagrams/**" = ["E501", "RUF001", "T201"]
 
 [tool.ruff.format]
 quote-style = "double"

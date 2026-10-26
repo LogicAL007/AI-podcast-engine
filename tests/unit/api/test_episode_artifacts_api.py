@@ -13,8 +13,10 @@ from tests.unit.api.conftest import Harness
 
 
 def _episode(harness: Harness) -> UUID:
-    show_id = harness.client.post("/shows", json={"topic": "ClickHouse basics"}).json()["show_id"]
-    return UUID(harness.client.post(f"/shows/{show_id}/episodes").json()["episode_id"])
+    show_id = harness.client.post("/v1/shows", json={"topic": "ClickHouse basics"}).json()[
+        "show_id"
+    ]
+    return UUID(harness.client.post(f"/v1/shows/{show_id}/episodes").json()["episode_id"])
 
 
 def test_show_accepts_the_pipeline_fields() -> None:
@@ -27,22 +29,25 @@ def test_show_accepts_the_pipeline_fields() -> None:
         "max_segments": 4,
         "ranking_profile": "daily",
     }
-    created = harness.client.post("/shows", json=body)
+    created = harness.client.post("/v1/shows", json=body)
     assert created.status_code == 201
     for name in ("topic_keywords", "attribution", "max_segments", "ranking_profile"):
         assert created.json()[name] == body[name]
-    patched = harness.client.patch(f"/shows/{created.json()['show_id']}", json={"max_segments": 2})
+    patched = harness.client.patch(
+        f"/v1/shows/{created.json()['show_id']}", json={"max_segments": 2}
+    )
     assert patched.json()["max_segments"] == 2
 
 
 def test_show_rejects_out_of_range_pipeline_fields() -> None:
     harness = Harness()
     assert (
-        harness.client.post("/shows", json={"topic": "abc", "max_segments": 13}).status_code == 422
+        harness.client.post("/v1/shows", json={"topic": "abc", "max_segments": 13}).status_code
+        == 422
     )
     assert (
         harness.client.post(
-            "/shows", json={"topic": "abc", "ranking_profile": "weekly"}
+            "/v1/shows", json={"topic": "abc", "ranking_profile": "weekly"}
         ).status_code
         == 422
     )
@@ -50,9 +55,9 @@ def test_show_rejects_out_of_range_pipeline_fields() -> None:
 
 def test_audio_and_notes_are_404_until_published(harness: Harness) -> None:
     episode_id = _episode(harness)
-    assert harness.client.get(f"/episodes/{episode_id}/audio.wav").status_code == 404
-    assert harness.client.get(f"/episodes/{episode_id}/notes.md").status_code == 404
-    assert harness.client.get(f"/episodes/{uuid4()}/audio.wav").status_code == 404
+    assert harness.client.get(f"/v1/episodes/{episode_id}/audio.wav").status_code == 404
+    assert harness.client.get(f"/v1/episodes/{episode_id}/notes.md").status_code == 404
+    assert harness.client.get(f"/v1/episodes/{uuid4()}/audio.wav").status_code == 404
 
 
 def _with_audio(harness: Harness, data: bytes) -> UUID:
@@ -64,7 +69,7 @@ def _with_audio(harness: Harness, data: bytes) -> UUID:
 
 def test_audio_supports_byte_ranges(harness: Harness) -> None:
     episode_id = _with_audio(harness, bytes(range(100)))
-    url = f"/episodes/{episode_id}/audio.wav"
+    url = f"/v1/episodes/{episode_id}/audio.wav"
 
     whole = harness.client.get(url)
     assert whole.status_code == 200
@@ -86,7 +91,7 @@ def test_audio_supports_byte_ranges(harness: Harness) -> None:
 
 def test_audio_download_and_head(harness: Harness) -> None:
     episode_id = _with_audio(harness, b"RIFF" + b"x" * 96)
-    url = f"/episodes/{episode_id}/audio.wav"
+    url = f"/v1/episodes/{episode_id}/audio.wav"
     download = harness.client.get(url, params={"download": "true"})
     assert download.headers["content-disposition"].startswith("attachment;")
     head = harness.client.head(url)
@@ -97,17 +102,17 @@ def test_audio_download_and_head(harness: Harness) -> None:
 
 def test_episode_links_point_at_what_exists(harness: Harness) -> None:
     episode_id = _episode(harness)
-    links = harness.client.get(f"/episodes/{episode_id}").json()["links"]
+    links = harness.client.get(f"/v1/episodes/{episode_id}").json()["links"]
     assert links["audio"] is None
     assert links["notes"] is None
-    assert links["script"] == f"/episodes/{episode_id}/script"
+    assert links["script"] == f"/v1/episodes/{episode_id}/script"
     episode = harness.episodes.rows[episode_id]
     harness.episodes.rows[episode_id] = episode.model_copy(
         update={"has_audio": True, "has_notes": True}
     )
-    links = harness.client.get(f"/episodes/{episode_id}").json()["links"]
-    assert links["audio"] == f"/episodes/{episode_id}/audio.wav"
-    assert links["notes"] == f"/episodes/{episode_id}/notes.md"
+    links = harness.client.get(f"/v1/episodes/{episode_id}").json()["links"]
+    assert links["audio"] == f"/v1/episodes/{episode_id}/audio.wav"
+    assert links["notes"] == f"/v1/episodes/{episode_id}/notes.md"
     assert harness.client.get(links["script"]).status_code == 200
 
 
@@ -116,11 +121,11 @@ def test_audio_and_notes_are_served_from_storage(harness: Harness) -> None:
     harness.episodes.files[episode_id] = EpisodeFiles(audio_key="a.wav", notes_key="n.md")
     harness.store.objects.update({"a.wav": b"RIFF....WAVE", "n.md": b"# Notes\n"})
 
-    audio = harness.client.get(f"/episodes/{episode_id}/audio.wav")
+    audio = harness.client.get(f"/v1/episodes/{episode_id}/audio.wav")
     assert audio.status_code == 200
     assert audio.headers["content-type"] == "audio/wav"
     assert audio.content == b"RIFF....WAVE"
-    notes = harness.client.get(f"/episodes/{episode_id}/notes.md")
+    notes = harness.client.get(f"/v1/episodes/{episode_id}/notes.md")
     assert notes.headers["content-type"].startswith("text/markdown")
     assert notes.text == "# Notes\n"
 
@@ -152,11 +157,11 @@ def test_script_shows_claims_with_verdicts(harness: Harness) -> None:
             )
         ],
     )
-    body = harness.client.get(f"/episodes/{episode_id}/script").json()
+    body = harness.client.get(f"/v1/episodes/{episode_id}/script").json()
     (claim,) = body["segments"][0]["lines"][0]["claims"]
     assert claim["supported"] is True
     assert claim["chunk_ids"] == [str(chunk)]
-    assert harness.client.get(f"/episodes/{uuid4()}/script").status_code == 404
+    assert harness.client.get(f"/v1/episodes/{uuid4()}/script").status_code == 404
 
 
 def test_runs_list_each_stage(harness: Harness) -> None:
@@ -171,7 +176,7 @@ def test_runs_list_each_stage(harness: Harness) -> None:
             started_at=datetime.now(UTC),
         )
     ]
-    (run,) = harness.client.get(f"/episodes/{episode_id}/runs").json()["items"]
+    (run,) = harness.client.get(f"/v1/episodes/{episode_id}/runs").json()["items"]
     assert run["stage"] == "index"
     assert run["seed"] == 7
-    assert harness.client.get(f"/episodes/{uuid4()}/runs").status_code == 404
+    assert harness.client.get(f"/v1/episodes/{uuid4()}/runs").status_code == 404

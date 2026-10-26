@@ -61,6 +61,11 @@ def problems_with(registry: VoiceRegistry, hosts: list[str], root: Path) -> list
     return problems
 
 
+def with_overrides(registry: VoiceRegistry, overrides: dict[str, ClonedVoice]) -> VoiceRegistry:
+    """The registry with some hosts' voices replaced (voices registered in the app, by host)."""
+    return VoiceRegistry(chatterbox={**registry.chatterbox, **overrides})
+
+
 def resolve_voices(registry: VoiceRegistry, hosts: list[str], root: Path) -> dict[str, ClonedVoice]:
     """The registry entries for these hosts, or VoiceRegistryError naming every problem."""
     problems = problems_with(registry, hosts, root)

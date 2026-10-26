@@ -254,6 +254,7 @@ class FakeAuthRepository:
         from podcast_engine.api.models.auth_model import StoredUser
 
         self.users: dict[UUID, StoredUser] = {}
+        self.avatars: dict[UUID, dict[str, Any]] = {}
         self.tokens: dict[UUID, dict[str, Any]] = {}
         self.resets: dict[UUID, dict[str, Any]] = {}
         self.on_delete: list[Any] = []  # like ON DELETE CASCADE: called with the user's id
@@ -310,8 +311,11 @@ class FakeAuthRepository:
             token_id=row["token_id"], user_id=user.user_id, kind=row["kind"],
             expires_at=row["expires_at"], revoked_at=row["revoked_at"],
             last_used_at=row["last_used_at"], email=user.email, role=user.role,
-            disabled=user.disabled,
+            disabled=user.disabled, avatar=self.avatars.get(user.user_id),
         )  # fmt: skip
+
+    def set_avatar(self, user_id: UUID, avatar: dict[str, Any]) -> None:
+        self.avatars[user_id] = avatar
 
     def touch(self, token_id: UUID, when: datetime) -> None:
         self.tokens[token_id]["last_used_at"] = when
@@ -448,3 +452,47 @@ class FakeSecurityEventRepository:
             if (user_id is None or r.user_id == user_id) and (event is None or r.event == event)
         ]
         return page(rows, limit, offset)
+
+
+class FakeVoiceRepository:
+    """Registered voices in memory, scoped by owner like the Postgres repository."""
+
+    def __init__(self, shows: "FakeShowRepository | None" = None) -> None:
+        from podcast_engine.api.models.voices_model import VoiceRead
+
+        self.rows: dict[UUID, tuple[UUID, VoiceRead]] = {}
+        self._shows = shows
+
+    def add(self, owner_id: UUID, values: dict[str, Any]) -> Any:
+        from podcast_engine.api.models.voices_model import VoiceRead
+
+        voice = VoiceRead.model_validate({**values, "created_at": datetime.now(UTC)})
+        self.rows[voice.voice_id] = (owner_id, voice)
+        return voice
+
+    def get(self, voice_id: UUID, owner_id: UUID) -> Any:
+        row = self.rows.get(voice_id)
+        return row[1] if row and row[0] == owner_id else None
+
+    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[Any]:
+        voices = [v for owner, v in self.rows.values() if owner == owner_id]
+        return page(sorted(voices, key=lambda v: v.created_at, reverse=True), limit, offset)
+
+    def count(self, owner_id: UUID) -> int:
+        return sum(1 for owner, _ in self.rows.values() if owner == owner_id)
+
+    def owned(self, voice_ids: set[UUID], owner_id: UUID) -> set[UUID]:
+        return {vid for vid in voice_ids if self.get(vid, owner_id) is not None}
+
+    def delete(self, voice_id: UUID, owner_id: UUID) -> bool:
+        if self.get(voice_id, owner_id) is None:
+            return False
+        del self.rows[voice_id]
+        if self._shows is not None:  # like the SQL: no host keeps speaking with it
+            for sid, show in list(self._shows.rows.items()):
+                kept = {h: v for h, v in show.host_voices.items() if v != voice_id}
+                self._shows.rows[sid] = show.model_copy(update={"host_voices": kept})
+        return True
+
+    def object_keys(self, owner_id: UUID) -> list[str]:
+        return [v.object_key for owner, v in self.rows.values() if owner == owner_id]

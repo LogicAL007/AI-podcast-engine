@@ -54,6 +54,11 @@ TAGS: list[dict[str, Any]] = [
         "description": "The sections read from a show's pages, feeds and uploads: what is cited.",
     },
     {"name": "uploads", "description": "PDFs a creator uploads as sources for a show."},
+    {
+        "name": "voices",
+        "description": "Recorded voices for the Chatterbox backend to clone, each kept with the "
+        "consent form its speaker signed. Private to their owner.",
+    },
     {"name": "feeds", "description": "Each show's RSS feed, for podcast apps."},
     {
         "name": "ops",

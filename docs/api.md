@@ -6,6 +6,13 @@ workers.
 
 Interactive docs are served at `/docs` (Swagger) and `/redoc`; the schema is at `/openapi.json`.
 
+**Versioning.** The API is under `/v1`: `/v1/shows`, `/v1/episodes/{id}`, `/v1/auth/login` and so
+on. Discovery and health stay at the root: `/home`, `/`, `/.well-known/api-catalog`, `/health`,
+`/ready` and `/metrics`. Feed, audio, notes and PDF URLs published before `/v1` existed are already
+in podcast apps, so the unversioned forms (`/feeds/...`, `/episodes/{id}/audio.wav`, and the rest)
+still work. They are left out of the OpenAPI description. The web app's TypeScript types are
+generated from that description (`make web-client`).
+
 ## Structure
 
 One folder per layer under [src/podcast_engine/api/](../src/podcast_engine/api/), and one file
@@ -61,51 +68,63 @@ the unit tests run the whole API with in-memory fakes.
 
 | Method | Path | Operation id | Success | Errors | Notes |
 |---|---|---|---|---|---|
-| POST | `/auth/register` | `register` | 201 | 401, 403, 409, 422 | First account needs no token and becomes admin; later ones need an admin's token |
-| POST | `/auth/login` | `login` | 200 | 401, 422 | Email + password → login token (six months) |
-| POST | `/auth/password-reset` | `request_password_reset` | 202 | 422, 429 | Emails a single-use link (30 min); same answer for any email |
-| POST | `/auth/password-reset/confirm` | `confirm_password_reset` | 204 | 422, 429 | New password with the link's token; ends every sign-in |
-| POST | `/auth/password` | `change_password` | 204 | 401, 403 | Change your password; ends your other sign-ins |
-| POST | `/auth/logout` | `logout` | 204 | 401 | Revokes the token used |
-| GET | `/auth/me` | `whoami` | 200 | 401 | The account and token behind the request |
-| GET | `/auth/users` | `list_users` | 200 | 401, 403 | Page of accounts (admins) |
-| POST | `/auth/api-keys` | `create_api_key` | 201 | 401, 422 | New API key, shown once (six months) |
-| GET | `/auth/api-keys` | `list_api_keys` | 200 | 401 | Page of your keys, without the keys |
-| DELETE | `/auth/api-keys/{token_id}` | `revoke_api_key` | 204 | 401, 404 | Revoke one of your keys |
+| POST | `/v1/auth/register` | `register` | 201 | 401, 403, 409, 422 | First account needs no token and becomes admin; later ones need an admin's token |
+| POST | `/v1/auth/login` | `login` | 200 | 401, 422 | Email + password → login token (six months) |
+| POST | `/v1/auth/password-reset` | `request_password_reset` | 202 | 422, 429 | Emails a single-use link (30 min); same answer for any email |
+| POST | `/v1/auth/password-reset/confirm` | `confirm_password_reset` | 204 | 422, 429 | New password with the link's token; ends every sign-in |
+| POST | `/v1/auth/password` | `change_password` | 204 | 401, 403 | Change your password; ends your other sign-ins |
+| POST | `/v1/auth/logout` | `logout` | 204 | 401 | Revokes the token used |
+| GET | `/v1/auth/me` | `whoami` | 200 | 401 | The account and token behind the request |
+| GET | `/v1/auth/users` | `list_users` | 200 | 401, 403 | Page of accounts (admins) |
+| POST | `/v1/auth/api-keys` | `create_api_key` | 201 | 401, 422 | New API key, shown once (six months) |
+| GET | `/v1/auth/api-keys` | `list_api_keys` | 200 | 401 | Page of your keys, without the keys |
+| DELETE | `/v1/auth/api-keys/{token_id}` | `revoke_api_key` | 204 | 401, 404 | Revoke one of your keys |
+| POST | `/v1/auth/browser-session` | `start_session` | 200 | 401, 422, 429 | The web app's sign-in: sets the HttpOnly session cookie and the CSRF cookie; no token in the body |
+| DELETE | `/v1/auth/browser-session` | `end_session` | 204 | 403 | Signs the browser out: revokes its token and clears both cookies |
+| GET | `/v1/auth/setup` | `setup_status` | 200 | 503 | `first_account_open`: true until the first account exists |
+| POST | `/v1/auth/email` | `change_email` | 204 | 401, 403, 409 | Change your email (password to confirm); the old address is told |
+| DELETE | `/v1/auth/me` | `delete_account` | 204 | 401, 403, 409 | Delete your account and all its data (password to confirm) |
+| GET | `/v1/auth/sessions` | `list_sessions` | 200 | 401 | Page of your active sign-ins; `current` marks this one |
+| DELETE | `/v1/auth/sessions/{token_id}` | `revoke_session` | 204 | 401, 404 | Sign out one device |
+| PATCH | `/v1/auth/users/{user_id}` | `update_user` | 200 | 401, 403, 404, 409 | Role or disabled (admins); disabling ends its sign-ins |
+| DELETE | `/v1/auth/users/{user_id}` | `delete_user` | 204 | 401, 403, 404, 409 | Delete another account and its data (admins) |
+| GET | `/v1/auth/events` | `list_security_events` | 200 | 401, 403 | Security log: your own events; admins anyone's (`user_id`, `event` filters) |
 | GET | `/home` (also `/`) | `home` | 200 | | Start here: every resource with its URI or template, methods, formats, ranges, paging and docs link; authentication; health links; conventions |
 | GET, HEAD | `/.well-known/api-catalog` | `api_catalog`, `api_catalog_head` | 200 | | RFC 9727 API catalog (`application/linkset+json`) for automatic discovery |
-| POST | `/shows` | `create_show` | 201 | 422 | Create a show (FR1) |
-| GET | `/shows` | `list_shows` | 200 | 422 | Page of shows, newest first |
-| GET | `/shows/{show_id}` | `get_show` | 200 | 404 | |
-| PATCH | `/shows/{show_id}` | `update_show` | 200 | 404, 422 | Only sent fields change; `{}` is a no-op |
-| DELETE | `/shows/{show_id}` | `delete_show` | 204 | 404 | Cascades to items, uploads, episodes and claims |
-| POST | `/shows/{show_id}/episodes` | `start_episode` | 202 | 404, 503 | Enqueues ingest; a later episode is a refresh (FR8) |
-| GET | `/shows/{show_id}/episodes` | `list_episodes` | 200 | 404 | Page; `status` filter |
-| GET | `/episodes` | `list_all_episodes` | 200 | 422 | Page across shows; `status`, `show_id` filters. `status=needs_review` is the review queue |
-| GET | `/episodes/{episode_id}` | `get_episode` | 200 | 404 | `status`, `stage`, `error`, `approved_at`, `links` |
-| DELETE | `/episodes/{episode_id}` | `delete_episode` | 204 | 404, 409 | Removes audio and notes; rewrites the feed if it was published. 409 while running |
-| GET | `/episodes/{episode_id}/script` | `get_episode_script` | 200 | 404 | Segments, lines, claims with citations and verdicts |
-| PATCH | `/episodes/{episode_id}/script` | `edit_episode_script` | 200 | 404, 409, 422, 503 | Replace segments' lines while in review (FR7); re-runs the fact-check |
-| POST | `/episodes/{episode_id}/approve` | `approve_episode` | 200 | 404, 409, 503 | Release an episode in review to voicing |
-| POST | `/episodes/{episode_id}/retry` | `retry_episode` | 200 | 404, 409, 503 | Resume a failed or cancelled episode at its stage |
-| POST | `/episodes/{episode_id}/cancel` | `cancel_episode` | 200 | 404, 409 | Stop after the running stage |
-| GET | `/episodes/{episode_id}/runs` | `list_episode_runs` | 200 | 404 | Page of stage runs: seconds, model, prompt version, seed |
-| GET | `/episodes/{episode_id}/claims` | `list_episode_claims` | 200 | 404 | Page of claims; `supported`, `segment` filters |
-| GET, HEAD | `/episodes/{episode_id}/audio.wav` | `get_episode_audio`, `head_episode_audio` | 200, 206 | 404, 416 | `audio/wav` with Range support; `?download=true` |
-| GET | `/episodes/{episode_id}/notes.md` | `get_episode_notes` | 200 | 404 | Markdown show notes |
-| GET | `/shows/{show_id}/sources` | `list_show_sources` | 200 | 404 | Page of ingested sections: url, tier, hash, size |
-| POST | `/shows/{show_id}/uploads` | `upload_source` | 201 | 404, 413, 415 | Multipart `file`: a PDF up to `MAX_UPLOAD_MB` |
-| GET | `/shows/{show_id}/uploads` | `list_uploads` | 200 | 404 | Page of uploads, newest first |
-| GET | `/shows/{show_id}/uploads/{upload_id}` | `get_upload` | 200 | 404 | |
-| GET | `/shows/{show_id}/uploads/{upload_id}/file` | `download_upload` | 200 | 404 | The PDF; citations link here with `#page=N` |
-| DELETE | `/shows/{show_id}/uploads/{upload_id}` | `delete_upload` | 204 | 404 | Its sections leave at the next episode |
-| GET | `/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml` |
+| POST | `/v1/shows` | `create_show` | 201 | 422 | Create a show (FR1) |
+| GET | `/v1/shows` | `list_shows` | 200 | 422 | Page of shows, newest first |
+| GET | `/v1/shows/{show_id}` | `get_show` | 200 | 404 | |
+| PATCH | `/v1/shows/{show_id}` | `update_show` | 200 | 404, 422 | Only sent fields change; `{}` is a no-op |
+| DELETE | `/v1/shows/{show_id}` | `delete_show` | 204 | 404 | Cascades to items, uploads, episodes and claims |
+| POST | `/v1/shows/{show_id}/episodes` | `start_episode` | 202 | 404, 503 | Enqueues ingest; a later episode is a refresh (FR8) |
+| GET | `/v1/shows/{show_id}/episodes` | `list_episodes` | 200 | 404 | Page; `status` filter |
+| GET | `/v1/episodes` | `list_all_episodes` | 200 | 422 | Page across shows; `status`, `show_id` filters. `status=needs_review` is the review queue |
+| GET | `/v1/episodes/{episode_id}` | `get_episode` | 200 | 404 | `status`, `stage`, `error`, `approved_at`, `links` |
+| GET | `/v1/episodes/{episode_id}/events` | `follow_episode` | 200 | 404 | Server-sent events while the episode is made; see below |
+| DELETE | `/v1/episodes/{episode_id}` | `delete_episode` | 204 | 404, 409 | Removes audio and notes; rewrites the feed if it was published. 409 while running |
+| GET | `/v1/episodes/{episode_id}/script` | `get_episode_script` | 200 | 404 | Segments, lines, claims with citations and verdicts |
+| PATCH | `/v1/episodes/{episode_id}/script` | `edit_episode_script` | 200 | 404, 409, 422, 503 | Replace segments' lines while in review (FR7); re-runs the fact-check |
+| POST | `/v1/episodes/{episode_id}/approve` | `approve_episode` | 200 | 404, 409, 503 | Release an episode in review to voicing |
+| POST | `/v1/episodes/{episode_id}/retry` | `retry_episode` | 200 | 404, 409, 503 | Resume a failed or cancelled episode at its stage |
+| POST | `/v1/episodes/{episode_id}/cancel` | `cancel_episode` | 200 | 404, 409 | Stop after the running stage |
+| GET | `/v1/episodes/{episode_id}/runs` | `list_episode_runs` | 200 | 404 | Page of stage runs: seconds, model, prompt version, seed |
+| GET | `/v1/episodes/{episode_id}/claims` | `list_episode_claims` | 200 | 404 | Page of claims; `supported`, `segment` filters |
+| GET, HEAD | `/v1/episodes/{episode_id}/audio.wav` | `get_episode_audio`, `head_episode_audio` | 200, 206 | 404, 416 | `audio/wav` with Range support; `?download=true` |
+| GET | `/v1/episodes/{episode_id}/notes.md` | `get_episode_notes` | 200 | 404 | Markdown show notes |
+| GET | `/v1/shows/{show_id}/sources` | `list_show_sources` | 200 | 404 | Page of ingested sections: url, tier, hash, size |
+| POST | `/v1/shows/{show_id}/uploads` | `upload_source` | 201 | 404, 413, 415 | Multipart `file`: a PDF up to `MAX_UPLOAD_MB` |
+| GET | `/v1/shows/{show_id}/uploads` | `list_uploads` | 200 | 404 | Page of uploads, newest first |
+| GET | `/v1/shows/{show_id}/uploads/{upload_id}` | `get_upload` | 200 | 404 | |
+| GET | `/v1/shows/{show_id}/uploads/{upload_id}/file` | `download_upload` | 200 | 404 | The PDF; citations link here with `#page=N` |
+| DELETE | `/v1/shows/{show_id}/uploads/{upload_id}` | `delete_upload` | 204 | 404 | Its sections leave at the next episode |
+| GET | `/v1/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml` |
 | GET | `/health` | `health` | 200 | | Liveness only |
 | GET | `/ready` | `ready` | 200 | 503 | Database, queue and storage; 503 names the failing one |
 | GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema |
 
-**Login.** Every route under `/shows`, `/episodes` (except an episode's audio and notes) and
-`/shows/{id}/sources` or `/uploads` (except an upload's file) needs `Authorization: Bearer <token>`.
+**Login.** Every route under `/v1/shows`, `/episodes` (except an episode's audio and notes) and
+`/shows/{id}/sources` or `/uploads` (except an upload's file) needs `Authorization: Bearer <token>`,
+or, from the web app, the session cookie.
 The token is a login token from `POST /auth/login` (prefix `pes_`) or an API key from
 `POST /auth/api-keys` (prefix `pek_`). Both are random strings that expire 180 days after issue
 (`AUTH_TOKEN_DAYS`), and both can be revoked sooner: `POST /auth/logout` for the token in use, or
@@ -116,6 +135,29 @@ the admin, and only an admin can add accounts after that. Public, so podcast app
 can use them: discovery (`/home`, `/.well-known/api-catalog`), `/auth/login` and `/auth/register`,
 `/health`, `/ready`, feeds, episode audio and notes, and uploaded PDFs (their URLs carry random ids).
 Without a token key configured, login answers 503.
+
+**Browser sign-in** (after OWASP's session and CSRF guidance). The web app signs in with
+`POST /v1/auth/browser-session`, never with a token it can read:
+
+- **The session cookie**, `pe_session`, holds the login token. It is `HttpOnly`, so page scripts
+  (an injected one included) cannot read it. It is `SameSite=Strict` and `Path=/`, and lasts as
+  long as the token, six months. It is `Secure` when `PUBLIC_WEB_URL` is https.
+- **The CSRF cookie**, `pe_csrf`, is readable by the page. It holds an HMAC of the session's id
+  (signed double-submit). Every request that changes something must send it back in
+  `X-CSRF-Token`, or it gets 403. Other sites cannot read the cookie, so they cannot forge the
+  header.
+- **Bearer tokens and API keys** are unchanged and need no CSRF token, since nothing sends them
+  automatically. The cookie accepts only login tokens, never an API key.
+- **Signing out**, `DELETE /v1/auth/browser-session`, revokes the token and clears both cookies,
+  even if the token had already stopped working.
+
+**Live progress.** `GET /v1/episodes/{id}/events` is a stream of server-sent events. An `episode`
+event (status, stage, step of 8, error, rewrite count, `running`) is sent whenever any of them
+changes. A comment line every 15 seconds keeps proxies from closing the connection. The stream
+ends once nothing is running (published, in review, unchanged, cancelled or failed), or after an
+hour, when the browser reconnects by itself. A deleted episode ends it with a `gone` event. It
+polls the database once a second with a short-lived connection of its own, so an open stream
+holds neither a request's connection nor a worker thread. nginx passes it through unbuffered.
 
 **Attempt limits** (after OWASP's authentication guidance):
 
@@ -183,8 +225,8 @@ clients get methods such as `get_episode_audio`. The links in `EpisodeRead.links
 the API's base URL (`/api` behind the web proxy).
 
 ```bash
-curl -o episode.wav localhost:8000/episodes/<episode_id>/audio.wav              # whole file
-curl -H 'Range: bytes=0-1023' -i localhost:8000/episodes/<episode_id>/audio.wav  # 206, first KiB
+curl -o episode.wav localhost:8000/v1/episodes/<episode_id>/audio.wav              # whole file
+curl -H 'Range: bytes=0-1023' -i localhost:8000/v1/episodes/<episode_id>/audio.wav  # 206, first KiB
 ```
 
 Show fields: `topic` (3–200 chars), `tone` (`casual`, `neutral`, `formal`), `target_minutes`
@@ -199,10 +241,13 @@ the last rewrite; `error` says why), `published`, `unchanged` (a refresh found n
 or `failed` (`error` names the stage and the reason).
 
 ```bash
-curl -X POST localhost:8000/shows -H 'content-type: application/json' \
+TOKEN=$(curl -s localhost:8000/v1/auth/login -H 'content-type: application/json' \
+  -d '{"email": "you@example.org", "password": "your passphrase"}' | jq -r .access_token)
+curl -X POST localhost:8000/v1/shows -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"topic": "Open-source AI research", "sources": ["https://export.arxiv.org/rss/cs.CL"]}'
-curl -X POST localhost:8000/shows/<show_id>/episodes      # 202, returns the episode
-curl localhost:8000/episodes/<episode_id>                  # poll status
+curl -X POST -H "Authorization: Bearer $TOKEN" localhost:8000/v1/shows/<show_id>/episodes  # 202
+curl -H "Authorization: Bearer $TOKEN" localhost:8000/v1/episodes/<episode_id>          # status
+curl -N -H "Authorization: Bearer $TOKEN" localhost:8000/v1/episodes/<episode_id>/events  # live
 ```
 
 ## Behaviour worth knowing
@@ -215,8 +260,6 @@ curl localhost:8000/episodes/<episode_id>                  # poll status
 - **Errors** follow one path: services raise `NotFoundError` or `PipelineUnavailableError`
   ([errors.py](../src/podcast_engine/api/errors.py)); controllers call `to_http` to turn them into
   `404` / `503`. Anything else is a 500.
-- **No authentication yet.** Every route is open, so run it only behind a trusted network.
-  Compose binds the API to `127.0.0.1`.
 
 ## Running
 
@@ -293,4 +336,3 @@ A new resource gets one file in each layer folder (`<resource>_router.py`, `_con
 ## Not built yet
 
 - Search results as a source, and pages behind authentication.
-- Login rate limiting and password reset.

@@ -20,6 +20,7 @@ from podcast_engine.api.models.home_model import (
     Operation,
     Resource,
 )
+from podcast_engine.api.paths import V1
 
 # Link relations for this API's resources: tag URIs (RFC 4151), as the JSON Home draft suggests
 # for relations that are not registered.
@@ -53,7 +54,7 @@ def relation_for(path: str) -> str:
     segments = path.strip("/").split("/")
     names = []
     for n, segment in enumerate(segments):
-        if not segment or segment.startswith("{"):
+        if not segment or segment.startswith("{") or (n == 0 and segment == V1.strip("/")):
             continue
         name = re.sub(r"\.(wav|md|xml|json)$", "", segment).replace("_", "-")
         followed_by_id = n + 1 < len(segments) and segments[n + 1].startswith("{")
@@ -162,8 +163,8 @@ def bearer_auth(*, base: str, token_days: int) -> Auth:
     return Auth(
         required=True,
         schemes=[AuthScheme(scheme="Bearer")],
-        login=f"{base}/auth/login",
-        api_keys=f"{base}/auth/api-keys",
+        login=f"{base}{V1}/auth/login",
+        api_keys=f"{base}{V1}/auth/api-keys",
         token_lifetime_days=token_days,
         note=(
             "Send `Authorization: Bearer <token>`. Get a login token from POST /auth/login (email "

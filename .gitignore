@@ -211,6 +211,13 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# images
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

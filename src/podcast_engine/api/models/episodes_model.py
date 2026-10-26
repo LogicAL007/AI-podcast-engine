@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from podcast_engine.api.paths import V1
 from podcast_engine.common.models import EpisodeStatus
 
 AUDIO_MEDIA_TYPE = "audio/wav"
@@ -19,7 +20,7 @@ class EpisodeLinks(BaseModel):
     """
 
     self: str = Field(
-        description="This episode", examples=["/episodes/3fa85f64-5717-4562-b3fc-2c963f66afa6"]
+        description="This episode", examples=["/v1/episodes/3fa85f64-5717-4562-b3fc-2c963f66afa6"]
     )
     script: str = Field(description="Script with citations and fact-check verdicts")
     runs: str = Field(description="Per-stage run records")
@@ -55,20 +56,28 @@ class EpisodeRead(BaseModel):
     approved_at: datetime | None = Field(
         default=None, description="When a reviewer released it to voicing; null if never"
     )
+    voice_provider: str | None = Field(
+        default=None,
+        description=(
+            "Which text-to-speech voiced it, for example `gemini-tts`; `placeholder-tones` means "
+            "test tones, not speech. Null until it is voiced"
+        ),
+        examples=["gemini-tts"],
+    )
     has_audio: bool = Field(default=False, exclude=True)
     has_notes: bool = Field(default=False, exclude=True)
 
     @computed_field(description="Where to fetch what the episode produced")  # type: ignore[prop-decorator]
     @property
     def links(self) -> EpisodeLinks:
-        base = f"/episodes/{self.episode_id}"
+        base = f"{V1}/episodes/{self.episode_id}"
         return EpisodeLinks(
             self=base,
             script=f"{base}/script",
             runs=f"{base}/runs",
             audio=f"{base}/audio.wav" if self.has_audio else None,
             notes=f"{base}/notes.md" if self.has_notes else None,
-            feed=f"/feeds/{self.show_id}/rss.xml",
+            feed=f"{V1}/feeds/{self.show_id}/rss.xml",
         )
 
 

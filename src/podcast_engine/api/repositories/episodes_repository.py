@@ -23,7 +23,8 @@ from podcast_engine.common.models import EpisodeStatus
 
 _COLUMNS = (
     "episode_id, show_id, status, stage, error, revision, rewrite_count, created_at, published_at,"
-    " approved_at, audio_key IS NOT NULL AS has_audio, notes_key IS NOT NULL AS has_notes"
+    " approved_at, audio_key IS NOT NULL AS has_audio, notes_key IS NOT NULL AS has_notes,"
+    " manifest->>'tts_provider' AS voice_provider"
 )
 # An episode is someone's through its show.
 _OWNED = "show_id IN (SELECT show_id FROM shows WHERE owner_id = :owner_id)"

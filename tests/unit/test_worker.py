@@ -3,13 +3,21 @@ from podcast_engine.worker import worker_args
 
 
 def test_worker_consumes_only_its_queue_and_task_module() -> None:
-    args = worker_args(Stage.VOICE, concurrency=2, log_level="info")
+    args = worker_args([Stage.VOICE], concurrency=2, log_level="info")
     assert args[args.index("--queues") + 1] == "voice"
     assert args[args.index("--include") + 1] == "podcast_engine.stages.voice.tasks"
     assert args[args.index("--loglevel") + 1] == "INFO"
     assert args[args.index("--pool") + 1] == "prefork"
 
 
+def test_one_worker_can_serve_several_stages_each_on_its_own_queue() -> None:
+    args = worker_args([Stage.SCRIPT, Stage.FACTCHECK], concurrency=2, log_level="info")
+    assert args[args.index("--queues") + 1] == "script,factcheck"
+    assert args[args.index("--include") + 1] == (
+        "podcast_engine.stages.script.tasks,podcast_engine.stages.factcheck.tasks"
+    )
+
+
 def test_host_worker_can_use_the_solo_pool() -> None:
-    args = worker_args(Stage.VOICE, concurrency=1, log_level="info", pool="solo")
+    args = worker_args([Stage.VOICE], concurrency=1, log_level="info", pool="solo")
     assert args[args.index("--pool") + 1] == "solo"

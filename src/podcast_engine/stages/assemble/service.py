@@ -49,14 +49,17 @@ def load_asset(assets_dir: Path, name: str, fallback: np.ndarray) -> tuple[np.nd
 
 def mix(
     lines: list[dict[str, Any]],
-    clips: list[np.ndarray],
+    clips: list[np.ndarray | None],
     titles: dict[int, str],
     *,
     intro: np.ndarray,
     outro: np.ndarray,
     transition: np.ndarray,
 ) -> tuple[np.ndarray, list[tuple[float, str]]]:
-    """Intro, lines with pauses, transitions between segments, outro. Returns audio and chapters."""
+    """Intro, lines with pauses, transitions between segments, outro. Returns audio and chapters.
+
+    A line without a clip was voiced together with the lines before it, in their clip.
+    """
     parts: list[np.ndarray] = []
     chapters: list[tuple[float, str]] = []
     cursor = 0.0
@@ -82,9 +85,11 @@ def mix(
             add(silence(0.3))
             add(transition)
             add(silence(0.5))
+        previous_kind = line["kind"]
+        if clip is None:
+            continue
         add(clip)
         add(silence(0.7 if line["kind"] == "disclosure" else 0.25))
-        previous_kind = line["kind"]
     add(silence(0.3))
     add(outro)
     return np.concatenate(parts), chapters
@@ -97,7 +102,10 @@ def assemble_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> St
     lines = episode.voice_lines or []
     if not lines:
         raise ValueError("There are no voiced lines to assemble.")
-    clips = [read_wav_bytes(ctx.store.get(line["key"]), name=line["key"]) for line in lines]
+    clips = [
+        read_wav_bytes(ctx.store.get(line["key"]), name=line["key"]) if line["key"] else None
+        for line in lines
+    ]
     titles = {s.position: s.title for s in ctx.repo.list_segments(episode_id)}
     intro, intro_source = load_asset(
         ctx.settings.assets_dir, "intro", chime((523.25, 659.25, 783.99, 1046.5), 2.4)

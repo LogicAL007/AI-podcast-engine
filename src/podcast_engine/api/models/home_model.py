@@ -73,7 +73,7 @@ class Resource(BaseModel):
         default=None,
         alias="hrefTemplate",
         description="Its URI template (RFC 6570), when it has variables",
-        examples=["/episodes/{episode_id}/audio.wav"],
+        examples=["/v1/episodes/{episode_id}/audio.wav"],
     )
     href_vars: dict[str, str] | None = Field(
         default=None, alias="hrefVars", description="Each template variable and what it means"

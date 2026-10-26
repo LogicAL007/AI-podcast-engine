@@ -2,14 +2,16 @@
 
 from uuid import UUID
 
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, Response
 
-from podcast_engine.api.errors import http_errors
+from podcast_engine.api.cookies import clear_session_cookies, set_session_cookies
+from podcast_engine.api.errors import UnauthenticatedError, http_errors
 from podcast_engine.api.models.auth_model import (
     Accepted,
     AccountDelete,
     ApiKeyCreated,
     ApiKeyRead,
+    Avatar,
     CurrentUser,
     EmailChange,
     LoginRequest,
@@ -18,6 +20,7 @@ from podcast_engine.api.models.auth_model import (
     RegisterRequest,
     SecurityEventRead,
     SessionRead,
+    SetupStatus,
     TokenResponse,
     UserRead,
     UserUpdate,
@@ -32,10 +35,57 @@ RESET_ACCEPTED = "If an account exists for this email, a reset link is on its wa
 
 
 class AuthController:
-    def __init__(self, service: AuthService, mailer: Mailer) -> None:
+    def __init__(
+        self,
+        service: AuthService,
+        mailer: Mailer,
+        *,
+        cookie_secure: bool = False,
+        token_days: int = 180,
+    ) -> None:
         self._service = service
         self._mailer = mailer
+        self._cookie_secure = cookie_secure  # Secure cookies need https, so not on plain localhost
+        self._cookie_max_age = token_days * 24 * 3600
 
+    # ---- browser sessions ----------------------------------------------------------------
+    def start_session(self, data: LoginRequest, address: str, response: Response) -> CurrentUser:
+        """Sign in for a browser: the login token goes into an HttpOnly cookie, never the body."""
+        token = http_errors(lambda: self._service.login(data.email, data.password, address=address))
+        current = http_errors(lambda: self._service.authenticate(token.access_token))
+        set_session_cookies(
+            response,
+            token=token.access_token,
+            csrf=self._service.csrf_for(token.token_id),
+            max_age=self._cookie_max_age,
+            secure=self._cookie_secure,
+        )
+        return current
+
+    def end_session(
+        self, cookie: str | None, csrf: str | None, address: str, response: Response
+    ) -> None:
+        """Sign the browser out: revoke its token if it still works, and clear both cookies."""
+        if cookie:
+            try:
+                current = self._service.authenticate_session_cookie(cookie)
+            except UnauthenticatedError:
+                current = None  # already invalid: clearing the cookies is all that is left
+            if current is not None:
+                http_errors(lambda: self._service.check_csrf(current, csrf))
+                http_errors(lambda: self._service.logout(current, address=address))
+        clear_session_cookies(response, secure=self._cookie_secure)
+
+    def set_avatar(self, user: CurrentUser, avatar: Avatar) -> CurrentUser:
+        return self._service.set_avatar(user, avatar)
+
+    def setup(self) -> SetupStatus:
+        return SetupStatus(
+            first_account_open=http_errors(self._service.setup_open),
+            signup_open=self._service.signup_open(),
+        )
+
+    # TODO: Most segments per episode, remove entirely from the workflow
     def _send_later(self, tasks: BackgroundTasks, email: Email | None) -> None:
         """After the response: the reply never waits on (or reveals) whether mail was sent."""
         if email is not None:

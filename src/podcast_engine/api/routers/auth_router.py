@@ -3,9 +3,21 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    Header,
+    Path,
+    Query,
+    Request,
+    Response,
+    status,
+)
 
 from podcast_engine.api.controllers.auth_controller import AuthController
+from podcast_engine.api.cookies import CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE
 from podcast_engine.api.dependencies import (
     get_auth_controller,
     get_current_user,
@@ -17,6 +29,7 @@ from podcast_engine.api.models.auth_model import (
     ApiKeyCreate,
     ApiKeyCreated,
     ApiKeyRead,
+    Avatar,
     CurrentUser,
     EmailChange,
     LoginRequest,
@@ -27,6 +40,7 @@ from podcast_engine.api.models.auth_model import (
     SecurityEventName,
     SecurityEventRead,
     SessionRead,
+    SetupStatus,
     TokenResponse,
     UserRead,
     UserUpdate,
@@ -53,7 +67,8 @@ UNAUTHENTICATED = errors(
     summary="Create an account",
     response_description="The new account",
     responses=errors(
-        e401="Accounts exist and no admin token was sent",
+        e401="Accounts exist, sign-up is closed and no admin token was sent",
+        e429="Too many sign-ups from this address; wait and try again",
         e403="The token is not an admin's",
         e409="An account with this email already exists",
         e503="Login is not configured",
@@ -62,8 +77,9 @@ UNAUTHENTICATED = errors(
 def register(
     data: RegisterRequest, controller: Controller, by: Optional, request: Request
 ) -> UserRead:
-    """Create an account. The very first account needs no token and becomes the admin; after that,
-    only an admin (sending their token) can create accounts, as `creator` or `admin`."""
+    """Create an account. The very first account needs no token and becomes the admin. After that
+    an admin (sending their token) can create accounts as `creator` or `admin`; and when sign-up
+    is open (`SIGNUP_OPEN`), anyone can create their own account, always as a `creator`."""
     return controller.register(data, by, _address(request))
 
 
@@ -90,6 +106,65 @@ def login(
     reveal which accounts exist. Many failures from one address get 429 with `Retry-After`."""
     response.headers["Cache-Control"] = NO_STORE
     return controller.login(data, _address(request))
+
+
+@router.post(
+    "/browser-session",
+    response_model=CurrentUser,
+    summary="Sign in (web app)",
+    response_description="The account; the login token is set as a cookie, not returned",
+    responses=errors(
+        e401="Wrong email or password (also while the account is temporarily locked)",
+        e429="Too many failed attempts from this address; see `Retry-After`",
+        e503="Login is not configured",
+    ),
+)
+def start_session(
+    data: LoginRequest, controller: Controller, request: Request, response: Response
+) -> CurrentUser:
+    """Sign in from a browser. The login token goes into the `pe_session` cookie (HttpOnly,
+    SameSite=Strict, six months), which page scripts cannot read, and the `pe_csrf` cookie holds
+    a CSRF token. Requests that change something must send it back in the `X-CSRF-Token` header.
+    The same limits as `POST /auth/login` apply. Scripts should use that endpoint or an API key."""
+    response.headers["Cache-Control"] = NO_STORE
+    return controller.start_session(data, _address(request), response)
+
+
+@router.delete(
+    "/browser-session",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Sign out (web app)",
+    response_description="Signed out; both cookies are cleared",
+    responses=errors(e403="The CSRF token is missing or wrong"),
+)
+def end_session(
+    controller: Controller,
+    request: Request,
+    response: Response,
+    session: Annotated[
+        str | None, Cookie(alias=SESSION_COOKIE, description="The session cookie")
+    ] = None,
+    csrf: Annotated[
+        str | None,
+        Header(alias=CSRF_HEADER, description=f"The value of the `{CSRF_COOKIE}` cookie"),
+    ] = None,
+) -> None:
+    """Revoke the browser's login token and clear its cookies. If the token no longer works,
+    the cookies are still cleared, so a stale sign-in can always be ended."""
+    controller.end_session(session, csrf, _address(request), response)
+
+
+@router.get(
+    "/setup",
+    response_model=SetupStatus,
+    summary="Check first-run setup",
+    response_description="Whether the first account can still be created",
+    responses=errors(e503="Login is not configured"),
+)
+def setup_status(controller: Controller) -> SetupStatus:
+    """True until the first account exists. That account is created without signing in, with
+    `POST /auth/register`, and becomes the admin."""
+    return controller.setup()
 
 
 @router.post(
@@ -131,6 +206,19 @@ def confirm_password_reset(
     emailed. You are not signed in: log in with the new password."""
     response.headers["Referrer-Policy"] = "no-referrer"
     controller.confirm_reset(data, _address(request), tasks)
+
+
+@router.put(
+    "/me/avatar",
+    response_model=CurrentUser,
+    summary="Choose your assistant bot",
+    response_description="You, with the bot you chose",
+    responses={**UNAUTHENTICATED, **errors(e422="A choice outside the allowed options")},
+)
+def set_avatar(avatar: Avatar, me: Me, controller: Controller) -> CurrentUser:
+    """Choose the assistant bot the web app shows you: the character, its name, its colours and
+    what it wears. Only these choices are stored; the bot is drawn by the web app."""
+    return controller.set_avatar(me, avatar)
 
 
 @router.post(
