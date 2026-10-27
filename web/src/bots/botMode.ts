@@ -1,5 +1,5 @@
 import type { EpisodeStatus } from "../api/types";
-import { stageLabel } from "../components/ProgressSteps";
+import { stageVerb } from "../components/ProgressSteps";
 
 /** The assistant animations: three tied to real moments in an episode's life, and a wave that
  * greets a new creator. */
@@ -60,7 +60,7 @@ function lineFor(
         : {
             mode: "working",
             name: "Scout",
-            line: `On it: ${stageLabel(stage).toLowerCase()}.`,
+            line: `On it: ${stageVerb(stage).toLowerCase()}…`,
             moment: "making",
           };
     case "needs_review":

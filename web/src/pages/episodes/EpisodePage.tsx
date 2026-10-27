@@ -7,6 +7,7 @@ import {
   useEpisode,
   useEpisodeAction,
   useShow,
+  useStartEpisode,
 } from "../../api/queries";
 import type { EpisodeRead } from "../../api/types";
 import { Alert, ErrorAlert } from "../../components/Alert";
@@ -16,7 +17,12 @@ import { ProgressSteps } from "../../components/ProgressSteps";
 import { Skeleton } from "../../components/Skeleton";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Tabs } from "../../components/Tabs";
-import { AssistantDock } from "../../bots/AssistantDock";
+import {
+  useAssistant,
+  type BotAction,
+  type PageAssist,
+} from "../../bots/assistant";
+import { botFor } from "../../bots/botMode";
 import { useDoneNotice } from "../../hooks/useDoneNotice";
 import { useEpisodeEvents } from "../../hooks/useEpisodeEvents";
 import { formatDate } from "../format";
@@ -40,6 +46,154 @@ function defaultTab(episode: EpisodeRead): string {
   return episode.status === "needs_review" ? "script" : "listen";
 }
 
+const QUESTIONS: Partial<Record<EpisodeRead["status"], string[]>> = {
+  queued: ["How long will it take?", "What are the eight steps?"],
+  processing: ["What happens in this step?", "How long will it take?"],
+  needs_review: ["Which claims were cut, and why?", "How do I approve it?"],
+  failed: ["Why did it stop?", "Will Retry redo everything?"],
+  published: [
+    "How do I listen in a podcast app?",
+    "What happens if I generate again?",
+  ],
+};
+
+const TOUR = [
+  {
+    target: "episode-progress",
+    title: "Where it is",
+    text: "The bar and the word above it show the step your episode is on. Press ? for what each step does.",
+  },
+  {
+    target: "episode-actions",
+    title: "What you can do",
+    text: "Retry a stopped episode, cancel one that is running, or delete it.",
+  },
+  {
+    target: "episode-tabs",
+    title: "Look inside",
+    text: "Listen to it, read and edit the script, see each claim's fact-check verdict, and the timing of every step.",
+  },
+];
+
+/** What the bot says and offers on an episode: the moment from botMode, and its next steps. */
+function useEpisodeAssist(
+  episode: EpisodeRead | undefined,
+  openTab: (tab: string) => void,
+): PageAssist | null {
+  const id = episode?.episode_id ?? "";
+  const approve = useEpisodeAction(id, "approve");
+  const retry = useEpisodeAction(id, "retry");
+  const cancel = useEpisodeAction(id, "cancel");
+  const again = useStartEpisode(episode?.show_id ?? "");
+  const navigate = useNavigate();
+  if (!episode) return null;
+  const status = episode.status;
+  const bot = botFor(status, episode.stage);
+  const tab = (tabId: string, label: string, hidden = false): BotAction => ({
+    id: `open_${tabId === "claims" ? "factcheck" : tabId}`,
+    label,
+    hidden,
+    run: () => openTab(tabId),
+  });
+  const actions: BotAction[] = [];
+  if (status === "needs_review") {
+    actions.push(
+      tab("script", "Open the script"),
+      tab("claims", "See the fact-check"),
+      {
+        id: "approve",
+        label: "Approve",
+        run: () => approve.mutateAsync(),
+        confirm: {
+          title: "Approve this episode?",
+          body: "It will be voiced and published to your feed. Voicing uses your text-to-speech quota.",
+          confirmLabel: "Approve and publish",
+        },
+      },
+    );
+  } else if (status === "failed" || status === "cancelled") {
+    actions.push({
+      id: "retry",
+      label: "Retry",
+      run: () => retry.mutateAsync(),
+    });
+    actions.push(tab("runs", "See the steps' timings", true));
+  } else if (status === "published") {
+    actions.push(tab("listen", "Listen"), {
+      id: "generate_episode",
+      label: "Make the next episode",
+      run: () =>
+        again
+          .mutateAsync()
+          .then((next) => navigate(`/episodes/${next.episode_id}`)),
+      confirm: {
+        title: "Make the next episode?",
+        body: "It reads the sources again and redoes only what changed. Writing and voicing it can use your Gemini quota.",
+        confirmLabel: "Make it",
+      },
+    });
+  } else if (episode.stage === "factcheck") {
+    actions.push(tab("claims", "Watch the fact-check"));
+  }
+  if (["queued", "processing", "needs_review"].includes(status)) {
+    actions.push({
+      id: "cancel",
+      label: "Cancel",
+      hidden: true,
+      run: () => cancel.mutateAsync(),
+      confirm: {
+        title: "Cancel this episode?",
+        body: "No further steps run. You can retry it later.",
+        confirmLabel: "Cancel episode",
+        danger: true,
+      },
+    });
+  }
+  for (const [tabId, label] of [
+    ["script", "Open the script"],
+    ["claims", "See the fact-check"],
+    ["listen", "Listen"],
+  ] as const) {
+    if (
+      !actions.some(
+        (a) => a.id === `open_${tabId === "claims" ? "factcheck" : tabId}`,
+      )
+    )
+      actions.push(tab(tabId, label, true));
+  }
+  if (!bot) {
+    // Unchanged: the page says what happened; the bot just offers help.
+    return {
+      page: "episode",
+      key: episode.episode_id,
+      moment: "episode-other",
+      mode: "greeting",
+      line: "Nothing changed in the sources, so there was nothing new to make.",
+      actions,
+      questions: QUESTIONS[status],
+      tour: TOUR,
+      episodeId: episode.episode_id,
+      showId: episode.show_id,
+    };
+  }
+  return {
+    page: "episode",
+    key: episode.episode_id,
+    moment: bot.moment,
+    mode: bot.mode,
+    line:
+      status === "failed"
+        ? "It stopped. Retry carries on from the step that failed."
+        : bot.line,
+    hint: status === "failed" ? undefined : bot.hint,
+    actions,
+    questions: QUESTIONS[status],
+    tour: TOUR,
+    episodeId: episode.episode_id,
+    showId: episode.show_id,
+  };
+}
+
 export function EpisodePage() {
   const { episodeId = "" } = useParams();
   const [params, setParams] = useSearchParams();
@@ -49,6 +203,11 @@ export function EpisodePage() {
   const mode = useEpisodeEvents(episodeId, running);
   const wantPolling = running && mode === "polling" ? 5_000 : false;
   if (wantPolling !== pollEvery) setPollEvery(wantPolling);
+  useAssistant(
+    useEpisodeAssist(episode.data, (tab) =>
+      setParams({ tab }, { replace: true }),
+    ),
+  );
 
   if (episode.error instanceof ApiError && episode.error.status === 404)
     return <NotFoundPage />;
@@ -65,22 +224,19 @@ export function EpisodePage() {
   return (
     <>
       <EpisodeHeader episode={data} following={mode !== "idle"} />
-      <Tabs
-        label="Episode sections"
-        tabs={TABS}
-        active={tab}
-        onChange={(id) => setParams({ tab: id }, { replace: true })}
-      >
-        {tab === "listen" ? <ListenTab episode={data} /> : null}
-        {tab === "script" ? <ScriptTab episode={data} /> : null}
-        {tab === "claims" ? <ClaimsTab episodeId={data.episode_id} /> : null}
-        {tab === "runs" ? <RunsTab episodeId={data.episode_id} /> : null}
-      </Tabs>
-      <AssistantDock
-        episodeId={data.episode_id}
-        status={data.status}
-        stage={data.stage}
-      />
+      <div data-tour="episode-tabs">
+        <Tabs
+          label="Episode sections"
+          tabs={TABS}
+          active={tab}
+          onChange={(id) => setParams({ tab: id }, { replace: true })}
+        >
+          {tab === "listen" ? <ListenTab episode={data} /> : null}
+          {tab === "script" ? <ScriptTab episode={data} /> : null}
+          {tab === "claims" ? <ClaimsTab episodeId={data.episode_id} /> : null}
+          {tab === "runs" ? <RunsTab episodeId={data.episode_id} /> : null}
+        </Tabs>
+      </div>
     </>
   );
 }
@@ -141,7 +297,7 @@ function EpisodeHeader({
               : ""}
           </p>
         </div>
-        <div className="row">
+        <div className="row" data-tour="episode-actions">
           {running && notice.permission === "default" ? (
             <Button variant="ghost" onClick={() => void notice.ask()}>
               Notify me when it is done
@@ -168,7 +324,7 @@ function EpisodeHeader({
         </div>
       </div>
 
-      <div className="card card-muted">
+      <div className="card card-muted" data-tour="episode-progress">
         <ProgressSteps status={episode.status} stage={episode.stage} />
         {following ? (
           <p

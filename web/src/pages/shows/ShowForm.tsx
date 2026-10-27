@@ -110,6 +110,7 @@ export function ShowForm({
         <>
           <TextField
             label="Topic"
+            data-tour="show-topic"
             required
             hint="What the show is about. The hosts say it in the opening, and it is matched against your sources."
             value={values.topic}
@@ -118,6 +119,7 @@ export function ShowForm({
           />
           <TextArea
             label="Source pages"
+            data-tour="show-sources"
             hint="Web pages to build episodes from, one address per line. You can also upload PDFs after creating the show."
             rows={4}
             value={values.sources}
@@ -176,6 +178,7 @@ export function ShowForm({
           </div>
           <CheckboxField
             label="Review each script before it is voiced"
+            data-tour="show-review"
             hint="Episodes pause after the fact-check until you approve them."
             checked={values.review_before_voice}
             onChange={(event) =>

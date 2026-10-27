@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { useDeleteVoice, useVoices } from "../../api/queries";
 import type { VoiceRead } from "../../api/types";
 import { formatTime } from "../../audio/wav";
+import { useAssistant } from "../../bots/assistant";
 import { Alert, ErrorAlert } from "../../components/Alert";
 import { Button, LinkButton } from "../../components/Button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -20,6 +21,35 @@ export function VoicesPage() {
   const [params] = useSearchParams();
   const remove = useDeleteVoice();
   const [deleting, setDeleting] = useState<VoiceRead | null>(null);
+  const navigate = useNavigate();
+  useAssistant({
+    page: "voices",
+    key: "voices",
+    moment: "voices",
+    mode: "greeting",
+    line: "Record a voice, then give it to a host in a show's settings.",
+    hint: "Your hosts can speak with a real person's voice, but only with that person's signed consent. Add a voice here, then pick it under Host voices in a show's settings.",
+    actions: [
+      {
+        id: "add_voice",
+        label: "Add a voice",
+        run: () => navigate("/voices/new"),
+      },
+    ],
+    questions: ["How long should a recording be?", "Why does it need consent?"],
+    tour: [
+      {
+        target: "voices-add",
+        title: "Add a voice",
+        text: "Sign the consent form, then record or upload 5 to 90 seconds of one person speaking clearly.",
+      },
+      {
+        target: "voices-note",
+        title: "Where it is used",
+        text: "Recorded voices are cloned when the voice step runs on Chatterbox. Episodes say they are AI-generated, and the credits name the speaker.",
+      },
+    ],
+  });
 
   return (
     <>
@@ -31,7 +61,9 @@ export function VoicesPage() {
             consent.
           </p>
         </div>
-        <LinkButton to="/voices/new">Add a voice</LinkButton>
+        <LinkButton to="/voices/new" data-tour="voices-add">
+          Add a voice
+        </LinkButton>
       </div>
       <div className="stack">
         {params.get("added") === "1" ? (
@@ -40,11 +72,13 @@ export function VoicesPage() {
             Host voices.
           </Alert>
         ) : null}
-        <Alert tone="info">
-          Voices are cloned by the Chatterbox voice engine, when the server uses
-          it. Episodes voiced with a cloned voice are labelled AI-generated, and
-          the credits name the speaker.
-        </Alert>
+        <div data-tour="voices-note">
+          <Alert tone="info">
+            Voices are cloned by the Chatterbox voice engine, when the server
+            uses it. Episodes voiced with a cloned voice are labelled
+            AI-generated, and the credits name the speaker.
+          </Alert>
+        </div>
         {voices.isPending ? (
           <Skeleton label="Loading your voices" rows={2} />
         ) : null}

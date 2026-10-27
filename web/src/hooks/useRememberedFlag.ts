@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // Per-viewer conveniences (a skipped welcome, a closed dock, a dismissed hint) kept in this
 // browser only. Storage can be missing or blocked, so every access is guarded and the app
@@ -11,6 +11,8 @@ function read(key: string): boolean {
   }
 }
 
+const CHANGED = "pe-flag-changed";
+
 function write(key: string, value: boolean): void {
   try {
     if (value) window.localStorage.setItem(key, "1");
@@ -18,6 +20,8 @@ function write(key: string, value: boolean): void {
   } catch {
     // Storage unavailable: keep the flag in memory only.
   }
+  // Other places reading the same flag on this page follow along.
+  window.dispatchEvent(new CustomEvent(CHANGED, { detail: { key, value } }));
 }
 
 /** A yes/no remembered in this browser under `key`. A new key (say, the next moment of an
@@ -27,6 +31,14 @@ export function useRememberedFlag(
 ): [boolean, (value: boolean) => void] {
   const [state, setState] = useState(() => ({ key, flag: read(key) }));
   if (state.key !== key) setState({ key, flag: read(key) });
+  useEffect(() => {
+    const follow = (event: Event) => {
+      const { detail } = event as CustomEvent<{ key: string; value: boolean }>;
+      if (detail.key === key) setState({ key, flag: detail.value });
+    };
+    window.addEventListener(CHANGED, follow);
+    return () => window.removeEventListener(CHANGED, follow);
+  }, [key]);
   const set = useCallback(
     (value: boolean) => {
       write(key, value);

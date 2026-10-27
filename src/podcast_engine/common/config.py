@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     tts_model: str = "gemini-3.8-flash-tts"  # used by the "gemini" backend
     signup_open: bool = False  # True: anyone may create a creator account at /signup
     tts_requests_per_minute: int = 0  # "gemini": space requests out (free tier: 3); 0 = no limit
+    assistant_questions_per_hour: int = Field(default=20, ge=1)  # each one may call the LLM
     voices_file: Path | None = None  # defaults to <config_dir>/voices.yaml
     llm_api_key: SecretStr = SecretStr("")
     llm_api_key_file: Path | None = None

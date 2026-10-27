@@ -8,7 +8,7 @@ describe("which bot helps", () => {
     expect(botFor("processing", "voice")).toMatchObject({
       mode: "working",
       name: "Scout",
-      line: "On it: voice.",
+      line: "On it: voicing…",
     });
   });
   it("reviews during the fact-check and while waiting for a person", () => {

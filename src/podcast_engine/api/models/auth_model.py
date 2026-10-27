@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Role = Literal["admin", "creator"]
 TokenKind = Literal["session", "api_key"]
@@ -87,25 +87,91 @@ class ApiKeyCreated(ApiKeyRead):
     key: str = Field(description="The key; shown only now, never again. Send it as a bearer token")
 
 
-class Avatar(BaseModel):
-    """The assistant bot a person chose: which character, what it is called and how it looks."""
+HexColour = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
+# A preset's name or any colour as #rrggbb.
+BodyColour = Literal["pearl", "peach", "mint", "sky", "lilac", "lemon", "graphite"] | HexColour
+GlowColour = Literal["amber", "gold", "cyan", "lime", "pink", "violet"] | HexColour
 
-    character: Literal["rex", "pod"] = Field(
-        default="pod",
-        description="`rex`: the full-body robot with moves; `pod`: the floating podcast bot",
+# Version 1 had one accessory; it now lives in the slot it belongs to.
+_OLD_ACCESSORY = {"antenna": ("hat", "antenna"), "headphones": ("hat", "headphones"),
+                  "bowtie": ("neck", "bowtie")}  # fmt: skip
+
+
+class BotVoice(BaseModel):
+    """How the bot reads its lines aloud, when the person turns speech on."""
+
+    engine: Literal["browser", "gemini"] = Field(
+        default="browser",
+        description="`browser`: the device's own speech, free; `gemini`: Gemini TTS (uses quota)",
+    )
+    name: str = Field(
+        default="", max_length=80, description="Voice name; empty picks the default for the engine"
+    )
+    rate: float = Field(default=1.0, ge=0.5, le=2.0, description="Speaking speed, 1 is normal")
+    pitch: float = Field(default=1.0, ge=0.0, le=2.0, description="Pitch, 1 is normal")
+
+
+class Avatar(BaseModel):
+    """The assistant bot a person chose: which character, what it is called and how it looks.
+
+    Every part has a default, so a bot saved by an older version of the app still loads.
+    """
+
+    character: Literal["toy", "pod", "rex"] = Field(
+        default="toy",
+        description="`toy`: the build-your-own bot; `pod`: the floating podcast bot; "
+        "`rex`: the full-body robot with moves",
     )
     name: str = Field(
         default="Scout", min_length=1, max_length=24, description="What the bot is called"
     )
-    color: Literal["pearl", "peach", "mint", "sky", "graphite"] = Field(
-        default="pearl", description="Body colour"
+    color: BodyColour = Field(default="pearl", description="Body colour: a preset or #rrggbb")
+    accent: HexColour = Field(default="#c2410c", description="Trim and outfit colour, #rrggbb")
+    glow: GlowColour = Field(
+        default="amber", description="Colour of its eyes and lights: a preset or #rrggbb"
     )
-    glow: Literal["amber", "gold", "cyan", "lime", "pink"] = Field(
-        default="amber", description="Colour of its eyes and lights"
+    finish: Literal["matte", "glossy", "metallic", "pearlescent"] = Field(
+        default="glossy", description="What its shell is made of"
     )
-    accessory: Literal["none", "antenna", "headphones", "bowtie"] = Field(
-        default="antenna", description="What it wears"
+    body: Literal["round", "capsule", "boxy", "tall"] = Field(
+        default="round", description="Body shape (toy only)"
     )
+    head: Literal["sphere", "cube", "dome", "screen"] = Field(
+        default="sphere", description="Head shape (toy only)"
+    )
+    eyes: Literal["dots", "visor", "pixel", "sleepy", "star"] = Field(
+        default="dots", description="Eye style (toy only)"
+    )
+    mouth: Literal["smile", "open", "line", "none"] = Field(
+        default="smile", description="Mouth style (toy only)"
+    )
+    hat: Literal["none", "antenna", "headphones", "cap", "beanie", "crown", "halo"] = Field(
+        default="antenna", description="What it wears on its head"
+    )
+    neck: Literal["none", "bowtie", "scarf", "medal"] = Field(
+        default="none", description="What it wears at its neck"
+    )
+    extra: Literal["none", "glasses", "mic", "ears"] = Field(
+        default="none", description="One more thing it carries or wears"
+    )
+    personality: Literal["cheerful", "calm", "witty", "formal"] = Field(
+        default="cheerful", description="How it moves and how it talks"
+    )
+    voice: BotVoice = Field(default_factory=BotVoice, description="How it speaks")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "accessory" in data:
+            data = dict(data)
+            slot = _OLD_ACCESSORY.get(data.pop("accessory"))
+            if slot is None:
+                data.setdefault("hat", "none")
+            else:
+                data.setdefault(slot[0], slot[1])
+                if slot[0] != "hat":
+                    data.setdefault("hat", "none")
+        return data
 
     @field_validator("name")
     @classmethod
@@ -114,6 +180,11 @@ class Avatar(BaseModel):
         if not name:
             raise ValueError("the name needs at least one visible character")
         return name
+
+    @field_validator("accent", "color", "glow")
+    @classmethod
+    def _lower_hex(cls, value: str) -> str:
+        return value.lower() if value.startswith("#") else value
 
 
 class CurrentUser(BaseModel):

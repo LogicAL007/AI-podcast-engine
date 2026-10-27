@@ -22,6 +22,7 @@ export function EpisodesTab({ show }: { show: ShowRead }) {
   const generate = (
     <Button
       busy={start.isPending}
+      data-tour="show-generate"
       onClick={() =>
         start.mutate(undefined, {
           onSuccess: (e) => navigate(`/episodes/${e.episode_id}`),

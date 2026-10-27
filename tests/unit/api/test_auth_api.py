@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -209,24 +210,62 @@ def test_people_choose_their_assistant_bot_and_it_comes_back_with_them(harness: 
     _register(harness)
     token = _login(harness).json()["access_token"]
     assert harness.client.get("/v1/auth/me", headers=_bearer(token)).json()["avatar"] is None
-    choice = {"character": "rex", "name": "  Rex   the  Robot ", "color": "mint", "glow": "cyan"}
+    choice = {
+        "character": "toy",
+        "name": "  Pip   the  Bot ",
+        "color": "#A3E4D7",
+        "glow": "cyan",
+        "body": "tall",
+        "head": "screen",
+        "eyes": "star",
+        "hat": "crown",
+        "neck": "scarf",
+        "finish": "pearlescent",
+        "personality": "witty",
+        "voice": {"engine": "browser", "name": "Samantha", "rate": 1.2, "pitch": 1.4},
+    }
     saved = harness.client.put("/v1/auth/me/avatar", json=choice, headers=_bearer(token))
     assert saved.status_code == 200
-    expected = {
-        "character": "rex",
-        "name": "Rex the Robot",
-        "color": "mint",
-        "glow": "cyan",
-        "accessory": "antenna",
+    avatar = saved.json()["avatar"]
+    assert avatar["name"] == "Pip the Bot"
+    assert avatar["color"] == "#a3e4d7"
+    assert {k: avatar[k] for k in ("body", "head", "eyes", "hat", "neck", "finish")} == {
+        "body": "tall",
+        "head": "screen",
+        "eyes": "star",
+        "hat": "crown",
+        "neck": "scarf",
+        "finish": "pearlescent",
     }
-    assert saved.json()["avatar"] == expected
-    assert harness.client.get("/v1/auth/me", headers=_bearer(token)).json()["avatar"] == expected
+    assert avatar["mouth"] == "smile"  # not chosen: the default
+    assert avatar["voice"]["name"] == "Samantha"
+    assert harness.client.get("/v1/auth/me", headers=_bearer(token)).json()["avatar"] == avatar
+
+
+def test_a_bot_saved_by_the_first_version_still_loads(harness: Harness) -> None:
+    _register(harness)
+    token = _login(harness).json()["access_token"]
+    me = harness.client.get("/v1/auth/me", headers=_bearer(token)).json()
+    old = {"character": "rex", "name": "Rex", "color": "mint", "accessory": "bowtie"}
+    harness.auth.avatars[UUID(me["user_id"])] = old
+    avatar = harness.client.get("/v1/auth/me", headers=_bearer(token)).json()["avatar"]
+    assert (avatar["character"], avatar["color"], avatar["glow"]) == ("rex", "mint", "amber")
+    assert (avatar["neck"], avatar["hat"]) == ("bowtie", "none")
+    assert "accessory" not in avatar
 
 
 def test_only_the_offered_bot_choices_are_accepted(harness: Harness) -> None:
     _register(harness)
     token = _login(harness).json()["access_token"]
-    for bad in ({"character": "dragon"}, {"color": "#ff0000"}, {"name": "   "}, {"name": "x" * 25}):
+    for bad in (
+        {"character": "dragon"},
+        {"color": "red"},
+        {"color": "#ff00"},
+        {"hat": "top hat"},
+        {"voice": {"rate": 5}},
+        {"name": "   "},
+        {"name": "x" * 25},
+    ):
         response = harness.client.put("/v1/auth/me/avatar", json=bad, headers=_bearer(token))
         assert response.status_code == 422, bad
 

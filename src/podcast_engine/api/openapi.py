@@ -59,6 +59,11 @@ TAGS: list[dict[str, Any]] = [
         "description": "Recorded voices for the Chatterbox backend to clone, each kept with the "
         "consent form its speaker signed. Private to their owner.",
     },
+    {
+        "name": "assistant",
+        "description": "The companion bot's answers, grounded in your own episode, with "
+        "suggested next steps. Rate-limited per person.",
+    },
     {"name": "feeds", "description": "Each show's RSS feed, for podcast apps."},
     {
         "name": "ops",

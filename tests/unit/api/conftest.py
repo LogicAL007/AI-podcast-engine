@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from podcast_engine.api import dependencies
+from podcast_engine.api.controllers.assistant_controller import AssistantController
 from podcast_engine.api.controllers.auth_controller import AuthController
 from podcast_engine.api.controllers.episodes_controller import EpisodeController
 from podcast_engine.api.controllers.feeds_controller import FeedController
@@ -16,10 +17,12 @@ from podcast_engine.api.controllers.uploads_controller import UploadController
 from podcast_engine.api.controllers.voices_controller import VoiceController
 from podcast_engine.api.main import create_app
 from podcast_engine.api.models.auth_model import CurrentUser
+from podcast_engine.api.repositories.assistant_usage_repository import MemoryAssistantUsage
 from podcast_engine.api.repositories.login_attempts_repository import (
     LimitsConfig,
     MemoryLoginAttempts,
 )
+from podcast_engine.api.services.assistant_service import AssistantService
 from podcast_engine.api.services.auth_service import AuthService
 from podcast_engine.api.services.episodes_service import EpisodeService, ProgressPacing
 from podcast_engine.api.services.feeds_service import FeedService
@@ -28,6 +31,7 @@ from podcast_engine.api.services.shows_service import ShowService
 from podcast_engine.api.services.sources_service import SourceService
 from podcast_engine.api.services.uploads_service import UploadService
 from podcast_engine.api.services.voices_service import VoiceService
+from podcast_engine.common.llm import LlmClient
 from podcast_engine.common.mailer import Email
 from podcast_engine.common.queue import Stage
 from tests.unit.api.fakes import (
@@ -116,6 +120,21 @@ class Harness:
         overrides[dependencies.get_episode_controller] = lambda: EpisodeController(
             EpisodeService(
                 self.episodes, self.shows, self._enqueue, self.store, self.feeds_rebuilt.append
+            )
+        )
+        # The bot's model: None (the built-in help) unless a test gives it one.
+        self.assistant_llm: LlmClient | None = None
+        self.assistant_usage = MemoryAssistantUsage(clock=lambda: self.seconds)
+        self.assistant_per_hour = 20
+        overrides[dependencies.get_assistant_controller] = lambda: AssistantController(
+            AssistantService(
+                EpisodeService(
+                    self.episodes, self.shows, self._enqueue, self.store, self.feeds_rebuilt.append
+                ),
+                ShowService(self.shows, self.voices),
+                self.assistant_usage,
+                lambda: self.assistant_llm,
+                self.assistant_per_hour,
             )
         )
         overrides[dependencies.get_source_controller] = lambda: SourceController(

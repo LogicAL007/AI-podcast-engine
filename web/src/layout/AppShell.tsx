@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { useAuth } from "../auth/AuthProvider";
+import { AssistantProvider } from "../bots/assistant";
+import { AssistantDock } from "../bots/AssistantDock";
 import { useAvatar } from "../bots/avatar";
 import { AvatarFace } from "../bots/AvatarFace";
 import { preloadBots } from "../bots/BotFigure";
@@ -131,7 +133,7 @@ export function AppShell() {
   const hidden = narrow && !open;
 
   return (
-    <>
+    <AssistantProvider>
       <div className="app-backdrop" aria-hidden="true" />
       <a href="#main" className="skip-link">
         Skip to content
@@ -234,6 +236,7 @@ export function AppShell() {
             <NavLink
               to="/voices"
               className="side-link"
+              data-tour="nav-voices"
               title={collapsed ? "Voice studio" : undefined}
             >
               <Icon name="voices" />{" "}
@@ -242,6 +245,7 @@ export function AppShell() {
             <NavLink
               to="/companion"
               className="side-link"
+              data-tour="nav-companion"
               title={collapsed ? "Companion" : undefined}
             >
               <AvatarFace avatar={avatar} size={20} />{" "}
@@ -254,6 +258,7 @@ export function AppShell() {
             <LinkButton
               to="/shows/new"
               className="sidebar-cta"
+              data-tour="new-show"
               title={collapsed ? "New show" : undefined}
             >
               <Icon name="add" /> <span className="side-label">New show</span>
@@ -303,8 +308,9 @@ export function AppShell() {
           <div key={pathname} className="page-enter">
             <Outlet />
           </div>
+          <AssistantDock />
         </main>
       </div>
-    </>
+    </AssistantProvider>
   );
 }

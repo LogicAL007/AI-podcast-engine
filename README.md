@@ -172,6 +172,7 @@ changed are re-scripted and re-voiced. If nothing changed, the episode ends as `
 | `EMBEDDING_MODEL` | `hashing` | Offline. A sentence-transformers id works if it has 384 dimensions (for example `BAAI/bge-small-en-v1.5`) |
 | `TTS_BACKEND` | `placeholder` | `placeholder` (tones, for testing) or `gemini` (prebuilt voices, key in `secrets/tts_api_key.txt`, else the LLM key) in containers. `say` and `chatterbox` run on a host, see below |
 | `TTS_REQUESTS_PER_MINUTE` | `0` | `gemini` only: space voice requests out to this rate (the free tier allows 3 a minute); `0` = no limit. Rate-limited requests are retried after the wait Gemini asks for |
+| `ASSISTANT_QUESTIONS_PER_HOUR` | `20` | Questions each person may ask the companion bot an hour. With `LLM_ENABLED=true` each one is a model call; otherwise the built-in help answers |
 | `SIGNUP_OPEN` | `false` | `true`: anyone can create their own `creator` account at `/signup` (throttled per address). Each account can spend your LLM and TTS quota |
 | `MAX_REWRITES` | `2` | Gate loops before an episode is held as `needs_review` |
 | `REFRESH_INTERVAL_HOURS` | `0` | Scheduler refresh period for published shows; `0` is off |

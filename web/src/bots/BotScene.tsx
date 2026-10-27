@@ -1,39 +1,84 @@
-// The assistant bots, drawn with React Three Fiber, in the look each person chose (bots/avatar.ts):
+// The assistant bots, drawn with React Three Fiber, in the look each person chose (bots/avatar.ts),
+// lit like a collectible vinyl toy on a photo set:
 //
+// * Toy: the build-your-own bot (ToyBot.tsx), assembled from the parts the person picked.
 // * Pod: a floating podcast bot built from primitives (nothing to download).
 // * Rex: "RobotExpressive" (CC0, Tomás Laulhé / Quaternius; public/bots/LICENSE.md), a rigged
 //   robot with 14 animations and three facial expressions, recoloured to the chosen colour.
 //
-// Both follow the pointer, can be dragged to spin, and react to a tap; the page drives that
-// through a BotControl. Loaded lazily: three.js only reaches pages that show a bot.
+// Reflections come from a small studio of light panels rendered once into an environment map
+// (no image is downloaded), and lit parts bloom softly. Weak devices, or any that cannot keep up,
+// get a lighter version without the bloom. Every character follows the pointer, can be dragged
+// to spin, and reacts to a tap; the page drives that through a BotControl. Loaded lazily:
+// three.js only reaches pages that show a bot.
 import {
+  Environment,
+  Lightformer,
+  PerformanceMonitor,
   RoundedBox,
   Sparkles,
   useAnimations,
   useGLTF,
 } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef, type RefObject } from "react";
+import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import {
-  CanvasTexture,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import {
   Color,
   LoopOnce,
   LoopRepeat,
+  MeshPhysicalMaterial,
   Quaternion,
   Vector3,
   type AnimationAction,
   type Bone,
   type Group,
   type Mesh,
-  type MeshBasicMaterial,
   type MeshStandardMaterial,
   type Object3D,
   type Points,
 } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 
-import { COLORS, DEFAULT_AVATAR, GLOWS, type Avatar } from "./avatar";
+import {
+  accentHex,
+  bodyHex,
+  DEFAULT_AVATAR,
+  faceHex,
+  glowHex,
+  type Avatar,
+} from "./avatar";
 import type { BotMode } from "./botMode";
+import {
+  Glow,
+  HatPart,
+  HeadExtra,
+  Mic,
+  NeckPart,
+  Shell,
+  shellProps,
+  type HeadFit,
+} from "./parts";
+import {
+  easeOut,
+  newControl,
+  REACTION_SECONDS,
+  Shadow,
+  useMotion,
+  useReaction,
+  type BotControl,
+  type CharacterProps,
+} from "./sceneKit";
+import { ToyBot } from "./ToyBot";
+
+export { newControl, type BotControl } from "./sceneKit";
 
 export const ROBOT_URL = "/bots/robot-expressive.glb";
 // The model is plain glTF. drei would otherwise set up the Draco and Meshopt decoders, which
@@ -41,211 +86,7 @@ export const ROBOT_URL = "/bots/robot-expressive.glb";
 const USE_DRACO = false;
 const USE_MESHOPT = false;
 
-/** What the page tells a bot: where the pointer is, hover, drag spin, and taps. */
-export interface BotControl {
-  lookX: number; // -1 (far left of the screen) .. 1 (far right)
-  lookY: number; // -1 (bottom) .. 1 (top)
-  hovering: boolean;
-  spin: number; // radians a second, from a drag; eases off by itself
-  pokes: number; // goes up by one on each tap; the bot reacts to every new value
-}
-
-export function newControl(): BotControl {
-  return { lookX: 0, lookY: 0, hovering: false, spin: 0, pokes: 0 };
-}
-
-const ACCENT = "#c2410c";
-const REACTION_SECONDS = 1.2;
-
-function easeOut(p: number): number {
-  return 1 - (1 - p) ** 3;
-}
-
-/** A soft round shadow drawn once on a small canvas; cheaper than a shadow pass, and it ignores
- * the sparkles, which a contact-shadow camera would smear into a grey box. */
-function shadowTexture(): CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 64;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    const glow = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    glow.addColorStop(0, "rgba(68, 28, 10, 0.55)");
-    glow.addColorStop(1, "rgba(68, 28, 10, 0)");
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, 64, 64);
-  }
-  return new CanvasTexture(canvas);
-}
-
-/** The floor shadow: it shrinks and fades as the bot rises. */
-function Shadow({ target }: { target: RefObject<Object3D | null> }) {
-  const mesh = useRef<Mesh>(null);
-  const material = useRef<MeshBasicMaterial>(null);
-  const map = useMemo(shadowTexture, []);
-  useFrame(() => {
-    if (!mesh.current || !material.current || !target.current) return;
-    const lift = Math.max(0, target.current.position.y);
-    mesh.current.scale.setScalar(1 - lift * 0.9);
-    material.current.opacity = 0.9 - lift * 1.6;
-  });
-  return (
-    <mesh ref={mesh} position={[0, -0.97, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[1.3, 1.3]} />
-      <meshBasicMaterial
-        ref={material}
-        map={map}
-        transparent
-        depthWrite={false}
-      />
-    </mesh>
-  );
-}
-
-/** Pointer following and drag spin, shared by both characters; call once per frame. */
-function useMotion(control: RefObject<BotControl>, still: boolean) {
-  const look = useRef({ x: 0, y: 0 });
-  const spin = useRef(0);
-  return (delta: number) => {
-    const c = control.current;
-    const ease = Math.min(1, delta * 6);
-    look.current.x += ((still ? 0 : c.lookX) - look.current.x) * ease;
-    look.current.y += ((still ? 0 : c.lookY) - look.current.y) * ease;
-    spin.current += c.spin * delta;
-    c.spin *= 0.04 ** delta; // a flick keeps turning, then slows to a stop
-    return { lookX: look.current.x, lookY: look.current.y, spin: spin.current };
-  };
-}
-
-/** Taps: the time of the latest one, so a character can play out its reaction. */
-function useReaction(control: RefObject<BotControl>) {
-  const seen = useRef(control.current.pokes);
-  const start = useRef(-10);
-  return (now: number) => {
-    const fresh = control.current.pokes !== seen.current;
-    if (fresh) {
-      seen.current = control.current.pokes;
-      start.current = now;
-    }
-    return { fresh, since: now - start.current };
-  };
-}
-
-// ---- accessories ------------------------------------------------------------------------------
-
-/** What a bot wears on its head, lit in the glow colour. `unit` is the head's half-width and
- * `top` the height of its crown above the head's centre (a wide, flat head has a small top). */
-function HeadAccessory({
-  kind,
-  glow,
-  unit,
-  top,
-}: {
-  kind: Avatar["accessory"];
-  glow: string;
-  unit: number;
-  top: number;
-}) {
-  const tip = useRef<MeshStandardMaterial>(null);
-  useFrame((state) => {
-    if (tip.current)
-      tip.current.emissiveIntensity =
-        1.4 + Math.sin(state.clock.elapsedTime * 4) * 0.8;
-  });
-  if (kind === "antenna") {
-    return (
-      <group>
-        <mesh position={[0, top + unit * 0.12, 0]}>
-          <cylinderGeometry
-            args={[unit * 0.028, unit * 0.028, unit * 0.4, 12]}
-          />
-          <meshStandardMaterial color="#d6d3d1" />
-        </mesh>
-        <mesh position={[0, top + unit * 0.36, 0]}>
-          <sphereGeometry args={[unit * 0.11, 24, 24]} />
-          <meshStandardMaterial
-            ref={tip}
-            color={glow}
-            emissive={glow}
-            emissiveIntensity={1.4}
-            toneMapped={false}
-          />
-        </mesh>
-      </group>
-    );
-  }
-  if (kind === "headphones") {
-    const r = unit * 1.08;
-    return (
-      <group>
-        {/* The band hugs the crown: an arc as wide as the head, squashed to its height. */}
-        <mesh position={[0, unit * 0.05, 0]} scale={[1, (top * 1.15) / r, 1]}>
-          <torusGeometry args={[r, unit * 0.07, 12, 48, Math.PI]} />
-          <meshStandardMaterial color="#2a2522" roughness={0.4} />
-        </mesh>
-        {[-1, 1].map((side) => (
-          <group
-            key={side}
-            position={[side * r, unit * 0.02, 0]}
-            rotation={[0, 0, Math.PI / 2]}
-          >
-            <mesh>
-              <cylinderGeometry
-                args={[unit * 0.26, unit * 0.26, unit * 0.18, 32]}
-              />
-              <meshStandardMaterial color="#2a2522" roughness={0.35} />
-            </mesh>
-            <mesh
-              position={[0, side * unit * 0.095, 0]}
-              rotation={[Math.PI / 2, 0, 0]}
-            >
-              <torusGeometry args={[unit * 0.17, unit * 0.025, 8, 32]} />
-              <meshStandardMaterial
-                color={glow}
-                emissive={glow}
-                emissiveIntensity={1.6}
-                toneMapped={false}
-              />
-            </mesh>
-          </group>
-        ))}
-      </group>
-    );
-  }
-  return null;
-}
-
-function BowTie({ glow, unit }: { glow: string; unit: number }) {
-  return (
-    <group>
-      {[-1, 1].map((side) => (
-        <mesh
-          key={side}
-          position={[side * unit * 0.16, 0, 0]}
-          rotation={[0, 0, (-side * Math.PI) / 2]}
-        >
-          <coneGeometry args={[unit * 0.15, unit * 0.28, 4]} />
-          <meshStandardMaterial color={ACCENT} roughness={0.5} />
-        </mesh>
-      ))}
-      <mesh>
-        <sphereGeometry args={[unit * 0.07, 16, 16]} />
-        <meshStandardMaterial
-          color={glow}
-          emissive={glow}
-          emissiveIntensity={1.2}
-          toneMapped={false}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-interface CharacterProps {
-  mode: BotMode;
-  still: boolean;
-  avatar: Avatar;
-  control: RefObject<BotControl>;
-}
+const POD_FIT: HeadFit = { unit: 0.49, top: 0.42, faceZ: 0.49, faceY: -0.02 };
 
 // ---- Pod -------------------------------------------------------------------------------------
 
@@ -259,8 +100,9 @@ function Pod({ mode, still, avatar, control }: CharacterProps) {
   const sparkles = useRef<Points>(null);
   const motion = useMotion(control, still);
   const reaction = useReaction(control);
-  const shell = COLORS[avatar.color].hex;
-  const glow = GLOWS[avatar.glow].hex;
+  const shell = bodyHex(avatar);
+  const glow = glowHex(avatar);
+  const accent = accentHex(avatar);
   const eyeColour = useMemo(() => new Color(glow), [glow]);
 
   useFrame((state, delta) => {
@@ -360,43 +202,34 @@ function Pod({ mode, still, avatar, control }: CharacterProps) {
       sparkles.current.visible = !still && (mode === "celebrating" || reacting);
   });
 
-  const visor = avatar.color === "graphite" ? "#0d0b0a" : "#17120f";
+  const visor = faceHex(avatar);
   return (
     <>
       <Shadow target={root} />
       <group ref={root}>
         <mesh position={[0, -0.38, 0]}>
           <capsuleGeometry args={[0.36, 0.22, 10, 32]} />
-          <meshPhysicalMaterial
-            color={shell}
-            roughness={0.25}
-            clearcoat={1}
-            clearcoatRoughness={0.08}
-          />
+          <Shell color={shell} finish={avatar.finish} />
         </mesh>
-        {avatar.accessory === "bowtie" ? (
-          <group position={[0, -0.05, 0.31]}>
-            <BowTie glow={glow} unit={0.46} />
-          </group>
-        ) : (
-          <mesh position={[0, -0.32, 0.33]}>
+        {avatar.neck === "none" ? (
+          <mesh position={[0, -0.32, 0.37]}>
             <circleGeometry args={[0.09, 32]} />
-            <meshStandardMaterial
-              color={glow}
-              emissive={glow}
-              emissiveIntensity={0.6}
-            />
+            <Glow color={glow} intensity={1.2} pulse />
           </mesh>
+        ) : (
+          <group position={[0, -0.05, avatar.neck === "scarf" ? 0 : 0.31]}>
+            <NeckPart
+              kind={avatar.neck}
+              glow={glow}
+              accent={accent}
+              unit={0.46}
+            />
+          </group>
         )}
         <group ref={head} position={[0, 0.34, 0]}>
           <mesh scale={[1.12, 0.92, 1]}>
             <sphereGeometry args={[0.46, 48, 48]} />
-            <meshPhysicalMaterial
-              color={shell}
-              roughness={0.2}
-              clearcoat={1}
-              clearcoatRoughness={0.06}
-            />
+            <Shell color={shell} finish={avatar.finish} />
           </mesh>
           <RoundedBox
             args={[0.74, 0.38, 0.2]}
@@ -423,33 +256,35 @@ function Pod({ mode, still, avatar, control }: CharacterProps) {
               </mesh>
             ))}
           </group>
-          <HeadAccessory
-            kind={avatar.accessory}
+          <HatPart
+            kind={avatar.hat}
             glow={glow}
-            unit={0.49}
-            top={0.42}
+            accent={accent}
+            fit={POD_FIT}
+          />
+          <HeadExtra
+            kind={avatar.extra}
+            glow={glow}
+            accent={accent}
+            shell={shell}
+            finish={avatar.finish}
+            fit={POD_FIT}
           />
         </group>
         {[handL, handR].map((hand, i) => (
           <mesh key={i} ref={hand} position={[i ? 0.62 : -0.62, -0.18, 0]}>
             <sphereGeometry args={[0.1, 24, 24]} />
-            <meshPhysicalMaterial
-              color={shell}
-              roughness={0.25}
-              clearcoat={1}
-            />
+            <Shell color={shell} finish={avatar.finish} />
+            {i === 1 && avatar.extra === "mic" ? (
+              <group position={[0.02, 0.12, 0.08]}>
+                <Mic glow={glow} unit={0.5} />
+              </group>
+            ) : null}
           </mesh>
         ))}
         <mesh ref={ring} rotation={[Math.PI / 2, 0, 0]} visible={false}>
           <torusGeometry args={[0.72, 0.008, 8, 64]} />
-          <meshStandardMaterial
-            color="#f5b041"
-            emissive="#f5b041"
-            emissiveIntensity={2}
-            transparent
-            opacity={0.8}
-            toneMapped={false}
-          />
+          <Glow color="#f5b041" intensity={2} />
         </mesh>
         {!still ? (
           <Sparkles
@@ -484,8 +319,15 @@ const REX_TUNING = {
   headCentre: 0.27,
   headHalfWidth: 0.52,
   headTop: 0.3,
+  faceForward: 0.3,
   tieUp: 0.02,
   tieForward: 0.2,
+};
+const REX_FIT: HeadFit = {
+  unit: REX_TUNING.headHalfWidth,
+  top: REX_TUNING.headTop,
+  faceZ: REX_TUNING.faceForward,
+  faceY: 0.02,
 };
 
 function findBone(model: Object3D, name: string): Bone | undefined {
@@ -501,6 +343,7 @@ function Rex({ mode, still, avatar, control }: CharacterProps) {
   const root = useRef<Group>(null);
   const hat = useRef<Group>(null);
   const tie = useRef<Group>(null);
+  const held = useRef<Group>(null);
   const motion = useMotion(control, still);
   const reaction = useReaction(control);
   const invalidate = useThree((state) => state.invalidate);
@@ -524,8 +367,12 @@ function Rex({ mode, still, avatar, control }: CharacterProps) {
       if (!mesh.isMesh) return;
       // Several meshes share each material (Main is the whole body), so each is copied once
       // and the copy shared again: recolouring it recolours this robot, and only this one.
+      // The body becomes a physical material, so it can take any finish (clearcoat, sheen...).
       const original = mesh.material as MeshStandardMaterial;
-      materials[original.name] ??= original.clone();
+      materials[original.name] ??=
+        original.name === "Main"
+          ? new MeshPhysicalMaterial({ name: "Main", color: original.color })
+          : original.clone();
       mesh.material = materials[original.name];
       if (
         mesh.morphTargetDictionary &&
@@ -538,18 +385,27 @@ function Rex({ mode, still, avatar, control }: CharacterProps) {
       face,
       head: findBone(model, "Head"),
       neck: findBone(model, "Neck"),
+      hand: findBone(model, "HandR"),
     };
   }, [model]);
 
+  const shell = bodyHex(avatar);
+  const glow = glowHex(avatar);
+  const accent = accentHex(avatar);
   useEffect(() => {
-    parts.materials.Main?.color.set(COLORS[avatar.color].hex);
+    const main = parts.materials.Main;
+    if (main) {
+      Object.assign(main, shellProps(avatar.finish));
+      main.color.set(shell);
+      main.needsUpdate = true;
+    }
     const screen = parts.materials.Black;
     if (screen) {
-      screen.emissive.set(GLOWS[avatar.glow].hex);
-      screen.emissiveIntensity = 0.35; // its eyes and brows take the glow colour
+      screen.emissive.set(glow);
+      screen.emissiveIntensity = 0.5; // its eyes and brows take the glow colour
     }
     invalidate();
-  }, [parts, avatar.color, avatar.glow, invalidate]);
+  }, [parts, shell, glow, avatar.finish, invalidate]);
 
   const { actions, mixer } = useAnimations(animations, root);
   const current = useRef<AnimationAction | null>(null);
@@ -636,36 +492,112 @@ function Rex({ mode, still, avatar, control }: CharacterProps) {
       tie.current.position.copy(where.v);
       tie.current.quaternion.copy(where.q);
     }
+    if (held.current && parts.hand) {
+      parts.hand.getWorldPosition(where.v);
+      parts.hand.getWorldQuaternion(where.q);
+      held.current.position.copy(where.v);
+      held.current.quaternion.copy(where.q);
+    }
   });
 
-  const glow = GLOWS[avatar.glow].hex;
   return (
     <>
       <Shadow target={root} />
       <group ref={root}>
         <primitive object={model} />
       </group>
-      {avatar.accessory === "antenna" || avatar.accessory === "headphones" ? (
-        <group ref={hat}>
-          <group position={[0, REX_TUNING.headCentre, 0]}>
-            <HeadAccessory
-              kind={avatar.accessory}
-              glow={glow}
-              unit={REX_TUNING.headHalfWidth}
-              top={REX_TUNING.headTop}
-            />
-          </group>
+      <group ref={hat}>
+        <group position={[0, REX_TUNING.headCentre, 0]}>
+          <HatPart
+            kind={avatar.hat}
+            glow={glow}
+            accent={accent}
+            fit={REX_FIT}
+          />
+          <HeadExtra
+            kind={avatar.extra === "mic" ? "none" : avatar.extra}
+            glow={glow}
+            accent={accent}
+            shell={shell}
+            finish={avatar.finish}
+            fit={REX_FIT}
+          />
         </group>
-      ) : null}
-      {avatar.accessory === "bowtie" ? (
-        <group ref={tie}>
-          <group position={[0, REX_TUNING.tieUp, REX_TUNING.tieForward]}>
-            <BowTie glow={glow} unit={0.3} />
-          </group>
+      </group>
+      <group ref={tie}>
+        <group
+          position={[
+            0,
+            REX_TUNING.tieUp,
+            avatar.neck === "scarf" ? 0 : REX_TUNING.tieForward,
+          ]}
+        >
+          <NeckPart kind={avatar.neck} glow={glow} accent={accent} unit={0.3} />
+        </group>
+      </group>
+      {avatar.extra === "mic" ? (
+        <group ref={held}>
+          <Mic glow={glow} unit={0.32} />
         </group>
       ) : null}
     </>
   );
+}
+
+/** The photo set: a key light, a warm rim light from behind, and soft panels for reflections. */
+function Studio({ high }: { high: boolean }) {
+  return (
+    <>
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[2.5, 3, 4]} intensity={2} />
+      <pointLight position={[-2.5, 1.5, -2]} intensity={7} color="#fb923c" />
+      <pointLight position={[2.2, -0.5, -1.5]} intensity={3} color="#93c5fd" />
+      <Environment resolution={high ? 256 : 64} frames={1}>
+        <Lightformer
+          form="rect"
+          intensity={3}
+          position={[0, 3, 2]}
+          rotation-x={Math.PI / 2}
+          scale={[4, 1.4, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={2}
+          position={[-3, 1, 1]}
+          rotation-y={Math.PI / 2}
+          scale={[2.5, 3, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={1.4}
+          color="#ffe4d1"
+          position={[3, 0.5, 1]}
+          rotation-y={-Math.PI / 2}
+          scale={[2.5, 3, 1]}
+        />
+        <Lightformer
+          form="ring"
+          intensity={2.5}
+          color="#fb923c"
+          position={[0, 1, -3]}
+          scale={2}
+        />
+      </Environment>
+    </>
+  );
+}
+
+export type Quality = "high" | "low";
+
+/** High for most screens; low for phones, small CPUs and data savers, and for any device that
+ * cannot keep up (PerformanceMonitor drops it after a few slow seconds). */
+export function initialQuality(): Quality {
+  if (typeof window === "undefined") return "high";
+  const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  const cores = navigator.hardwareConcurrency ?? 8;
+  const saveData = (navigator as { connection?: { saveData?: boolean } })
+    .connection?.saveData;
+  return coarse || cores <= 4 || saveData ? "low" : "high";
 }
 
 export default function BotScene({
@@ -681,24 +613,38 @@ export default function BotScene({
 }) {
   const own = useRef<BotControl>(newControl());
   const ctl = control ?? own;
+  const [quality, setQuality] = useState<Quality>(initialQuality);
+  const high = quality === "high";
+  const Character =
+    avatar.character === "rex"
+      ? Rex
+      : avatar.character === "pod"
+        ? Pod
+        : ToyBot;
   return (
     <Canvas
       className="bot-canvas"
-      dpr={[1, 2]}
+      data-quality={quality}
+      dpr={high ? [1, 2] : [1, 1.25]}
       camera={{ position: [0, 0.15, 4.4], fov: 32 }}
       gl={{ antialias: true, alpha: true }}
       frameloop={still ? "demand" : "always"}
     >
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[2.5, 3, 4]} intensity={2.4} />
-      <pointLight position={[-2.5, 1.5, -2]} intensity={6} color="#fb923c" />
+      <PerformanceMonitor flipflops={1} onDecline={() => setQuality("low")} />
+      <Studio high={high} />
       <Suspense fallback={null}>
-        {avatar.character === "rex" ? (
-          <Rex mode={mode} still={still} avatar={avatar} control={ctl} />
-        ) : (
-          <Pod mode={mode} still={still} avatar={avatar} control={ctl} />
-        )}
+        <Character mode={mode} still={still} avatar={avatar} control={ctl} />
       </Suspense>
+      {high ? (
+        <EffectComposer multisampling={4}>
+          <Bloom
+            mipmapBlur
+            luminanceThreshold={1}
+            intensity={0.55}
+            radius={0.55}
+          />
+        </EffectComposer>
+      ) : null}
     </Canvas>
   );
 }

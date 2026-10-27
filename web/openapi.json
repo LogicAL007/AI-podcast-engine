@@ -4981,6 +4981,96 @@
           }
         }
       }
+    },
+    "/v1/assistant/ask": {
+      "post": {
+        "tags": [
+          "assistant"
+        ],
+        "summary": "Ask the companion bot",
+        "description": "Ask about the app or the episode on screen. With the LLM on, Gemini answers from your\nepisode's own data (its status, error, segments and the claims the fact-check cut); otherwise,\nor if the model is unavailable, the built-in help does. Suggested actions are only offered as\nbuttons; nothing runs by itself. Limited per person per hour\n(`ASSISTANT_QUESTIONS_PER_HOUR`).",
+        "operationId": "ask",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Question"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The answer, suggested next steps, and questions left this hour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Answer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The episode or show is not yours, or does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The question is empty or too long",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many questions this hour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -5014,6 +5104,60 @@
           "password"
         ],
         "title": "AccountDelete"
+      },
+      "Answer": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer",
+            "description": "The reply, in plain text"
+          },
+          "actions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "open_script",
+                "open_factcheck",
+                "open_listen",
+                "approve",
+                "retry",
+                "cancel",
+                "generate_episode",
+                "new_show",
+                "add_voice",
+                "open_voices",
+                "open_companion",
+                "start_tour"
+              ]
+            },
+            "type": "array",
+            "title": "Actions",
+            "description": "Suggested next steps the page can offer as buttons (never run by themselves)"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "gemini",
+              "help"
+            ],
+            "title": "Source",
+            "description": "`gemini`: written by the model from your episode's data; `help`: the built-in help, used when the model is off or unavailable"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining",
+            "description": "Questions left this hour"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "actions",
+          "source",
+          "remaining"
+        ],
+        "title": "Answer",
+        "description": "The assistant's reply."
       },
       "ApiCatalog": {
         "properties": {
@@ -5352,12 +5496,13 @@
           "character": {
             "type": "string",
             "enum": [
-              "rex",
-              "pod"
+              "toy",
+              "pod",
+              "rex"
             ],
             "title": "Character",
-            "description": "`rex`: the full-body robot with moves; `pod`: the floating podcast bot",
-            "default": "pod"
+            "description": "`toy`: the build-your-own bot; `pod`: the floating podcast bot; `rex`: the full-body robot with moves",
+            "default": "toy"
           },
           "name": {
             "type": "string",
@@ -5368,47 +5513,177 @@
             "default": "Scout"
           },
           "color": {
-            "type": "string",
-            "enum": [
-              "pearl",
-              "peach",
-              "mint",
-              "sky",
-              "graphite"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pearl",
+                  "peach",
+                  "mint",
+                  "sky",
+                  "lilac",
+                  "lemon",
+                  "graphite"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              }
             ],
             "title": "Color",
-            "description": "Body colour",
+            "description": "Body colour: a preset or #rrggbb",
             "default": "pearl"
           },
-          "glow": {
+          "accent": {
             "type": "string",
-            "enum": [
-              "amber",
-              "gold",
-              "cyan",
-              "lime",
-              "pink"
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Accent",
+            "description": "Trim and outfit colour, #rrggbb",
+            "default": "#c2410c"
+          },
+          "glow": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "amber",
+                  "gold",
+                  "cyan",
+                  "lime",
+                  "pink",
+                  "violet"
+                ]
+              },
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              }
             ],
             "title": "Glow",
-            "description": "Colour of its eyes and lights",
+            "description": "Colour of its eyes and lights: a preset or #rrggbb",
             "default": "amber"
           },
-          "accessory": {
+          "finish": {
+            "type": "string",
+            "enum": [
+              "matte",
+              "glossy",
+              "metallic",
+              "pearlescent"
+            ],
+            "title": "Finish",
+            "description": "What its shell is made of",
+            "default": "glossy"
+          },
+          "body": {
+            "type": "string",
+            "enum": [
+              "round",
+              "capsule",
+              "boxy",
+              "tall"
+            ],
+            "title": "Body",
+            "description": "Body shape (toy only)",
+            "default": "round"
+          },
+          "head": {
+            "type": "string",
+            "enum": [
+              "sphere",
+              "cube",
+              "dome",
+              "screen"
+            ],
+            "title": "Head",
+            "description": "Head shape (toy only)",
+            "default": "sphere"
+          },
+          "eyes": {
+            "type": "string",
+            "enum": [
+              "dots",
+              "visor",
+              "pixel",
+              "sleepy",
+              "star"
+            ],
+            "title": "Eyes",
+            "description": "Eye style (toy only)",
+            "default": "dots"
+          },
+          "mouth": {
+            "type": "string",
+            "enum": [
+              "smile",
+              "open",
+              "line",
+              "none"
+            ],
+            "title": "Mouth",
+            "description": "Mouth style (toy only)",
+            "default": "smile"
+          },
+          "hat": {
             "type": "string",
             "enum": [
               "none",
               "antenna",
               "headphones",
-              "bowtie"
+              "cap",
+              "beanie",
+              "crown",
+              "halo"
             ],
-            "title": "Accessory",
-            "description": "What it wears",
+            "title": "Hat",
+            "description": "What it wears on its head",
             "default": "antenna"
+          },
+          "neck": {
+            "type": "string",
+            "enum": [
+              "none",
+              "bowtie",
+              "scarf",
+              "medal"
+            ],
+            "title": "Neck",
+            "description": "What it wears at its neck",
+            "default": "none"
+          },
+          "extra": {
+            "type": "string",
+            "enum": [
+              "none",
+              "glasses",
+              "mic",
+              "ears"
+            ],
+            "title": "Extra",
+            "description": "One more thing it carries or wears",
+            "default": "none"
+          },
+          "personality": {
+            "type": "string",
+            "enum": [
+              "cheerful",
+              "calm",
+              "witty",
+              "formal"
+            ],
+            "title": "Personality",
+            "description": "How it moves and how it talks",
+            "default": "cheerful"
+          },
+          "voice": {
+            "$ref": "#/components/schemas/BotVoice",
+            "description": "How it speaks"
           }
         },
         "type": "object",
         "title": "Avatar",
-        "description": "The assistant bot a person chose: which character, what it is called and how it looks."
+        "description": "The assistant bot a person chose: which character, what it is called and how it looks.\n\nEvery part has a default, so a bot saved by an older version of the app still loads."
       },
       "Body_register_voice": {
         "properties": {
@@ -5507,6 +5782,46 @@
           "file"
         ],
         "title": "Body_upload_source"
+      },
+      "BotVoice": {
+        "properties": {
+          "engine": {
+            "type": "string",
+            "enum": [
+              "browser",
+              "gemini"
+            ],
+            "title": "Engine",
+            "description": "`browser`: the device's own speech, free; `gemini`: Gemini TTS (uses quota)",
+            "default": "browser"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Name",
+            "description": "Voice name; empty picks the default for the engine",
+            "default": ""
+          },
+          "rate": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.5,
+            "title": "Rate",
+            "description": "Speaking speed, 1 is normal",
+            "default": 1.0
+          },
+          "pitch": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Pitch",
+            "description": "Pitch, 1 is normal",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "title": "BotVoice",
+        "description": "How the bot reads its lines aloud, when the person turns speech on."
       },
       "ClaimDetail": {
         "properties": {
@@ -7118,6 +7433,66 @@
         ],
         "title": "PasswordResetRequest"
       },
+      "Question": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Question",
+            "description": "What the person asked"
+          },
+          "page": {
+            "type": "string",
+            "enum": [
+              "shows",
+              "show",
+              "new_show",
+              "episode",
+              "voices",
+              "new_voice",
+              "companion",
+              "welcome",
+              "other"
+            ],
+            "title": "Page",
+            "description": "The page it was asked on",
+            "default": "other"
+          },
+          "episode_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Id",
+            "description": "The episode on screen, if any; it must be yours"
+          },
+          "show_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Id",
+            "description": "The show on screen, if any; it must be yours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "Question",
+        "description": "A question for the assistant, with where it was asked."
+      },
       "Readiness": {
         "properties": {
           "status": {
@@ -8547,6 +8922,10 @@
     {
       "name": "voices",
       "description": "Recorded voices for the Chatterbox backend to clone, each kept with the consent form its speaker signed. Private to their owner."
+    },
+    {
+      "name": "assistant",
+      "description": "The companion bot's answers, grounded in your own episode, with suggested next steps. Rate-limited per person."
     },
     {
       "name": "feeds",

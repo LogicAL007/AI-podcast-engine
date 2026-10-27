@@ -299,32 +299,129 @@ a.list-item:hover {
 }
 
 /* ---- progress ----------------------------------------------------------------------------- */
-.steps {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: var(--space-1);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.step {
+.steps-summary {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
-.step-bar {
+/* The headline: one word for what is happening now, which slides in as each step starts. */
+.progress-headline {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.progress-word {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text);
+  animation: word-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.progress-detail {
+  font-size: var(--text-sm);
+  animation: word-in 420ms 80ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+  }
+}
+.progress-dots span {
+  display: inline-block;
+  animation: dot 1.4s ease-in-out infinite;
+}
+.progress-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.progress-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-0.15em);
+  }
+}
+
+/* One bar for the whole run. While a step runs, the fill creeps across most of it (slowing as it
+   goes, over about the step's usual length) with a light passing through; finished steps fill
+   smoothly. */
+.progress-track {
   position: relative;
   overflow: hidden;
-  height: 6px;
+  height: 10px;
   border-radius: 999px;
   background: var(--color-surface-strong);
 }
-.steps-summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--to);
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 700ms ease-out;
+}
+.progress-moving .progress-fill {
+  animation: creep var(--creep) cubic-bezier(0, 0.75, 0.25, 1) both;
+}
+.progress-moving .progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 50%),
+    transparent
+  );
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: sweep 1.8s ease-in-out infinite;
+}
+@keyframes creep {
+  from {
+    width: var(--from);
+  }
+  to {
+    width: var(--to);
+  }
+}
+@keyframes sweep {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.progress-done .progress-fill {
+  background: var(--color-success);
+}
+.progress-failed .progress-fill {
+  background: var(--color-danger);
+}
+.progress-stopped .progress-fill {
+  background: var(--color-text-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Still: the bar shows where the run is, without creeping, sweeping or bouncing dots. */
+  .progress-moving .progress-fill {
+    animation: none;
+    width: var(--to);
+  }
+  .progress-moving .progress-fill::after,
+  .progress-dots span {
+    animation: none;
+    opacity: 1;
+  }
 }
 .steps-help {
   display: grid;
@@ -360,39 +457,7 @@ a.list-item:hover {
   font-weight: 700;
   text-transform: uppercase;
 }
-/* The fill slides in from the left when a step finishes during live progress. */
-.step-bar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--color-accent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 600ms ease-out;
-}
-.step-done .step-bar::after {
-  transform: scaleX(1);
-}
-/* The running step: half-strength with a soft shimmer passing through. */
-.step-current .step-bar {
-  background-color: rgb(194 65 12 / 55%);
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    rgb(255 255 255 / 55%),
-    transparent
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
-}
-.step-current {
-  color: var(--color-text);
-  font-weight: 600;
-}
 @media (max-width: 40rem) {
-  .step-label {
-    display: none;
-  }
   .tab {
     padding: var(--space-3) var(--space-2);
   }

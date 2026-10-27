@@ -31,6 +31,34 @@ describe("ProgressSteps", () => {
       "polite",
     );
   });
+  it("says what is happening in a word that changes with each step", () => {
+    const { rerender } = render(
+      <ProgressSteps status="processing" stage="ingest" />,
+    );
+    expect(screen.getByText("Gathering")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Step 1 of 8 · Reading your sources/),
+    ).toBeInTheDocument();
+    rerender(<ProgressSteps status="processing" stage="script" />);
+    expect(screen.queryByText("Gathering")).not.toBeInTheDocument();
+    expect(screen.getByText("Writing")).toBeInTheDocument();
+    rerender(<ProgressSteps status="failed" stage="voice" />);
+    expect(screen.getByText("Stopped at Voice")).toBeInTheDocument();
+    rerender(<ProgressSteps status="published" stage={null} />);
+    expect(screen.getByText("Published")).toBeInTheDocument();
+  });
+  it("fills the bar to finished steps and creeps across the running one", () => {
+    const { container, rerender } = render(
+      <ProgressSteps status="processing" stage="script" />,
+    );
+    const fill = () => container.querySelector<HTMLElement>(".progress-fill")!;
+    expect(container.querySelector(".progress-moving")).not.toBeNull();
+    expect(fill().style.getPropertyValue("--from")).toBe("37.5%"); // 3 of 8 done
+    expect(fill().style.getPropertyValue("--to")).toBe("48.75%"); // 90% across step 4
+    rerender(<ProgressSteps status="published" stage={null} />);
+    expect(fill().style.getPropertyValue("--to")).toBe("100%");
+    expect(container.querySelector(".progress-moving")).toBeNull();
+  });
 });
 
 describe("pipeline explainer", () => {

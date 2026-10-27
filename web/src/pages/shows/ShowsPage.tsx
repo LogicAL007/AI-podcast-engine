@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { PAGE_SIZE, useShows } from "../../api/queries";
 import { ErrorAlert } from "../../components/Alert";
@@ -7,6 +7,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { Pagination } from "../../components/Pagination";
 import { Skeleton } from "../../components/Skeleton";
 import { useRememberedFlag } from "../../hooks/useRememberedFlag";
+import { useAssistant } from "../../bots/assistant";
 import { Welcome } from "./Welcome";
 import { usePageTitle } from "../../hooks/usePageTitle";
 
@@ -16,6 +17,48 @@ export function ShowsPage() {
   const offset = Math.max(0, Number(params.get("offset")) || 0);
   const shows = useShows(offset);
   const [welcomeSkipped, skipWelcome] = useRememberedFlag("pe.welcome.skipped");
+  const navigate = useNavigate();
+  const any = (shows.data?.total ?? 0) > 0;
+  useAssistant({
+    page: "shows",
+    key: "shows",
+    moment: "shows",
+    mode: "greeting",
+    line: any
+      ? "Pick a show to see its episodes, or start a new one."
+      : "Let's make your first show!",
+    hint: "This is your studio. Each show reads the sources you give it and turns them into fact-checked episodes. I'm on every page: tap me, ask me anything, or let me show you around.",
+    actions: [
+      { id: "new_show", label: "New show", run: () => navigate("/shows/new") },
+    ],
+    questions: [
+      "How is an episode made?",
+      "What makes a good source?",
+      "Can I use my own voice?",
+    ],
+    tour: [
+      {
+        target: "new-show",
+        title: "Start a show",
+        text: "A show is a topic plus the pages, feeds and PDFs to read. Every episode is written only from them.",
+      },
+      {
+        target: "shows-list",
+        title: "Your shows",
+        text: "Open a show to generate episodes, check its sources and change its settings.",
+      },
+      {
+        target: "nav-voices",
+        title: "Voice studio",
+        text: "Record or upload a voice (with the speaker's consent) and give it to a host.",
+      },
+      {
+        target: "nav-companion",
+        title: "That's me!",
+        text: "Rebuild me any time: my shape, face, colours, outfit, personality and voice.",
+      },
+    ],
+  });
 
   return (
     <>
@@ -24,7 +67,9 @@ export function ShowsPage() {
           <h1>Shows</h1>
           <p className="muted">Each show turns its sources into episodes.</p>
         </div>
-        <LinkButton to="/shows/new">New show</LinkButton>
+        <LinkButton to="/shows/new" data-tour="new-show">
+          New show
+        </LinkButton>
       </div>
       {shows.isPending ? <Skeleton label="Loading your shows" /> : null}
       <ErrorAlert error={shows.error} />
@@ -44,7 +89,7 @@ export function ShowsPage() {
       ) : null}
       {shows.data && shows.data.total > 0 ? (
         <div className="stack">
-          <ul className="list">
+          <ul className="list" data-tour="shows-list">
             {shows.data.items.map((show) => (
               <li key={show.show_id}>
                 <Link className="list-item" to={`/shows/${show.show_id}`}>

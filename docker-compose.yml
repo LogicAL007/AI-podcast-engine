@@ -284,7 +284,7 @@ services:
       context: .
       dockerfile: docker/stage.Dockerfile
       target: api
-      args: { EXTRAS: api }
+      args: { EXTRAS: "api,llm" } # llm: Gemini for the companion bot's answers
     # CMD (uvicorn podcast_engine.api.main:app) and HEALTHCHECK come from the image's api target.
     depends_on:
       db-migrate: { condition: service_completed_successfully }

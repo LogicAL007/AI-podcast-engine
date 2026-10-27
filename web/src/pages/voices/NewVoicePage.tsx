@@ -16,6 +16,7 @@ import {
   toVoiceWav,
 } from "../../audio/wav";
 import { useRecorder, type Recording } from "../../audio/useRecorder";
+import { useAssistant } from "../../bots/assistant";
 import { Alert, ErrorAlert } from "../../components/Alert";
 import { Button } from "../../components/Button";
 import { CheckboxField, TextArea, TextField } from "../../components/Field";
@@ -62,6 +63,31 @@ export function NewVoicePage() {
   >(null);
 
   useEffect(() => heading.current?.focus(), [step]);
+  const LINES = [
+    "First, the speaker signs the consent form. Their voice is used only as they agree here.",
+    "Now record or upload 5 to 90 seconds of clear speech, in a quiet room.",
+    "Listen back. If it sounds right, register it.",
+  ];
+  useAssistant({
+    page: "new_voice",
+    key: "new_voice",
+    moment: "new_voice",
+    mode: step === 2 ? "celebrating" : "working",
+    line: LINES[step],
+    hint: "Adding a voice takes three steps: the speaker's consent, a short recording, and a check before it is registered. You can withdraw a voice any time by deleting it.",
+    questions: [
+      "What should I say in the recording?",
+      "Can I use someone else's voice?",
+    ],
+    tour: [
+      {
+        target: "voice-steps",
+        title: "Three steps",
+        text: "Consent first, then the recording, then a last check. Nothing is stored until you register it.",
+      },
+      { target: "voice-card", title: "This step", text: LINES[step] },
+    ],
+  });
 
   async function submit() {
     if (!audio) return;
@@ -86,7 +112,7 @@ export function NewVoicePage() {
       <div className="page-header">
         <h1>Add a voice</h1>
       </div>
-      <ol className="voice-steps" aria-label="Steps">
+      <ol className="voice-steps" aria-label="Steps" data-tour="voice-steps">
         {STEPS.map((label, index) => (
           <li
             key={label}
@@ -97,7 +123,11 @@ export function NewVoicePage() {
           </li>
         ))}
       </ol>
-      <div className="card stack" style={{ maxWidth: "52rem" }}>
+      <div
+        className="card stack"
+        style={{ maxWidth: "52rem" }}
+        data-tour="voice-card"
+      >
         <h2 ref={heading} tabIndex={-1} className="voice-step-title">
           {STEPS[step]}
         </h2>

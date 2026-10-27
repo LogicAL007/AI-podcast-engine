@@ -142,7 +142,7 @@ export function OnboardingPage() {
                   Pick the bot that keeps you company while your episodes are
                   made. You can change it any time.
                 </p>
-                <CompanionPicker value={draft} onChange={setDraft} />
+                <CompanionPicker value={draft} onChange={setDraft} compact />
               </>
             ) : null}
             {step.id === "how" ? (

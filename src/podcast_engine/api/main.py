@@ -7,6 +7,7 @@ from podcast_engine.api.dependencies import get_current_user
 from podcast_engine.api.observability import add_metrics
 from podcast_engine.api.openapi import DESCRIPTION, TAGS, errors, operation_id
 from podcast_engine.api.paths import V1
+from podcast_engine.api.routers.assistant_router import router as assistant_router
 from podcast_engine.api.routers.auth_router import router as auth_router
 from podcast_engine.api.routers.episodes_router import router as episodes_router
 from podcast_engine.api.routers.feeds_router import router as feeds_router
@@ -44,7 +45,15 @@ def create_app() -> FastAPI:
     for public in (auth_router, media_router, feeds_router):
         app.include_router(public, prefix=V1)
     # Everything else needs a login (cookie or token) or an API key.
-    for protected in (shows_router, episodes_router, sources_router, uploads_router, voices_router):
+    protected_routers = (
+        shows_router,
+        episodes_router,
+        sources_router,
+        uploads_router,
+        voices_router,
+        assistant_router,
+    )
+    for protected in protected_routers:
         app.include_router(
             protected, prefix=V1, dependencies=[Depends(get_current_user)], responses=PROTECTED
         )

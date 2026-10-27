@@ -156,10 +156,11 @@ describe("onboarding", () => {
       screen.getByRole("heading", { name: "Meet your companion" }),
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("radio", { name: /Rex/ }));
-    await userEvent.click(screen.getByRole("radio", { name: "Headphones" }));
     const name = screen.getByLabelText("Name");
     await userEvent.clear(name);
     await userEvent.type(name, "Rexie");
+    await userEvent.click(screen.getByRole("tab", { name: "Outfit" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Headphones" }));
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
       screen.getByRole("heading", { name: "How an episode is made" }),
@@ -167,7 +168,7 @@ describe("onboarding", () => {
     const saved = calls.find((call) => call.path === "/v1/auth/me/avatar");
     expect(saved?.body).toMatchObject({
       character: "rex",
-      accessory: "headphones",
+      hat: "headphones",
       name: "Rexie",
     });
     await userEvent.click(screen.getByRole("button", { name: "Next" }));

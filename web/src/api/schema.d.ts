@@ -1057,6 +1057,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assistant/ask": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ask the companion bot
+     * @description Ask about the app or the episode on screen. With the LLM on, Gemini answers from your
+     *     episode's own data (its status, error, segments and the claims the fact-check cut); otherwise,
+     *     or if the model is unavailable, the built-in help does. Suggested actions are only offered as
+     *     buttons; nothing runs by itself. Limited per person per hour
+     *     (`ASSISTANT_QUESTIONS_PER_HOUR`).
+     */
+    post: operations["ask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1076,6 +1100,46 @@ export interface components {
        * @description Your password, to confirm
        */
       password: string;
+    };
+    /**
+     * Answer
+     * @description The assistant's reply.
+     */
+    Answer: {
+      /**
+       * Answer
+       * @description The reply, in plain text
+       */
+      answer: string;
+      /**
+       * Actions
+       * @description Suggested next steps the page can offer as buttons (never run by themselves)
+       */
+      actions: (
+        | "open_script"
+        | "open_factcheck"
+        | "open_listen"
+        | "approve"
+        | "retry"
+        | "cancel"
+        | "generate_episode"
+        | "new_show"
+        | "add_voice"
+        | "open_voices"
+        | "open_companion"
+        | "start_tour"
+      )[];
+      /**
+       * Source
+       * @description `gemini`: written by the model from your episode's data; `help`: the built-in help, used when the model is off or unavailable
+       * @enum {string}
+       */
+      source: "gemini" | "help";
+      /**
+       * Remaining
+       * @description Questions left this hour
+       */
+      remaining: number;
     };
     /**
      * ApiCatalog
@@ -1274,15 +1338,17 @@ export interface components {
     /**
      * Avatar
      * @description The assistant bot a person chose: which character, what it is called and how it looks.
+     *
+     *     Every part has a default, so a bot saved by an older version of the app still loads.
      */
     Avatar: {
       /**
        * Character
-       * @description `rex`: the full-body robot with moves; `pod`: the floating podcast bot
-       * @default pod
+       * @description `toy`: the build-your-own bot; `pod`: the floating podcast bot; `rex`: the full-body robot with moves
+       * @default toy
        * @enum {string}
        */
-      character: "rex" | "pod";
+      character: "toy" | "pod" | "rex";
       /**
        * Name
        * @description What the bot is called
@@ -1291,25 +1357,90 @@ export interface components {
       name: string;
       /**
        * Color
-       * @description Body colour
+       * @description Body colour: a preset or #rrggbb
        * @default pearl
-       * @enum {string}
        */
-      color: "pearl" | "peach" | "mint" | "sky" | "graphite";
+      color:
+        | ("pearl" | "peach" | "mint" | "sky" | "lilac" | "lemon" | "graphite")
+        | string;
+      /**
+       * Accent
+       * @description Trim and outfit colour, #rrggbb
+       * @default #c2410c
+       */
+      accent: string;
       /**
        * Glow
-       * @description Colour of its eyes and lights
+       * @description Colour of its eyes and lights: a preset or #rrggbb
        * @default amber
+       */
+      glow: ("amber" | "gold" | "cyan" | "lime" | "pink" | "violet") | string;
+      /**
+       * Finish
+       * @description What its shell is made of
+       * @default glossy
        * @enum {string}
        */
-      glow: "amber" | "gold" | "cyan" | "lime" | "pink";
+      finish: "matte" | "glossy" | "metallic" | "pearlescent";
       /**
-       * Accessory
-       * @description What it wears
+       * Body
+       * @description Body shape (toy only)
+       * @default round
+       * @enum {string}
+       */
+      body: "round" | "capsule" | "boxy" | "tall";
+      /**
+       * Head
+       * @description Head shape (toy only)
+       * @default sphere
+       * @enum {string}
+       */
+      head: "sphere" | "cube" | "dome" | "screen";
+      /**
+       * Eyes
+       * @description Eye style (toy only)
+       * @default dots
+       * @enum {string}
+       */
+      eyes: "dots" | "visor" | "pixel" | "sleepy" | "star";
+      /**
+       * Mouth
+       * @description Mouth style (toy only)
+       * @default smile
+       * @enum {string}
+       */
+      mouth: "smile" | "open" | "line" | "none";
+      /**
+       * Hat
+       * @description What it wears on its head
        * @default antenna
        * @enum {string}
        */
-      accessory: "none" | "antenna" | "headphones" | "bowtie";
+      hat:
+        "none" | "antenna" | "headphones" | "cap" | "beanie" | "crown" | "halo";
+      /**
+       * Neck
+       * @description What it wears at its neck
+       * @default none
+       * @enum {string}
+       */
+      neck: "none" | "bowtie" | "scarf" | "medal";
+      /**
+       * Extra
+       * @description One more thing it carries or wears
+       * @default none
+       * @enum {string}
+       */
+      extra: "none" | "glasses" | "mic" | "ears";
+      /**
+       * Personality
+       * @description How it moves and how it talks
+       * @default cheerful
+       * @enum {string}
+       */
+      personality: "cheerful" | "calm" | "witty" | "formal";
+      /** @description How it speaks */
+      voice?: components["schemas"]["BotVoice"];
     };
     /** Body_register_voice */
     Body_register_voice: {
@@ -1382,6 +1513,37 @@ export interface components {
        * @description A PDF; the limit is 25 MB unless configured
        */
       file: string;
+    };
+    /**
+     * BotVoice
+     * @description How the bot reads its lines aloud, when the person turns speech on.
+     */
+    BotVoice: {
+      /**
+       * Engine
+       * @description `browser`: the device's own speech, free; `gemini`: Gemini TTS (uses quota)
+       * @default browser
+       * @enum {string}
+       */
+      engine: "browser" | "gemini";
+      /**
+       * Name
+       * @description Voice name; empty picks the default for the engine
+       * @default
+       */
+      name: string;
+      /**
+       * Rate
+       * @description Speaking speed, 1 is normal
+       * @default 1
+       */
+      rate: number;
+      /**
+       * Pitch
+       * @description Pitch, 1 is normal
+       * @default 1
+       */
+      pitch: number;
     };
     /**
      * ClaimDetail
@@ -2287,6 +2449,43 @@ export interface components {
        * @example ada@example.org
        */
       email: string;
+    };
+    /**
+     * Question
+     * @description A question for the assistant, with where it was asked.
+     */
+    Question: {
+      /**
+       * Question
+       * @description What the person asked
+       */
+      question: string;
+      /**
+       * Page
+       * @description The page it was asked on
+       * @default other
+       * @enum {string}
+       */
+      page:
+        | "shows"
+        | "show"
+        | "new_show"
+        | "episode"
+        | "voices"
+        | "new_voice"
+        | "companion"
+        | "welcome"
+        | "other";
+      /**
+       * Episode Id
+       * @description The episode on screen, if any; it must be yours
+       */
+      episode_id?: string | null;
+      /**
+       * Show Id
+       * @description The show on screen, if any; it must be yours
+       */
+      show_id?: string | null;
     };
     /** Readiness */
     Readiness: {
@@ -6483,6 +6682,75 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Login is not configured */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+    };
+  };
+  ask: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Question"];
+      };
+    };
+    responses: {
+      /** @description The answer, suggested next steps, and questions left this hour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Answer"];
+        };
+      };
+      /** @description Missing, invalid, expired or revoked token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description The episode or show is not yours, or does not exist */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description The question is empty or too long */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description Too many questions this hour */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
         };
       };
       /** @description Login is not configured */

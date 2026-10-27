@@ -9,6 +9,8 @@ import {
 
 import { api, API_BASE, ApiError, unwrap } from "./client";
 import type {
+  AssistantAnswer,
+  AssistantQuestion,
   ClaimDetail,
   EpisodeRead,
   EpisodeScript,
@@ -478,5 +480,13 @@ export function useDeleteVoice() {
       void client.invalidateQueries({ queryKey: keys.voices });
       void client.invalidateQueries({ queryKey: ["show"] }); // hosts that used it lose it
     },
+  });
+}
+
+/** Ask the companion bot; with the LLM on, each question is one model call (limited per hour). */
+export function useAskAssistant() {
+  return useMutation({
+    mutationFn: async (question: AssistantQuestion): Promise<AssistantAnswer> =>
+      unwrap(await api.POST("/v1/assistant/ask", { body: question })),
   });
 }

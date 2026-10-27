@@ -475,6 +475,186 @@
   padding: 0;
   font-size: var(--text-xs);
 }
+/* Next steps, chat and voice controls under the bot's line. */
+.dock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+.dock-actions .choice-pill,
+.chat-actions .choice-pill,
+.chat-suggestions .choice-pill {
+  padding: 2px var(--space-3);
+  font-size: var(--text-xs);
+  background: rgb(255 255 255 / 75%);
+}
+.dock-actions .choice-pill:hover,
+.chat-actions .choice-pill:hover,
+.chat-suggestions .choice-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-hover);
+}
+.dock-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+.dock-tools .link-button {
+  padding: 0;
+  font-size: var(--text-xs);
+}
+.dock-error {
+  margin: var(--space-1) 0 0;
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+}
+.assistant-dock.dock-chatting {
+  width: min(400px, calc(100vw - 2 * var(--space-4)));
+}
+/* Leave room at the bottom of the page so the dock never sits on the last thing in it. */
+.app-main:has(.assistant-dock) {
+  padding-bottom: 11rem;
+}
+
+/* ---- chat ------------------------------------------------------------------------------------ */
+.chat {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+.chat-log {
+  display: grid;
+  gap: var(--space-2);
+  max-height: min(18rem, 40vh);
+  overflow-y: auto;
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: rgb(255 255 255 / 55%);
+}
+.chat-empty {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.chat-message {
+  max-width: 88%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 14px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  animation: bubble-rise 220ms ease-out both;
+}
+.chat-message p {
+  margin: 0;
+}
+.chat-me {
+  justify-self: end;
+  background: var(--color-accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-bot {
+  justify-self: start;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-bottom-left-radius: 4px;
+}
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+.chat-thinking {
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+@keyframes bubble-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.chat-form {
+  display: flex;
+  gap: var(--space-2);
+}
+.chat-form .input {
+  flex: 1;
+  min-width: 0;
+}
+.chat-note {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+/* ---- guided tour ----------------------------------------------------------------------------- */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.tour-scrim,
+.tour-spotlight {
+  position: fixed;
+  pointer-events: none;
+}
+.tour-scrim {
+  inset: 0;
+  background: rgb(28 25 23 / 50%);
+}
+/* A hole in the dimmed page around the element being explained. */
+.tour-spotlight {
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 4px var(--color-accent),
+    0 0 0 100vmax rgb(28 25 23 / 50%);
+  transition:
+    top 300ms ease,
+    left 300ms ease,
+    width 300ms ease,
+    height 300ms ease;
+}
+.tour-card {
+  position: fixed;
+  width: min(360px, calc(100vw - 32px));
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  box-shadow: 0 18px 48px rgb(28 25 23 / 28%);
+  animation: bubble-rise 220ms ease-out both;
+}
+.tour-head {
+  gap: var(--space-2);
+}
+.tour-count {
+  font-size: var(--text-xs);
+}
+.tour-title {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-lg);
+}
+.tour-title:focus {
+  outline: none;
+}
+.tour-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.tour-buttons {
+  margin-top: var(--space-4);
+  align-items: center;
+}
+.tour-spacer {
+  flex: 1;
+}
 /* The dock, closed: a small glass bot button in the same corner. */
 .dock-reopen {
   position: fixed;
@@ -530,7 +710,10 @@
     bottom: var(--space-3);
   }
   .app-main:has(.assistant-dock) {
-    padding-bottom: 6.5rem;
+    padding-bottom: 9rem;
+  }
+  .dock-actions {
+    margin-top: var(--space-1);
   }
 }
 
@@ -830,7 +1013,7 @@
 }
 .companion {
   display: grid;
-  grid-template-columns: minmax(12rem, 16rem) 1fr;
+  grid-template-columns: minmax(14rem, 19rem) 1fr;
   gap: var(--space-6);
   align-items: start;
 }
@@ -843,8 +1026,8 @@
   padding-top: var(--space-6); /* room for the speech bubble */
 }
 .companion-preview .bot-stage {
-  width: 14rem;
-  height: 14rem;
+  width: 17rem;
+  height: 17rem;
   border-radius: 50%;
   background: radial-gradient(
     circle at 50% 55%,
@@ -868,7 +1051,7 @@
 }
 .character-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
   gap: var(--space-3);
 }
 .character-card {
@@ -956,6 +1139,96 @@
 .choice-pill:has(input:focus-visible) {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+/* Grid items default to their content's width; let the options shrink so the tabs scroll. */
+.companion > * {
+  min-width: 0;
+}
+/* Creator: pills with a small picture of the bot wearing that choice. */
+.choice-thumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+}
+.choice-thumb svg {
+  flex: none;
+}
+/* The last swatch opens the system colour picker for any colour. */
+.swatch-custom {
+  background: conic-gradient(
+    #f87171,
+    #fbbf24,
+    #a3e635,
+    #22d3ee,
+    #818cf8,
+    #f472b6,
+    #f87171
+  );
+  overflow: hidden;
+}
+.swatch-custom::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 1px solid rgb(255 255 255 / 80%);
+  pointer-events: none;
+}
+.swatch-custom-on {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.swatch-custom input.swatch-picker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.swatch-custom:has(input:focus-visible) {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+.pose-buttons {
+  justify-content: center;
+}
+.pose-buttons .choice-pill[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  font-weight: 600;
+}
+.creator-tools {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.creator-tools .link-button:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+  text-decoration: none;
+}
+.contrast-warning {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-accent-soft);
+  font-size: var(--text-sm);
+}
+.range-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+@media (max-width: 48rem) {
+  .companion {
+    grid-template-columns: 1fr;
+  }
+  .companion-preview {
+    position: static;
+  }
 }
 .companion-chip {
   display: grid;

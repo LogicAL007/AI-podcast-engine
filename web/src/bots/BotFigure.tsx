@@ -9,7 +9,7 @@ import {
 
 import { canUseWebGL, useReducedMotion } from "../visual/motion";
 import { useAvatar, type Avatar } from "./avatar";
-import type { BotControl } from "./BotScene";
+import { newControl, type BotControl } from "./sceneKit";
 import type { BotMode } from "./botMode";
 
 // three.js is large: it is fetched when the browser is next idle after sign-in (preloadBots), or
@@ -58,27 +58,27 @@ export function BotFigure({
   avatar,
   interactive = false,
   quips,
+  talk = 0,
 }: {
   mode: BotMode;
   avatar?: Avatar;
   interactive?: boolean;
   quips?: string[];
+  /** 0..1: how far its mouth is open while it speaks (see speech.ts). */
+  talk?: number;
 }) {
   const mine = useAvatar();
   const bot = avatar ?? mine;
   const reduced = useReducedMotion();
   const [webgl] = useState(canUseWebGL);
-  const control = useRef<BotControl>({
-    lookX: 0,
-    lookY: 0,
-    hovering: false,
-    spin: 0,
-    pokes: 0,
-  });
+  const control = useRef<BotControl>(newControl());
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; moved: number; at: number } | null>(null);
   const said = useRef(0);
   const [bubble, setBubble] = useState<string | null>(null);
+  useEffect(() => {
+    control.current.talk = talk;
+  }, [talk]);
 
   // Follow the pointer anywhere on the page, not only over the bot.
   useEffect(() => {

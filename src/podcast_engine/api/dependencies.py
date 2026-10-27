@@ -3,7 +3,7 @@
 Tests replace these with ``app.dependency_overrides`` to swap in fakes.
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -13,6 +13,7 @@ from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBea
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from podcast_engine.api.controllers.assistant_controller import AssistantController
 from podcast_engine.api.controllers.auth_controller import AuthController
 from podcast_engine.api.controllers.episodes_controller import EpisodeController
 from podcast_engine.api.controllers.feeds_controller import FeedController
@@ -31,6 +32,10 @@ from podcast_engine.api.errors import (
 )
 from podcast_engine.api.models.auth_model import CurrentUser
 from podcast_engine.api.models.episodes_model import EpisodeRead
+from podcast_engine.api.repositories.assistant_usage_repository import (
+    AssistantUsage,
+    RedisAssistantUsage,
+)
 from podcast_engine.api.repositories.auth_repository import PostgresAuthRepository
 from podcast_engine.api.repositories.episodes_repository import PostgresEpisodeRepository
 from podcast_engine.api.repositories.login_attempts_repository import (
@@ -45,6 +50,7 @@ from podcast_engine.api.repositories.shows_repository import PostgresShowReposit
 from podcast_engine.api.repositories.sources_repository import PostgresSourceRepository
 from podcast_engine.api.repositories.uploads_repository import PostgresUploadRepository
 from podcast_engine.api.repositories.voices_repository import PostgresVoiceRepository
+from podcast_engine.api.services.assistant_service import AssistantService
 from podcast_engine.api.services.auth_service import AuthService
 from podcast_engine.api.services.episodes_service import (
     EnqueueStage,
@@ -61,6 +67,7 @@ from podcast_engine.api.services.uploads_service import UploadService
 from podcast_engine.api.services.voices_service import VoiceService
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.db import get_engine
+from podcast_engine.common.llm import LlmClient, make_llm
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.mailer import Mailer, make_mailer
 from podcast_engine.common.queue import Stage, celery_app, dispatch, dispatch_feed_rebuild
@@ -117,6 +124,54 @@ def get_episode_controller(
         rebuild_feed,
     )
     return EpisodeController(service)
+
+
+@lru_cache
+def get_assistant_usage() -> AssistantUsage:
+    """Question counts shared by every API process (Redis), so the hourly limit holds."""
+    import redis
+
+    return RedisAssistantUsage(redis.Redis.from_url(get_settings().redis_url, socket_timeout=2))
+
+
+@lru_cache
+def _assistant_llm() -> LlmClient | None:
+    """The model for the bot's answers, made on the first question; None when the LLM is off or
+    cannot be set up (the built-in help answers then). A chat should not wait minutes on a busy
+    model, so it retries briefly, then the help answers."""
+    try:
+        llm = make_llm(get_settings())
+    except Exception:
+        log.exception("assistant_llm_unavailable")
+        return None
+    if llm is not None:
+        llm.RETRIES = 2  # type: ignore[attr-defined]
+        llm.RETRIES_BEFORE_FALLBACK = 1  # type: ignore[attr-defined]
+    return llm
+
+
+def get_assistant_llm() -> Callable[[], LlmClient | None]:
+    return _assistant_llm
+
+
+def get_assistant_controller(
+    session: SessionDep,
+    enqueue: Annotated[EnqueueStage, Depends(get_enqueue_stage)],
+    store: Annotated[ObjectStore, Depends(get_object_store)],
+    rebuild_feed: Annotated[RebuildFeed, Depends(get_rebuild_feed)],
+    usage: Annotated[AssistantUsage, Depends(get_assistant_usage)],
+    llm: Annotated[Callable[[], LlmClient | None], Depends(get_assistant_llm)],
+) -> AssistantController:
+    episodes = EpisodeService(
+        PostgresEpisodeRepository(session),
+        PostgresShowRepository(session),
+        enqueue,
+        store,
+        rebuild_feed,
+    )
+    shows = ShowService(PostgresShowRepository(session), PostgresVoiceRepository(session))
+    per_hour = get_settings().assistant_questions_per_hour
+    return AssistantController(AssistantService(episodes, shows, usage, llm, per_hour))
 
 
 def get_episode_loader() -> EpisodeLoader:
