@@ -12,12 +12,15 @@ import re
 import time
 from collections import Counter
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 from podcast_engine.common.config import Settings
 from podcast_engine.common.logging import get_logger
+
+if TYPE_CHECKING:
+    from podcast_engine.common.quota import DailyBudget
 
 T = TypeVar("T", bound=BaseModel)
 log = get_logger("llm")
@@ -48,6 +51,16 @@ def retry_after_seconds(error: Any) -> float | None:
                 pass
     found = re.search(r"retry in ([\d.]+)s", str(error))
     return float(found.group(1)) if found else None
+
+
+def is_refused(error: BaseException) -> bool:
+    """True when Gemini rejected the request itself (a bad request, key or model, but not a rate
+    limit): sending it again fails the same way, so the stage should not be retried."""
+    try:
+        from google.genai import errors
+    except ImportError:  # an image without the SDK never makes Gemini calls
+        return False
+    return isinstance(error, errors.ClientError) and error.code != 429
 
 
 def is_daily_quota(error: Any) -> bool:
@@ -94,11 +107,15 @@ class GeminiClient(LlmClient):
         seed: int,
         fallback: str = "",
         sleep: Callable[[float], None] = time.sleep,
+        budget: "DailyBudget | None" = None,
+        reserve: int = 0,
     ) -> None:
         super().__init__(model, seed)
         from google import genai
 
         self.sleep = sleep
+        self.budget = budget
+        self.reserve = reserve  # requests of each day's budget this client leaves to others
         self.fallback = fallback if fallback != model else ""
         self.active = model  # becomes the fallback once the main model stays busy
         self.busy_retries = 0
@@ -109,18 +126,24 @@ class GeminiClient(LlmClient):
 
     def _call(self, model: str, user: str, config: Any, tries: int) -> Any:
         """One request, patiently retried: 503 "high demand", 429 rate limits and network blips
-        are brief. A used-up daily quota is not, so it fails at once.
+        are brief. A used-up daily quota is not, so it fails at once, and with a daily budget
+        set the call stops before it would pass it.
         """
         import httpx
         from google.genai import errors
 
         for attempt in range(tries):
+            if self.budget is not None:
+                self.budget.require({model: 1}, f"another {model} request", reserve=self.reserve)
             try:
-                return self.client.models.generate_content(
+                response = self.client.models.generate_content(
                     model=model, contents=user, config=config
                 )
             except (errors.ServerError, errors.ClientError, httpx.TransportError) as error:
                 limited = isinstance(error, errors.ClientError) and error.code == 429
+                reached = not limited and not isinstance(error, httpx.TransportError)
+                if self.budget is not None and reached:  # Gemini took the request, so it counts
+                    self.budget.spend(model)
                 if limited and is_daily_quota(error):
                     raise GeminiQuotaError(
                         f"Gemini's daily quota for {model} is used up. Try again tomorrow, "
@@ -136,6 +159,10 @@ class GeminiClient(LlmClient):
                 code = getattr(error, "code", None) or type(error).__name__
                 log.warning("llm_busy", model=model, code=code, retry_in_s=round(wait))
                 self.sleep(wait)
+            else:
+                if self.budget is not None:
+                    self.budget.spend(model)
+                return response
         raise AssertionError("unreachable")
 
     def parse(
@@ -240,14 +267,25 @@ class ClaudeClient(LlmClient):
         return parsed
 
 
-def make_llm(settings: Settings) -> LlmClient | None:
-    """The configured client, or None when ``llm_enabled`` is false (no SDK is even imported)."""
+def make_llm(
+    settings: Settings, budget: "DailyBudget | None" = None, reserve: int = 0
+) -> LlmClient | None:
+    """The configured client, or None when ``llm_enabled`` is false (no SDK is even imported).
+
+    With a ``budget``, Gemini calls stop before passing the day's request limit; ``reserve``
+    requests of it are left for others (the assistant leaves half the day to the pipeline).
+    """
     if not settings.llm_enabled:
         return None
     key = settings.llm_api_key.get_secret_value()
     if settings.llm_provider == "gemini":
         return GeminiClient(
-            key, settings.llm_model, seed=settings.seed, fallback=settings.llm_fallback_model
+            key,
+            settings.llm_model,
+            seed=settings.seed,
+            fallback=settings.llm_fallback_model,
+            budget=budget,
+            reserve=reserve,
         )
     if settings.llm_provider == "anthropic":
         return ClaudeClient(key, settings.llm_model, seed=settings.seed)

@@ -531,6 +531,14 @@ a.list-item:hover {
   font-weight: 700;
   color: var(--color-accent-hover);
 }
+.line-delivery {
+  /* How the line is said, under the speaker: "curious", "thoughtful", ... */
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--color-text-muted);
+}
 .claim {
   display: inline-block;
   margin-top: var(--space-1);

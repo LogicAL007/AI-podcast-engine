@@ -89,7 +89,7 @@ def test_editing_replaces_a_segment_and_fact_checks_it_again(harness: Harness) -
             {
                 "position": 2,
                 "lines": [
-                    {"speaker": "Alex", "text": "Next, storage."},
+                    {"speaker": "Alex", "text": "Next, storage.", "delivery": "curious"},
                     {
                         "speaker": "Sam",
                         "text": "Columns are stored apart.",
@@ -107,6 +107,7 @@ def test_editing_replaces_a_segment_and_fact_checks_it_again(harness: Harness) -
     assert script["segments"]["1"][0]["text"] == "Kept."
     framing, claim = script["segments"]["2"]
     assert framing["claims"] == []
+    assert (framing["delivery"], claim["delivery"]) == ("curious", "neutral")  # kept for the voice
     assert claim["claims"][0]["chunk_ids"] == [str(chunk)]
     assert claim["claims"][0]["claim_id"]
     assert script["edited_segments"] == [2]

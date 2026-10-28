@@ -216,7 +216,14 @@ class PostgresEpisodeRepository:
                             reason=reason,
                         )
                     )
-                lines.append(LineRead(speaker=line["speaker"], text=line["text"], claims=claims))
+                lines.append(
+                    LineRead(
+                        speaker=line["speaker"],
+                        text=line["text"],
+                        claims=claims,
+                        delivery=line.get("delivery", "neutral"),
+                    )
+                )
             segments.append(
                 SegmentScript(
                     position=segment.position,

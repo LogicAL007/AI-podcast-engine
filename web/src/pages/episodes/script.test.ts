@@ -11,10 +11,11 @@ const script: EpisodeScript = {
       title: "Opening",
       source_item_ids: [],
       lines: [
-        { speaker: "Alex", text: "Welcome.", claims: [] },
+        { speaker: "Alex", text: "Welcome.", claims: [], delivery: "warm" },
         {
           speaker: "Sam",
           text: "Tides follow the moon.",
+          delivery: "neutral",
           claims: [
             {
               text: "Tides follow the moon",
@@ -30,7 +31,9 @@ const script: EpisodeScript = {
       position: 2,
       title: "Why",
       source_item_ids: [],
-      lines: [{ speaker: "Alex", text: "Gravity.", claims: [] }],
+      lines: [
+        { speaker: "Alex", text: "Gravity.", claims: [], delivery: "neutral" },
+      ],
     },
   ],
 };
@@ -49,11 +52,12 @@ describe("script edits", () => {
     expect(edit.segments[0]).toEqual({
       position: 1,
       lines: [
-        { speaker: "Alex", text: "Welcome.", chunk_ids: null },
+        { speaker: "Alex", text: "Welcome.", chunk_ids: null, delivery: "warm" },
         {
           speaker: "Sam",
           text: "Tides follow the moon, mostly.",
           chunk_ids: ["c1", "c2"],
+          delivery: "neutral",
         },
       ],
     });

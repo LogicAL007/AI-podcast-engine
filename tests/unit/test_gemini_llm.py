@@ -141,3 +141,21 @@ def test_the_stage_fails_on_its_first_attempt_when_the_daily_quota_is_used_up() 
     assert run_stage(Stage.RETRIEVE_PLAN, plan, uuid4(), ctx, last_attempt=False) is None
     assert updates[-1]["status"] is EpisodeStatus.FAILED
     assert updates[-1]["error"].startswith("retrieve_plan: Gemini's daily quota")
+
+
+def test_a_request_gemini_rejects_fails_the_stage_without_retries() -> None:
+    updates: list[dict[str, Any]] = []
+    episode = SimpleNamespace(status=EpisodeStatus.QUEUED)
+    repo = SimpleNamespace(
+        get_episode=lambda _: episode,
+        update_episode=lambda _, **fields: updates.append(fields),
+    )
+    ctx: Any = SimpleNamespace(repo=repo, settings=SimpleNamespace())
+    rejected = errors.ClientError(400, {"error": {"message": "speaker missing"}})
+
+    def stage(episode_id: UUID, ctx: Any = None) -> Stage | None:
+        raise rejected
+
+    assert run_stage(Stage.VOICE, stage, uuid4(), ctx, last_attempt=False) is None
+    assert updates[-1]["status"] is EpisodeStatus.FAILED
+    assert "speaker missing" in updates[-1]["error"]

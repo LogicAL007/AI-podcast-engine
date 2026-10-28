@@ -198,6 +198,7 @@ class EpisodeService:
                 {
                     "speaker": line.speaker,
                     "text": line.text,
+                    "delivery": line.delivery.value,
                     "claims": []
                     if line.chunk_ids is None
                     else [

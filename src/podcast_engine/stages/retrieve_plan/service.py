@@ -12,6 +12,7 @@ from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.models import ReliabilityTier
 from podcast_engine.common.queue import Stage
+from podcast_engine.common.quota import episode_needs
 from podcast_engine.common.repository import EpisodeRecord, RankedChunk, SegmentRecord, ShowRecord
 
 log = get_logger("retrieve_plan")
@@ -218,6 +219,12 @@ def retrieve_and_plan(episode_id: UUID, ctx: PipelineContext | None = None) -> S
         )
     limit = passages_per_segment(ctx)
     previous = _previous_episode(ctx, episode)
+    incremental = previous is not None and episode.changed_item_ids is not None
+    if ctx.budget is not None:
+        # Start only an episode today's Gemini budget can finish, rather than stop halfway.
+        ctx.budget.require(
+            episode_needs(ctx.settings, show.max_segments, plan=not incremental), "a whole episode"
+        )
     if previous is not None and episode.changed_item_ids is not None:
         segments, script = _carry_over(ctx, episode, previous, pool, limit)
         ctx.repo.update_episode(episode_id, script=script)

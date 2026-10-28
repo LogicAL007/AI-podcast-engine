@@ -13,6 +13,7 @@ from pathlib import Path
 from podcast_engine.common.config import Settings, get_settings
 from podcast_engine.common.embeddings import Embedder, make_embedder
 from podcast_engine.common.llm import LlmClient, make_llm
+from podcast_engine.common.quota import DailyBudget, make_budget
 from podcast_engine.common.repository import PipelineRepository
 from podcast_engine.common.storage import ObjectStore
 
@@ -20,7 +21,7 @@ from podcast_engine.common.storage import ObjectStore
 HOST_NAMES = ("Alex", "Sam", "Jordan", "Riley")
 
 # Prompt file versions in use (prompts/<name>.v<N>.md), recorded in each episode's manifest.
-PROMPT_VERSIONS = {"outline": 1, "script": 2, "factcheck": 1}
+PROMPT_VERSIONS = {"outline": 1, "script": 3, "factcheck": 1}
 
 
 def _utc_now() -> datetime:
@@ -35,16 +36,24 @@ class PipelineContext:
     fetch: Callable[[str], str] | None = None  # URL -> HTML; None uses the real HTTP fetch
     now: Callable[[], datetime] = field(default=_utc_now)
     llm_override: LlmClient | None = None  # tests inject a client here
+    budget_override: DailyBudget | None = None  # tests inject a budget here
 
     @cached_property
     def embedder(self) -> Embedder:
         return make_embedder(self.settings)
 
     @cached_property
+    def budget(self) -> DailyBudget | None:
+        """Gemini requests each model may still take today; None when no limit is set."""
+        if self.budget_override is not None:
+            return self.budget_override
+        return make_budget(self.settings)
+
+    @cached_property
     def llm(self) -> LlmClient | None:
         if self.llm_override is not None:
             return self.llm_override
-        return make_llm(self.settings)
+        return make_llm(self.settings, self.budget)
 
     @property
     def voices_file(self) -> Path:

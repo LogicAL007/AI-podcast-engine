@@ -1417,7 +1417,13 @@ export interface components {
        * @enum {string}
        */
       hat:
-        "none" | "antenna" | "headphones" | "cap" | "beanie" | "crown" | "halo";
+        | "none"
+        | "antenna"
+        | "headphones"
+        | "cap"
+        | "beanie"
+        | "crown"
+        | "halo";
       /**
        * Neck
        * @description What it wears at its neck
@@ -1653,6 +1659,20 @@ export interface components {
       /** @description Their chosen assistant bot; null until they choose one */
       avatar?: components["schemas"]["Avatar"] | null;
     };
+    /**
+     * Delivery
+     * @description How a line is said. The script writer picks one per line; the voice reads it that way
+     *     (Chatterbox through its expressiveness and pace, Gemini as a speaking style).
+     * @enum {string}
+     */
+    Delivery:
+      | "neutral"
+      | "warm"
+      | "curious"
+      | "excited"
+      | "thoughtful"
+      | "amused"
+      | "serious";
     /** EmailChange */
     EmailChange: {
       /**
@@ -1951,6 +1971,11 @@ export interface components {
        * @description Passages that support the line, which makes it a claim. Null for framing or reactions; an empty list is a claim with no citation, which the fact-check rejects
        */
       chunk_ids?: string[] | null;
+      /**
+       * @description How the line is said; the voice reads it that way
+       * @default neutral
+       */
+      delivery: components["schemas"]["Delivery"];
     };
     /**
      * LineRead
@@ -1974,6 +1999,11 @@ export interface components {
        * @default []
        */
       claims: components["schemas"]["ClaimRead"][];
+      /**
+       * @description How the line is said; the voice reads it that way
+       * @default neutral
+       */
+      delivery: components["schemas"]["Delivery"];
     };
     /**
      * LinkContext

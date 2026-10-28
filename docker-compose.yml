@@ -49,6 +49,9 @@ x-app-env: &app-env
   TTS_BACKEND: ${TTS_BACKEND:-placeholder}
   TTS_MODEL: ${TTS_MODEL:-gemini-3.8-flash-tts}
   TTS_REQUESTS_PER_MINUTE: ${TTS_REQUESTS_PER_MINUTE:-0} # gemini free tier: 3
+  # Gemini requests per model per Pacific day, shared through Redis; 0 = not counted.
+  LLM_REQUESTS_PER_DAY: ${LLM_REQUESTS_PER_DAY:-0}
+  TTS_REQUESTS_PER_DAY: ${TTS_REQUESTS_PER_DAY:-0}
   MAX_REWRITES: ${MAX_REWRITES:-2}
   TOPIC_THRESHOLD: ${TOPIC_THRESHOLD:-0.0}
   REFRESH_INTERVAL_HOURS: ${REFRESH_INTERVAL_HOURS:-0}

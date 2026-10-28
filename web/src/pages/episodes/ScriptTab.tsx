@@ -40,6 +40,7 @@ export function editFor(
         speaker: line.speaker,
         text: (drafts[`${segment.position}:${i}`] ?? line.text).trim(),
         chunk_ids: citationsOf(line),
+        delivery: line.delivery ?? "neutral",
       })),
     }));
   return { segments };
@@ -147,7 +148,12 @@ export function ScriptTab({ episode }: { episode: EpisodeRead }) {
             const key = `${segment.position}:${i}`;
             return (
               <div key={key} className="line">
-                <span className="line-speaker">{line.speaker}</span>
+                <span className="line-speaker">
+                  {line.speaker}
+                  {line.delivery && line.delivery !== "neutral" ? (
+                    <span className="line-delivery">{line.delivery}</span>
+                  ) : null}
+                </span>
                 <div>
                   {editing ? (
                     <>

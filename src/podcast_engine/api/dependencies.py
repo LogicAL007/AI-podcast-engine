@@ -138,9 +138,15 @@ def get_assistant_usage() -> AssistantUsage:
 def _assistant_llm() -> LlmClient | None:
     """The model for the bot's answers, made on the first question; None when the LLM is off or
     cannot be set up (the built-in help answers then). A chat should not wait minutes on a busy
-    model, so it retries briefly, then the help answers."""
+    model, so it retries briefly, then the help answers. It shares the pipeline's daily Gemini
+    budget but leaves half of it to the episodes."""
+    from podcast_engine.common.quota import make_budget
+
+    settings = get_settings()
     try:
-        llm = make_llm(get_settings())
+        llm = make_llm(
+            settings, make_budget(settings), reserve=(settings.llm_requests_per_day + 1) // 2
+        )
     except Exception:
         log.exception("assistant_llm_unavailable")
         return None

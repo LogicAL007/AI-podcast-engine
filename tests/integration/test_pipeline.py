@@ -21,9 +21,11 @@ from sqlalchemy.exc import OperationalError
 from podcast_engine.common.audio import read_wav_bytes
 from podcast_engine.common.config import Settings
 from podcast_engine.common.context import PipelineContext
+from podcast_engine.common.llm import LlmClient
 from podcast_engine.common.migrate import apply_migrations
 from podcast_engine.common.models import EpisodeStatus
 from podcast_engine.common.queue import Stage
+from podcast_engine.common.quota import DailyBudget, MemoryCounter
 from podcast_engine.common.repository import PipelineRepository
 from podcast_engine.common.storage import feed_key
 from podcast_engine.pipeline import run_inline
@@ -95,14 +97,16 @@ def make_context(
 ) -> PipelineContext:
     settings = Settings(
         _env_file=None,
-        database_url=str(engine.url),
-        llm_enabled=False,
-        tts_backend="placeholder",
-        embedding_model="hashing",
-        config_dir=ROOT / "config",
-        prompts_dir=ROOT / "prompts",
-        assets_dir=ROOT / "assets",
-        **overrides,
+        **{
+            "database_url": str(engine.url),
+            "llm_enabled": False,
+            "tts_backend": "placeholder",
+            "embedding_model": "hashing",
+            "config_dir": ROOT / "config",
+            "prompts_dir": ROOT / "prompts",
+            "assets_dir": ROOT / "assets",
+            **overrides,
+        },
     )
     return PipelineContext(
         settings=settings, repo=PipelineRepository(engine), store=store, fetch=lambda _url: page
@@ -254,6 +258,53 @@ def test_gate_holds_for_review_when_rewrites_are_spent(engine: Engine, show_id: 
     assert episode.status is EpisodeStatus.NEEDS_REVIEW
     assert episode.audio_key is None
     assert "unsupported" in (episode.error or "")
+
+
+class SilentJudge(LlmClient):
+    """A Gemini stand-in that returns no verdicts, so every claim counts as unsupported."""
+
+    provider = "gemini"
+
+    def parse(self, *, system: str, user: str, output_format: Any, max_tokens: int = 0) -> Any:
+        return output_format.model_validate({"verdicts": []})
+
+
+def test_an_episode_the_daily_budget_cannot_finish_does_not_start(
+    engine: Engine, show_id: UUID
+) -> None:
+    budget = DailyBudget(MemoryCounter(), {"gemini-3.8-flash": 20})
+    budget.spend("gemini-3.8-flash", 15)  # 5 left; outline + 6 segments + fact-check need 8
+    ctx = make_context(engine, MemoryStore(), llm_enabled=True)
+    ctx.llm_override = SilentJudge("gemini-3.8-flash", seed=1)
+    ctx.budget_override = budget
+    episode_id = new_episode(ctx, show_id)
+
+    assert run_inline(episode_id, ctx) == ["ingest", "index", "retrieve_plan"]
+    episode = ctx.repo.get_episode(episode_id)
+    assert episode.status is EpisodeStatus.FAILED
+    assert "cannot cover a whole episode" in (episode.error or "")
+    assert "5 of today's 20 left" in (episode.error or "")
+    assert budget.used("gemini-3.8-flash") == 15  # nothing was spent on a half episode
+
+
+def test_a_rewrite_the_daily_budget_cannot_cover_is_held_for_review(
+    engine: Engine, show_id: UUID
+) -> None:
+    store = MemoryStore()
+    ctx = make_context(engine, store)
+    episode_id = new_episode(ctx, show_id)
+    run_inline(episode_id, ctx, stop_after=Stage.SCRIPT)
+    budget = DailyBudget(MemoryCounter(), {"gemini-3.8-flash": 20})
+    budget.spend("gemini-3.8-flash", 19)  # 1 left; a rewrite needs a segment and a re-check
+    judged = make_context(engine, store, llm_enabled=True)
+    judged.llm_override = SilentJudge("gemini-3.8-flash", seed=1)
+    judged.budget_override = budget
+
+    assert run_inline(episode_id, judged, start=Stage.FACTCHECK) == ["factcheck"]
+    episode = ctx.repo.get_episode(episode_id)
+    assert episode.status is EpisodeStatus.NEEDS_REVIEW
+    assert episode.rewrite_count == 0
+    assert "today's Gemini budget cannot cover another pass" in (episode.error or "")
 
 
 def test_a_show_without_sources_fails_with_the_reason(engine: Engine, show_id: UUID) -> None:

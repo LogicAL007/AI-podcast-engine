@@ -6009,6 +6009,20 @@
         "title": "CurrentUser",
         "description": "Who is making the request, and with which token."
       },
+      "Delivery": {
+        "type": "string",
+        "enum": [
+          "neutral",
+          "warm",
+          "curious",
+          "excited",
+          "thoughtful",
+          "amused",
+          "serious"
+        ],
+        "title": "Delivery",
+        "description": "How a line is said. The script writer picks one per line; the voice reads it that way\n(Chatterbox through its expressiveness and pace, Gemini as a speaking style)."
+      },
       "EmailChange": {
         "properties": {
           "password": {
@@ -6524,6 +6538,11 @@
             ],
             "title": "Chunk Ids",
             "description": "Passages that support the line, which makes it a claim. Null for framing or reactions; an empty list is a claim with no citation, which the fact-check rejects"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery",
+            "description": "How the line is said; the voice reads it that way",
+            "default": "neutral"
           }
         },
         "type": "object",
@@ -6557,6 +6576,11 @@
             "title": "Claims",
             "description": "Claims in this line; empty for framing",
             "default": []
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery",
+            "description": "How the line is said; the voice reads it that way",
+            "default": "neutral"
           }
         },
         "type": "object",

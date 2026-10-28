@@ -8,7 +8,7 @@ from uuid import UUID
 
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_context
-from podcast_engine.common.llm import GeminiQuotaError
+from podcast_engine.common.llm import GeminiQuotaError, is_refused
 from podcast_engine.common.logging import configure_logging, get_logger
 from podcast_engine.common.models import EpisodeStatus
 from podcast_engine.common.queue import Stage, celery_app, dispatch, task_name
@@ -78,10 +78,13 @@ def run_stage(
         )
         return None
     except Exception as error:
-        if last_attempt:
+        refused = is_refused(error)  # each retry would spend a request and fail the same way
+        if last_attempt or refused:
             ctx.repo.update_episode(
                 episode_id, status=EpisodeStatus.FAILED, error=f"{stage.value}: {error}"[:2000]
             )
+        if refused:
+            return None
         raise
     seconds = time.perf_counter() - started
     usage = {k: v - usage_before.get(k, 0) for k, v in _llm_usage(ctx).items()}

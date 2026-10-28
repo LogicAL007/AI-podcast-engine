@@ -47,6 +47,48 @@ def load_asset(assets_dir: Path, name: str, fallback: np.ndarray) -> tuple[np.nd
     return fallback, "synthetic chime"
 
 
+SPEECH_RMS = 0.08  # every clip is brought to this level, so two voices sit at the same loudness
+EDGE_DB = -40.0  # quieter than this, relative to the clip's peak, counts as silence at its edges
+EDGE_PAD_S = 0.04  # kept around the speech after trimming, so words are not clipped
+
+
+def tighten(clip: np.ndarray) -> np.ndarray:
+    """The clip without the silence a voice model leaves before and after the words, at the
+    common speech level. Gaps between lines then come only from ``pause_after``."""
+    if not clip.size:
+        return clip
+    peak = float(np.abs(clip).max())
+    if peak == 0.0:
+        return clip
+    loud = np.flatnonzero(np.abs(clip) > peak * 10 ** (EDGE_DB / 20))
+    pad = int(SR * EDGE_PAD_S)
+    words = clip[max(loud[0] - pad, 0) : loud[-1] + pad + 1]
+    rms = float(np.sqrt(np.mean(words**2)))
+    gain = min(SPEECH_RMS / rms, 0.95 / peak) if rms > 0 else 1.0
+    return (words * gain).astype(np.float32)
+
+
+def pause_after(line: dict[str, Any], following: dict[str, Any] | None) -> float:
+    """Seconds of quiet between one line and the next, the way people take turns.
+
+    A quick reaction or an answer comes in fast, the same speaker carrying on pauses briefly, and
+    a fact gets a moment to land. Lines voiced together in one clip are paced by the voice itself.
+    """
+    if line["kind"] == "disclosure":
+        return 0.7
+    if following is None or following["kind"] != line["kind"]:
+        return 0.25  # the part ends; the transition (or the outro) adds its own pause
+    if following["speaker"] == line["speaker"]:
+        return 0.2
+    if len(following["text"].split()) <= 4 or line["text"].rstrip().endswith("?"):
+        return 0.18  # "Right." or the answer to a question: no dead air before it
+    if line.get("claim"):
+        return 0.45
+    if line.get("delivery") == "thoughtful" or following.get("delivery") == "serious":
+        return 0.4
+    return 0.28
+
+
 def mix(
     lines: list[dict[str, Any]],
     clips: list[np.ndarray | None],
@@ -58,7 +100,9 @@ def mix(
 ) -> tuple[np.ndarray, list[tuple[float, str]]]:
     """Intro, lines with pauses, transitions between segments, outro. Returns audio and chapters.
 
-    A line without a clip was voiced together with the lines before it, in their clip.
+    A line without a clip was voiced together with the lines before it, in their clip. Each
+    clip is trimmed and levelled (``tighten``), and the pause after it fits the turn
+    (``pause_after``).
     """
     parts: list[np.ndarray] = []
     chapters: list[tuple[float, str]] = []
@@ -73,7 +117,7 @@ def mix(
     add(silence(0.4))
     current: int | None = None
     previous_kind = "disclosure"
-    for line, clip in zip(lines, clips, strict=True):
+    for index, (line, clip) in enumerate(zip(lines, clips, strict=True)):
         if line["kind"] == "segment" and line["position"] != current:
             if current is not None:
                 add(silence(0.3))
@@ -88,8 +132,10 @@ def mix(
         previous_kind = line["kind"]
         if clip is None:
             continue
-        add(clip)
-        add(silence(0.7 if line["kind"] == "disclosure" else 0.25))
+        add(tighten(clip))
+        # The clip ends with the last line voiced in it; the pause depends on who speaks next.
+        end = next((n for n in range(index + 1, len(lines)) if clips[n] is not None), len(lines))
+        add(silence(pause_after(lines[end - 1], lines[end] if end < len(lines) else None)))
     add(silence(0.3))
     add(outro)
     return np.concatenate(parts), chapters

@@ -85,10 +85,24 @@ class Claim(_Model):
     chunk_ids: tuple[UUID, ...] = ()
 
 
+class Delivery(StrEnum):
+    """How a line is said. The script writer picks one per line; the voice reads it that way
+    (Chatterbox through its expressiveness and pace, Gemini as a speaking style)."""
+
+    NEUTRAL = "neutral"
+    WARM = "warm"
+    CURIOUS = "curious"
+    EXCITED = "excited"
+    THOUGHTFUL = "thoughtful"
+    AMUSED = "amused"
+    SERIOUS = "serious"
+
+
 class ScriptLine(_Model):
     speaker: str
     text: str
     claims: tuple[Claim, ...] = ()
+    delivery: Delivery = Delivery.NEUTRAL
 
 
 class FactCheckReport(_Model):

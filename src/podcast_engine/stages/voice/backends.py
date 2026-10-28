@@ -14,7 +14,7 @@ import time
 import warnings
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -22,6 +22,7 @@ from podcast_engine.common.audio import SR, read_wav_bytes
 from podcast_engine.common.config import Settings
 from podcast_engine.common.llm import GeminiQuotaError, is_daily_quota, retry_after_seconds
 from podcast_engine.common.logging import get_logger
+from podcast_engine.common.quota import DailyBudget
 from podcast_engine.stages.voice.registry import (
     ClonedVoice,
     fingerprint,
@@ -50,7 +51,10 @@ class TtsBackend(Protocol):
 
     def consent_record(self, speaker: str) -> dict[str, str]: ...
 
-    def synthesise(self, speaker: str, text: str) -> np.ndarray: ...
+    def synthesise(self, speaker: str, text: str, delivery: str = "neutral") -> np.ndarray:
+        """One line in ``speaker``'s voice, said the way ``delivery`` names (see Delivery);
+        a backend that cannot vary its delivery reads every line the same way."""
+        ...
 
 
 @runtime_checkable
@@ -59,7 +63,9 @@ class DialogueBackend(TtsBackend, Protocol):
 
     max_dialogue_chars: int
 
-    def synthesise_dialogue(self, lines: list[tuple[str, str]]) -> np.ndarray: ...
+    def synthesise_dialogue(
+        self, lines: list[tuple[str, str]], deliveries: list[str] | None = None
+    ) -> np.ndarray: ...
 
 
 class _NoConsentNeeded:
@@ -78,7 +84,7 @@ class PlaceholderBackend(_NoConsentNeeded):
     def credit(self, speaker: str) -> str:  # noqa: ARG002
         return "placeholder tone (not speech)"
 
-    def synthesise(self, speaker: str, text: str) -> np.ndarray:
+    def synthesise(self, speaker: str, text: str, delivery: str = "neutral") -> np.ndarray:  # noqa: ARG002
         pitch = PLACEHOLDER_PITCH_HZ.get(speaker, 150.0)
         pieces = []
         for word in text.split():
@@ -102,7 +108,7 @@ class SayBackend(_NoConsentNeeded):
     def credit(self, speaker: str) -> str:
         return f"macOS system voice {SAY_VOICES[speaker]}"
 
-    def synthesise(self, speaker: str, text: str) -> np.ndarray:
+    def synthesise(self, speaker: str, text: str, delivery: str = "neutral") -> np.ndarray:  # noqa: ARG002
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "line.wav"
             subprocess.run(  # noqa: S603 - fixed argv; the text goes in on stdin
@@ -130,8 +136,19 @@ class ChatterboxBackend:
     """
 
     provider = "chatterbox"
-    EXAGGERATION = 0.5
-    CFG_WEIGHT = 0.5
+    # Per delivery: (exaggeration, cfg_weight). More exaggeration is more expressive and a little
+    # faster; a lower cfg_weight slows the pace, which keeps expressive lines from rushing.
+    # Changing a value changes STYLES_VERSION, so no line is served from the old cache.
+    STYLES: ClassVar[dict[str, tuple[float, float]]] = {
+        "neutral": (0.5, 0.5),
+        "warm": (0.55, 0.45),
+        "curious": (0.6, 0.45),
+        "excited": (0.7, 0.35),
+        "thoughtful": (0.4, 0.4),
+        "amused": (0.65, 0.4),
+        "serious": (0.35, 0.5),
+    }
+    STYLES_VERSION = 1
 
     def __init__(
         self,
@@ -164,7 +181,7 @@ class ChatterboxBackend:
 
     def voice_id(self, speaker: str) -> str:
         recording = fingerprint(self.voices[speaker], self.root)
-        return f"chatterbox:{recording}:e{self.EXAGGERATION}:c{self.CFG_WEIGHT}"
+        return f"chatterbox:{recording}:styles{self.STYLES_VERSION}"
 
     def credit(self, speaker: str) -> str:
         voice = self.voices[speaker]
@@ -178,18 +195,19 @@ class ChatterboxBackend:
             return {}
         return {"speaker": voice.speaker, "consent": voice.consent, "license": voice.license}
 
-    def synthesise(self, speaker: str, text: str) -> np.ndarray:
+    def synthesise(self, speaker: str, text: str, delivery: str = "neutral") -> np.ndarray:
         import torchaudio
 
         voice = self.voices[speaker]
         reference = str(self.root / str(voice.reference_audio)) if voice.is_clone else None
+        exaggeration, cfg_weight = self.STYLES.get(delivery, self.STYLES["neutral"])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             wav = self.model.generate(
                 text,
                 audio_prompt_path=reference,
-                exaggeration=self.EXAGGERATION,
-                cfg_weight=self.CFG_WEIGHT,
+                exaggeration=exaggeration,
+                cfg_weight=cfg_weight,
             )
         if self.model.sr != SR:
             wav = torchaudio.functional.resample(wav, self.model.sr, SR)
@@ -204,7 +222,8 @@ class GeminiTtsBackend(_NoConsentNeeded):
     two-speaker request, so an episode costs a handful of requests and fits the free tier's daily
     cap. On a rate limit it waits as long as Gemini asks and tries again, and
     with ``requests_per_minute`` set it spaces requests out so the limit is not hit at all (the
-    free tier allows 3 a minute). A used-up daily quota fails at once with a plain message.
+    free tier allows 3 a minute). A used-up daily quota fails at once with a plain message, and
+    with a daily ``budget`` a request that would pass it is never sent.
     """
 
     provider = "gemini-tts"
@@ -218,10 +237,12 @@ class GeminiTtsBackend(_NoConsentNeeded):
         requests_per_minute: int = 0,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        budget: DailyBudget | None = None,
     ) -> None:
         from google import genai
 
         self.model = model
+        self.budget = budget
         self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
         self.interval = 60.0 / requests_per_minute if requests_per_minute > 0 else 0.0
         self.sleep = sleep
@@ -235,17 +256,21 @@ class GeminiTtsBackend(_NoConsentNeeded):
                 self.sleep(wait)
         self.last_request = self.clock()
 
-    def _generate(self, config: Any, text: str) -> Any:
+    def _generate(self, config: Any, contents: Any) -> Any:
         from google.genai import errors
 
         for attempt in range(self.ATTEMPTS):
+            if self.budget is not None:
+                self.budget.require({self.model: 1}, f"another {self.model} request")
             self._pace()
             try:
-                return self.client.models.generate_content(
-                    model=self.model, contents=text, config=config
+                response = self.client.models.generate_content(
+                    model=self.model, contents=contents, config=config
                 )
             except (errors.ServerError, errors.ClientError) as error:
                 limited = isinstance(error, errors.ClientError) and error.code == 429
+                if self.budget is not None and not limited:
+                    self.budget.spend(self.model)
                 if limited and is_daily_quota(error):
                     raise GeminiQuotaError(
                         f"Gemini's daily quota for {self.model} is used up. Try again tomorrow, "
@@ -259,6 +284,10 @@ class GeminiTtsBackend(_NoConsentNeeded):
                 wait = (asked or min(2 ** (attempt + 1), 30)) + 1
                 log.warning("tts_busy", model=self.model, code=error.code, retry_in_s=round(wait))
                 self.sleep(wait)
+            else:
+                if self.budget is not None:
+                    self.budget.spend(self.model)
+                return response
         raise AssertionError("unreachable")
 
     def voice_id(self, speaker: str) -> str:
@@ -286,7 +315,7 @@ class GeminiTtsBackend(_NoConsentNeeded):
             raise RuntimeError(f"Gemini TTS returned no audio for {who} ({self.model}).")
         return np.frombuffer(data, dtype="<i2").astype(np.float32) / 32768.0
 
-    def synthesise(self, speaker: str, text: str) -> np.ndarray:
+    def synthesise(self, speaker: str, text: str, delivery: str = "neutral") -> np.ndarray:  # noqa: ARG002 - one voice reads plain text
         from google.genai import types
 
         config = types.GenerateContentConfig(
@@ -295,10 +324,14 @@ class GeminiTtsBackend(_NoConsentNeeded):
         )
         return self._audio(self._generate(config, text), speaker)
 
-    def synthesise_dialogue(self, lines: list[tuple[str, str]]) -> np.ndarray:
+    def synthesise_dialogue(
+        self, lines: list[tuple[str, str]], deliveries: list[str] | None = None
+    ) -> np.ndarray:
         """Several lines in one request, so a whole segment costs one request, not one a line.
 
-        Two speakers use Gemini's multi-speaker mode, each with their own prebuilt voice.
+        Two speakers use Gemini's multi-speaker mode, each with their own prebuilt voice. Each
+        line is its own part, labelled with its speaker and (from ``deliveries``) the style to say
+        it in; the text is read as a verbatim transcript, so it carries nothing but the words.
         """
         from google.genai import types
 
@@ -318,12 +351,21 @@ class GeminiTtsBackend(_NoConsentNeeded):
                 )
             ),
         )
-        conversation = "\n".join(f"{speaker}: {text}" for speaker, text in lines)
-        prompt = (
-            f"Read this conversation between {speakers[0]} and {speakers[1]} aloud, word for word:"
-            f"\n{conversation}"
+        turns = types.Content(
+            role="user",
+            parts=[
+                types.Part(
+                    text=text,
+                    speech_metadata=types.SpeechMetadata(
+                        speaker=speaker, style=None if delivery == "neutral" else delivery
+                    ),
+                )
+                for (speaker, text), delivery in zip(
+                    lines, deliveries or ["neutral"] * len(lines), strict=True
+                )
+            ],
         )
-        return self._audio(self._generate(config, prompt), " and ".join(speakers))
+        return self._audio(self._generate(config, turns), " and ".join(speakers))
 
 
 def make_backend(
@@ -331,6 +373,7 @@ def make_backend(
     hosts: list[str],
     voices_file: Path,
     overrides: dict[str, ClonedVoice] | None = None,
+    budget: DailyBudget | None = None,
 ) -> TtsBackend:
     choice = settings.tts_backend
     if choice == "placeholder":
@@ -344,5 +387,7 @@ def make_backend(
         )
     if choice == "gemini":
         key = settings.tts_api_key.get_secret_value() or settings.llm_api_key.get_secret_value()
-        return GeminiTtsBackend(key, settings.tts_model, settings.tts_requests_per_minute)
+        return GeminiTtsBackend(
+            key, settings.tts_model, settings.tts_requests_per_minute, budget=budget
+        )
     raise ValueError(f"TTS_BACKEND must be placeholder, say, chatterbox or gemini, not {choice!r}")

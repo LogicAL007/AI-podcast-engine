@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     tts_model: str = "gemini-3.8-flash-tts"  # used by the "gemini" backend
     signup_open: bool = False  # True: anyone may create a creator account at /signup
     tts_requests_per_minute: int = 0  # "gemini": space requests out (free tier: 3); 0 = no limit
+    # Gemini requests each model may take per Pacific day, counted in Redis; 0 = not counted.
+    # Set them just under the free tier's daily caps so a run stops before it hits them.
+    llm_requests_per_day: int = Field(default=0, ge=0)
+    tts_requests_per_day: int = Field(default=0, ge=0)
     assistant_questions_per_hour: int = Field(default=20, ge=1)  # each one may call the LLM
     voices_file: Path | None = None  # defaults to <config_dir>/voices.yaml
     llm_api_key: SecretStr = SecretStr("")

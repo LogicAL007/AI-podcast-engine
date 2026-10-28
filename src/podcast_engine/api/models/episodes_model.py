@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from podcast_engine.api.paths import V1
-from podcast_engine.common.models import EpisodeStatus
+from podcast_engine.common.models import Delivery, EpisodeStatus
 
 AUDIO_MEDIA_TYPE = "audio/wav"
 NOTES_MEDIA_TYPE = "text/markdown; charset=utf-8"
@@ -102,6 +102,9 @@ class LineRead(BaseModel):
     claims: list[ClaimRead] = Field(
         default=[], description="Claims in this line; empty for framing"
     )
+    delivery: Delivery = Field(
+        default=Delivery.NEUTRAL, description="How the line is said; the voice reads it that way"
+    )
 
 
 class SegmentScript(BaseModel):
@@ -175,6 +178,9 @@ class LineEdit(BaseModel):
             "Passages that support the line, which makes it a claim. Null for framing or "
             "reactions; an empty list is a claim with no citation, which the fact-check rejects"
         ),
+    )
+    delivery: Delivery = Field(
+        default=Delivery.NEUTRAL, description="How the line is said; the voice reads it that way"
     )
 
 

@@ -135,7 +135,13 @@ def test_a_two_host_conversation_is_one_multi_speaker_request() -> None:
     assert len(samples) == 240
     assert len(recorder.requests) == 1
     request = recorder.requests[0]
-    assert request["contents"].endswith("Alex: Hi Sam.\nSam: Hi Alex.\nAlex: Go.")
+    # One part per line, labelled with its speaker, and nothing but the words to read.
+    parts = request["contents"].parts
+    assert [(p.speech_metadata.speaker, p.text) for p in parts] == [
+        ("Alex", "Hi Sam."),
+        ("Sam", "Hi Alex."),
+        ("Alex", "Go."),
+    ]
     speakers = request["config"].speech_config.multi_speaker_voice_config.speaker_voice_configs
     assert [(s.speaker, s.voice_config.prebuilt_voice_config.voice_name) for s in speakers] == [
         ("Alex", "Kore"),
@@ -158,3 +164,12 @@ def test_more_than_two_speakers_in_one_request_is_refused() -> None:
     with pytest.raises(ValueError, match="at most two speakers"):
         tts.synthesise_dialogue([("Alex", "A."), ("Sam", "B."), ("Jordan", "C.")])
     assert models.calls == 0
+
+
+def test_each_line_of_a_conversation_carries_its_speaking_style() -> None:
+    tts, _, _ = backend([])
+    recorder = Recorder()
+    tts.client = SimpleNamespace(models=recorder)  # type: ignore[assignment]
+    tts.synthesise_dialogue([("Alex", "Really?"), ("Sam", "Yes.")], ["curious", "neutral"])
+    parts = recorder.requests[0]["contents"].parts
+    assert [p.speech_metadata.style for p in parts] == ["curious", None]

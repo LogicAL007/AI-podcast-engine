@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_context
 from podcast_engine.common.logging import get_logger
-from podcast_engine.common.models import Claim, ScriptLine
+from podcast_engine.common.models import Claim, Delivery, ScriptLine
 from podcast_engine.common.queue import Stage
 from podcast_engine.common.repository import ChunkRecord, SegmentRecord, ShowRecord, StoredItem
 from podcast_engine.common.text import speakable_sentences
@@ -50,6 +50,7 @@ class DraftLine(BaseModel):
     passage_ids: list[str] = Field(
         default_factory=list, description="Passage ids that support a claim"
     )
+    delivery: Delivery = Field(default=Delivery.NEUTRAL, description="How the line is said")
 
 
 class DraftSegment(BaseModel):
@@ -112,7 +113,9 @@ def to_script_lines(
                     chunk_ids=chunk_ids,
                 ),
             )
-        out.append(ScriptLine(speaker=line.speaker, text=line.text, claims=claims))
+        out.append(
+            ScriptLine(speaker=line.speaker, text=line.text, claims=claims, delivery=line.delivery)
+        )
     return out
 
 
@@ -219,6 +222,12 @@ def write_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
     avoid_by_segment: dict[str, list[str]] = script.get("avoid", {})
     items = {item.item_id: item for item in ctx.repo.list_items(show.show_id)}
     to_write = [s for s in segments if s.needs_script]
+    if ctx.llm is not None and ctx.budget is not None and not ctx.settings.llm_fallback_model:
+        # The script is saved once every segment is written, so do not start what cannot finish.
+        # (A fallback model has its own quota; with one, each call is checked as it goes.)
+        ctx.budget.require(
+            {ctx.settings.llm_model: len(to_write)}, f"writing {len(to_write)} segment(s)"
+        )
     for segment in to_write:
         chunks = ctx.repo.get_chunks(segment.chunk_ids)
         passages = [

@@ -133,6 +133,17 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
         rewrites_done=episode.rewrite_count,
         max_rewrites=0 if edited else ctx.settings.max_rewrites,
     )
+    # A rewrite is one request per flagged segment plus another check. If today's Gemini budget
+    # cannot cover that, hold the episode for review instead of failing it halfway.
+    flagged_segments = {segment_of[c.claim_id] for c in unsupported}
+    low_budget = (
+        decision is Stage.SCRIPT
+        and ctx.llm is not None
+        and ctx.budget is not None
+        and ctx.budget.shortfall({ctx.settings.llm_model: len(flagged_segments) + 1}) is not None
+    )
+    if low_budget:
+        decision = None
     awaiting_approval = (
         decision is Stage.VOICE
         and episode.approved_at is None
@@ -168,7 +179,7 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
         for claim in unsupported:
             avoid.setdefault(str(segment_of[claim.claim_id]), []).append(claim.text)
         script_state["avoid"] = avoid
-        for position in sorted({segment_of[c.claim_id] for c in unsupported}):
+        for position in sorted(flagged_segments):
             ctx.repo.update_segment(episode_id, position, needs_script=True)
         ctx.repo.update_episode(
             episode_id,
@@ -179,11 +190,15 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
         return Stage.SCRIPT
     if decision is None:
         after = "a reviewer's edit" if edited else f"{episode.rewrite_count} rewrite(s)"
+        error = f"{len(unsupported)} unsupported claim(s) after {after}; not voiced."
+        if low_budget:
+            error = (
+                f"{len(unsupported)} unsupported claim(s); not rewritten, because today's Gemini "
+                "budget cannot cover another pass. Edit the flagged lines, or try again after "
+                "midnight Pacific time."
+            )
         ctx.repo.update_episode(
-            episode_id,
-            fact_check=fact_check,
-            status=EpisodeStatus.NEEDS_REVIEW,
-            error=f"{len(unsupported)} unsupported claim(s) after {after}; not voiced.",
+            episode_id, fact_check=fact_check, status=EpisodeStatus.NEEDS_REVIEW, error=error
         )
         return None
     if awaiting_approval:

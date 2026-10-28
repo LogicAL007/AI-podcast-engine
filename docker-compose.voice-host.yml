@@ -1,0 +1,11 @@
+# Overlay for `make voice-host`: the voice worker runs on this machine (Chatterbox on its GPU) and
+# reaches the stack's database, queue and object storage on localhost. Nothing else changes.
+# The S3 API is published on 9010, not 9000, which a notebook or another tool often holds.
+
+services:
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]
+  redis:
+    ports: ["127.0.0.1:6379:6379"]
+  s3:
+    ports: ["127.0.0.1:${VOICE_HOST_S3_PORT:-9010}:9000"]

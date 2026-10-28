@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help api openapi web-client test-312 bench-db notebook-test notebook-clean setup secrets build up dev down logs lint format typecheck test check
+.PHONY: help api openapi web-client test-312 bench-db notebook-test notebook-clean setup secrets build up dev down voice-host logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
@@ -46,6 +46,16 @@ dev: secrets  ## Start the stack with source mounted
 
 down:  ## Stop the stack (volumes are kept)
 	$(COMPOSE) down
+
+voice-host:  ## Voice with cloned voices (Chatterbox) on this Mac's GPU, in place of the voice container
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.voice-host.yml up -d --no-deps postgres redis s3
+	$(COMPOSE) stop voice
+	set -a && . ./.env && set +a && \
+	DATABASE_URL=postgresql+psycopg://$$POSTGRES_USER:$$POSTGRES_PASSWORD@localhost:5432/$$POSTGRES_DB \
+	REDIS_URL=redis://localhost:6379/0 S3_ENDPOINT_URL=http://localhost:$${VOICE_HOST_S3_PORT:-9010} TTS_BACKEND=chatterbox \
+	CONFIG_DIR=$(CURDIR)/config ASSETS_DIR=$(CURDIR)/assets PROMPTS_DIR=$(CURDIR)/prompts \
+	DATA_DIR=$(CURDIR)/data/voice-host WORKER_POOL=solo WORKER_CONCURRENCY=1 METRICS_PORT=9101 \
+	.venv-cloning/bin/python -m podcast_engine.worker voice
 
 logs:  ## Follow logs
 	$(COMPOSE) logs -f --tail=100

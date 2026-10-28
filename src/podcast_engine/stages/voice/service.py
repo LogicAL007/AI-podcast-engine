@@ -17,39 +17,60 @@ from podcast_engine.stages.voice.registry import ClonedVoice
 log = get_logger("voice")
 
 
-def segment_cache_key(provider: str, voice_id: str, text: str) -> str:
+def segment_cache_key(provider: str, voice_id: str, text: str, delivery: str = "neutral") -> str:
     """Key for a synthesised line. Unchanged lines hit the cache on regeneration.
 
-    Includes the provider and voice, so switching either never serves stale audio.
+    Includes the provider, voice and delivery, so changing any of them never serves stale audio.
+    (A neutral line keeps the key it had before lines carried a delivery.)
     """
-    digest = hashlib.sha256(f"{provider}\x00{voice_id}\x00{text}".encode()).hexdigest()
+    said = text if delivery == "neutral" else f"{delivery}\x00{text}"
+    digest = hashlib.sha256(f"{provider}\x00{voice_id}\x00{said}".encode()).hexdigest()
     return f"tts/{digest}.wav"
 
 
 def episode_lines(
     topic: str, hosts: list[str], script: dict[int, list[ScriptLine]]
 ) -> list[dict[str, Any]]:
-    """Everything spoken, in order: AI disclosure (FR13), opening, each segment, closing."""
+    """Everything spoken, in order: AI disclosure (FR13), opening, each segment, closing.
+
+    Each line keeps how it is said (``delivery``) and whether it states a fact (``claim``), which
+    the assembly uses to pace the conversation.
+    """
     first, second = hosts[0], hosts[-1]
 
-    def spoken(kind: str, position: int | None, speaker: str, text: str) -> dict[str, Any]:
-        return {"kind": kind, "position": position, "speaker": speaker, "text": text}
+    def spoken(
+        kind: str,
+        position: int | None,
+        speaker: str,
+        text: str,
+        delivery: str = "neutral",
+        claim: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "kind": kind,
+            "position": position,
+            "speaker": speaker,
+            "text": text,
+            "delivery": delivery,
+            "claim": claim,
+        }
 
     return [
         spoken("disclosure", None, first, AI_DISCLOSURE),
-        spoken("opening", None, first, f"Welcome to the show. Today: {topic}."),
-        spoken("opening", None, second, "Glad to be here. Let's get into it."),
+        spoken("opening", None, first, f"Welcome to the show. Today: {topic}.", "warm"),
+        spoken("opening", None, second, "Glad to be here. Let's get into it.", "warm"),
         *(
-            spoken("segment", pos, line.speaker, line.text)
+            spoken("segment", pos, line.speaker, line.text, line.delivery.value, bool(line.claims))
             for pos in sorted(script)
             for line in script[pos]
         ),
-        spoken("closing", None, second, "That's all for this episode."),
+        spoken("closing", None, second, "That's all for this episode.", "warm"),
         spoken(
             "closing",
             None,
             first,
             "Thanks for listening. Every source is linked in the show notes.",
+            "warm",
         ),
     ]
 
@@ -81,7 +102,12 @@ def dialogue_cache_key(backend: TtsBackend, lines: list[dict[str, Any]]) -> str:
         f"{speaker}={backend.voice_id(speaker)}"
         for speaker in dict.fromkeys(line["speaker"] for line in lines)
     )
-    words = "\n".join(f"{line['speaker']}: {line['text']}" for line in lines)
+    words = "\n".join(
+        f"{line['speaker']}"
+        + ("" if line.get("delivery", "neutral") == "neutral" else f" ({line['delivery']})")
+        + f": {line['text']}"
+        for line in lines
+    )
     return segment_cache_key(backend.provider, voices, words)
 
 
@@ -133,7 +159,9 @@ def _backend(
     chosen = tuple(sorted((host, str(voice.reference_audio)) for host, voice in overrides.items()))
     key = (ctx.settings.tts_backend, hosts, str(ctx.voices_file), chosen)
     if key not in _BACKENDS:
-        _BACKENDS[key] = make_backend(ctx.settings, list(hosts), ctx.voices_file, overrides)
+        _BACKENDS[key] = make_backend(
+            ctx.settings, list(hosts), ctx.voices_file, overrides, budget=ctx.budget
+        )
     return _BACKENDS[key]
 
 
@@ -156,26 +184,37 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
         if isinstance(backend, DialogueBackend)
         else [[i] for i in range(len(lines))]
     )
+    keys = [
+        segment_cache_key(
+            backend.provider,
+            backend.voice_id(lines[group[0]]["speaker"]),
+            lines[group[0]]["text"],
+            lines[group[0]]["delivery"],
+        )
+        if len(group) == 1
+        else dialogue_cache_key(backend, [lines[i] for i in group])
+        for group in groups
+    ]
+    cached = [ctx.store.exists(key) for key in keys]
+    if ctx.budget is not None and ctx.settings.tts_backend == "gemini":
+        # Check the whole step fits first, so a run never stops at today's cap half voiced.
+        missing = cached.count(False)
+        ctx.budget.require({ctx.settings.tts_model: missing}, f"voicing {missing} part(s)")
     synthesised = reused = 0
     started = time.perf_counter()
-    for group in groups:
+    for group, key, done in zip(groups, keys, cached, strict=True):
         members = [lines[i] for i in group]
         first = members[0]
-        if len(members) == 1:
-            key = segment_cache_key(
-                backend.provider, backend.voice_id(first["speaker"]), first["text"]
-            )
-        else:
-            key = dialogue_cache_key(backend, members)
-        if ctx.store.exists(key):
+        if done:
             reused += 1
         else:
             if len(members) == 1:
-                audio = backend.synthesise(first["speaker"], first["text"])
+                audio = backend.synthesise(first["speaker"], first["text"], first["delivery"])
             else:
                 assert isinstance(backend, DialogueBackend)  # noqa: S101 - groups imply dialogue
                 audio = backend.synthesise_dialogue(
-                    [(line["speaker"], line["text"]) for line in members]
+                    [(line["speaker"], line["text"]) for line in members],
+                    [line["delivery"] for line in members],
                 )
             ctx.store.put(key, wav_bytes(audio), "audio/wav")
             synthesised += 1

@@ -172,6 +172,8 @@ changed are re-scripted and re-voiced. If nothing changed, the episode ends as `
 | `EMBEDDING_MODEL` | `hashing` | Offline. A sentence-transformers id works if it has 384 dimensions (for example `BAAI/bge-small-en-v1.5`) |
 | `TTS_BACKEND` | `placeholder` | `placeholder` (tones, for testing) or `gemini` (prebuilt voices, key in `secrets/tts_api_key.txt`, else the LLM key) in containers. `say` and `chatterbox` run on a host, see below |
 | `TTS_REQUESTS_PER_MINUTE` | `0` | `gemini` only: space voice requests out to this rate (the free tier allows 3 a minute); `0` = no limit. Rate-limited requests are retried after the wait Gemini asks for |
+| `LLM_REQUESTS_PER_DAY` | `0` | Gemini text requests `LLM_MODEL` (and `LLM_FALLBACK_MODEL`) may make per Pacific day, counted in Redis across every worker and the API; `0` = not counted. Set it just under your daily cap (AI Studio, Rate limits; the free tier is about 20). An episode starts only if the day can finish it (outline, one request per segment, fact-check), a rewrite the day cannot cover is held for review, and the companion bot uses at most half of it. `python -m podcast_engine.common.quota` prints today's counts |
+| `TTS_REQUESTS_PER_DAY` | `0` | The same for `TTS_MODEL`: one request per part read aloud, so an episode needs its segments plus 3. The free tier is about 15 |
 | `ASSISTANT_QUESTIONS_PER_HOUR` | `20` | Questions each person may ask the companion bot an hour. With `LLM_ENABLED=true` each one is a model call; otherwise the built-in help answers |
 | `SIGNUP_OPEN` | `false` | `true`: anyone can create their own `creator` account at `/signup` (throttled per address). Each account can spend your LLM and TTS quota |
 | `MAX_REWRITES` | `2` | Gate loops before an episode is held as `needs_review` |
@@ -180,7 +182,14 @@ changed are re-scripted and re-voiced. If nothing changed, the episode ends as `
 **Cloned voices (Chatterbox) run on the host.** Chatterbox needs torch and ideally a GPU (MPS on a
 Mac), so it is not in the voice image. Stop the voice container and run the voice worker from
 `.venv-cloning` against the stack. The dev overlay publishes the ports. `config/voices.yaml` holds
-the consent record each cloned voice needs.
+the consent record each cloned voice needs. Voices recorded in the voice studio and assigned to a
+show's hosts replace the file's entry for that host. `make voice-host` does all of this with its own
+overlay, `docker-compose.voice-host.yml` (the S3 API on port 9010; it reads `.env`); keep it running while episodes are voiced, and stop it with Ctrl-C.
+
+Each script line carries a delivery (neutral, warm, curious, excited, thoughtful, amused, serious)
+chosen by the script writer. Chatterbox reads it through its expressiveness and pace
+(`ChatterboxBackend.STYLES`), Gemini as a speaking style, and the assembly paces the turns from it:
+answers and quick reactions come in fast, a fact gets a moment to land.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d   # ports on localhost
