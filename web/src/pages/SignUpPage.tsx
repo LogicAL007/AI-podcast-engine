@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { Alert, ErrorAlert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { TextField } from "../components/Field";
+import { GoogleButton } from "../components/GoogleButton";
 import { Spinner } from "../components/Spinner";
 import { PublicLayout } from "../layout/PublicLayout";
 import { passwordProblem } from "./passwords";
@@ -30,7 +31,7 @@ export function SignUpPage() {
     );
   if (setup.isPending) {
     return (
-      <PublicLayout title="Create your account">
+      <PublicLayout title="Create your account" split>
         <Spinner label="Checking sign-up" />
       </PublicLayout>
     );
@@ -38,7 +39,7 @@ export function SignUpPage() {
   if (setup.data?.first_account_open) return <Navigate to="/setup" replace />;
   if (!setup.data?.signup_open) {
     return (
-      <PublicLayout title="Create your account">
+      <PublicLayout title="Create your account" split>
         <Alert tone="info">
           Sign-up is closed on this server. Ask your administrator to create an
           account for you.
@@ -67,10 +68,13 @@ export function SignUpPage() {
   }
 
   return (
-    <PublicLayout title="Create your account">
-      <p className="muted">
-        Turn the sources you trust into podcast episodes, checked line by line.
-      </p>
+    <PublicLayout title="Create your account" split>
+      {setup.data.google_sign_in ? (
+        <>
+          <GoogleButton label="Sign up with Google" />
+          <p className="auth-or">or</p>
+        </>
+      ) : null}
       <form className="stack" onSubmit={submit}>
         <TextField
           label="Email"

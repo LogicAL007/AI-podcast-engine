@@ -81,6 +81,8 @@ the unit tests run the whole API with in-memory fakes.
 | DELETE | `/v1/auth/api-keys/{token_id}` | `revoke_api_key` | 204 | 401, 404 | Revoke one of your keys |
 | POST | `/v1/auth/browser-session` | `start_session` | 200 | 401, 422, 429 | The web app's sign-in: sets the HttpOnly session cookie and the CSRF cookie; no token in the body |
 | DELETE | `/v1/auth/browser-session` | `end_session` | 204 | 403 | Signs the browser out: revokes its token and clears both cookies |
+| GET | `/v1/auth/google/start` | `google_start` | 302 | 404 | Sign in with Google: redirects to Google's account chooser (open as a page) |
+| GET | `/v1/auth/google/callback` | `google_callback` | 303 | 404 | Google's return: sets the session cookies and redirects into the app, or to `/login?google=<reason>` |
 | GET | `/v1/auth/setup` | `setup_status` | 200 | 503 | `first_account_open`: true until the first account exists |
 | POST | `/v1/auth/email` | `change_email` | 204 | 401, 403, 409 | Change your email (password to confirm); the old address is told |
 | DELETE | `/v1/auth/me` | `delete_account` | 204 | 401, 403, 409 | Delete your account and all its data (password to confirm) |
@@ -118,6 +120,7 @@ the unit tests run the whole API with in-memory fakes.
 | GET | `/v1/shows/{show_id}/uploads/{upload_id}/file` | `download_upload` | 200 | 404 | The PDF; citations link here with `#page=N` |
 | DELETE | `/v1/shows/{show_id}/uploads/{upload_id}` | `delete_upload` | 204 | 404 | Its sections leave at the next episode |
 | GET | `/v1/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml` |
+| GET | `/v1/usage` | `usage_today` | 200 | 401 | Today's Gemini requests used and left per model, and what writes and voices episodes |
 | GET | `/health` | `health` | 200 | | Liveness only |
 | GET | `/ready` | `ready` | 200 | 503 | Database, queue and storage; 503 names the failing one |
 | GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema |
@@ -150,6 +153,23 @@ Without a token key configured, login answers 503.
   automatically. The cookie accepts only login tokens, never an API key.
 - **Signing out**, `DELETE /v1/auth/browser-session`, revokes the token and clears both cookies,
   even if the token had already stopped working.
+
+**Sign in with Google** (OpenID Connect's authorization-code flow with PKCE, all on the server).
+It is offered when `GOOGLE_CLIENT_ID` and the `google_client_secret` are set; `GET /v1/auth/setup`
+then answers `google_sign_in: true` and the sign-in and sign-up pages show the button.
+
+- `GET /v1/auth/google/start` sends the browser to Google with a random `state`, a `nonce` and a
+  PKCE challenge. They travel in `pe_google`, an HMAC-signed, `HttpOnly` cookie that lasts ten
+  minutes. It is `SameSite=Lax`, because it must come back on the cross-site redirect from Google.
+- `GET /v1/auth/google/callback` checks the cookie and `state`, exchanges the code (with the PKCE
+  verifier) at Google's token endpoint, and checks the ID token's issuer, audience, expiry, nonce
+  and `email_verified`. The token comes straight from Google over TLS, so its signature is not
+  checked again (OpenID Connect Core 3.1.3.7).
+- The account with that email signs in, getting the same session cookies as a password sign-in.
+  With no such account, one is created (a `creator`, with no usable password until a reset) only
+  while `SIGNUP_OPEN` is true. A disabled account cannot sign in this way either.
+- Failures go back to `/login?google=<reason>`: `cancelled`, `expired`, `unverified`,
+  `no_account`, `busy` or `failed`. Each attempt is in the security log (`method: google`).
 
 **Live progress.** `GET /v1/episodes/{id}/events` is a stream of server-sent events. An `episode`
 event (status, stage, step of 8, error, rewrite count, `running`) is sent whenever any of them

@@ -175,6 +175,52 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/auth/google/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Sign in with Google (web app)
+     * @description Start signing in with Google: the browser is sent to Google with a random `state`, a
+     *     `nonce` and a PKCE challenge, which a short-lived signed cookie (`pe_google`) keeps for the
+     *     way back. Open this as a page, not with `fetch`.
+     */
+    get: operations["google_start"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/google/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Finish signing in with Google
+     * @description Where Google sends the browser back. The code is exchanged for an ID token whose issuer,
+     *     audience, expiry, nonce and verified email are checked. An account with that email signs in;
+     *     with none, one is created only while sign-up is open. The session cookies are then set as
+     *     for `POST /auth/browser-session`. Failures go back to the sign-in page with a reason:
+     *     `cancelled`, `expired`, `unverified`, `no_account`, `busy` or `failed`.
+     */
+    get: operations["google_callback"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/auth/setup": {
     parameters: {
       query?: never;
@@ -1075,6 +1121,28 @@ export interface paths {
      *     (`ASSISTANT_QUESTIONS_PER_HOUR`).
      */
     post: operations["ask"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Today's Gemini usage
+     * @description How much of today's Gemini budget is spent. The free tier caps requests per model per day,
+     *     resetting at midnight Pacific time; `LLM_REQUESTS_PER_DAY` and `TTS_REQUESTS_PER_DAY` set the
+     *     caps here. The budget is shared by every account and the bot, so this is the same for all.
+     */
+    get: operations["usage_today"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2033,6 +2101,39 @@ export interface components {
       password: string;
     };
     /**
+     * ModelUsage
+     * @description One Gemini model's requests today.
+     */
+    ModelUsage: {
+      /**
+       * Model
+       * @description The Gemini model
+       * @example gemini-3.8-flash
+       */
+      model: string;
+      /**
+       * Kind
+       * @description `text`: plans, scripts, fact-checks and the bot; `voice`: speech
+       * @enum {string}
+       */
+      kind: "text" | "voice";
+      /**
+       * Used
+       * @description Requests sent today (Pacific time)
+       */
+      used: number;
+      /**
+       * Limit
+       * @description Today's cap (LLM_/TTS_REQUESTS_PER_DAY); null: none
+       */
+      limit: number | null;
+      /**
+       * Left
+       * @description Requests left today; null when there is no cap
+       */
+      left: number | null;
+    };
+    /**
      * Operation
      * @description One operation on the resource (an addition to JSON Home).
      */
@@ -2771,6 +2872,12 @@ export interface components {
        * @default false
        */
       signup_open: boolean;
+      /**
+       * Google Sign In
+       * @description True when people can sign in with Google (`GET /auth/google/start`)
+       * @default false
+       */
+      google_sign_in: boolean;
     };
     /**
      * ShowCreate
@@ -3180,6 +3287,39 @@ export interface components {
        * @description Where to download the file
        */
       readonly file: string;
+    };
+    /**
+     * UsageRead
+     * @description What today's Gemini budget allows, shared by every account on this server.
+     */
+    UsageRead: {
+      /**
+       * Day
+       * @description Today's date in Pacific time, when Gemini's quota resets
+       */
+      day: string;
+      /**
+       * Resets In Seconds
+       * @description Seconds until the quota resets (midnight Pacific)
+       */
+      resets_in_seconds: number;
+      /**
+       * Writer
+       * @description Who writes scripts: Gemini, or the offline extractive writer
+       * @enum {string}
+       */
+      writer: "gemini" | "offline";
+      /**
+       * Voice Engine
+       * @description What voices episodes: `gemini`, `chatterbox` (cloned voices, no quota), `say` or `placeholder`
+       * @example chatterbox
+       */
+      voice_engine: string;
+      /**
+       * Models
+       * @description The Gemini models in use and their budgets
+       */
+      models: components["schemas"]["ModelUsage"][];
     };
     /** UserRead */
     UserRead: {
@@ -3680,6 +3820,91 @@ export interface operations {
       };
       /** @description The CSRF token is missing or wrong */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  google_start: {
+    parameters: {
+      query?: {
+        /** @description Where to go after signing in: a path on this site */
+        next?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A redirect to Google's account chooser */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Google sign-in is not configured on this server */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  google_callback: {
+    parameters: {
+      query?: {
+        /** @description The authorization code from Google */
+        code?: string | null;
+        /** @description The `state` sent to Google */
+        state?: string | null;
+        /** @description Set by Google when sign-in was cancelled or failed */
+        error?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: {
+        /** @description The signed sign-in cookie */
+        pe_google?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A redirect into the app, or to `/login?google=<reason>` on failure */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Google sign-in is not configured on this server */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -6776,6 +7001,44 @@ export interface operations {
       };
       /** @description Too many questions this hour */
       429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description Login is not configured */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+    };
+  };
+  usage_today: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Requests used and left today, per Gemini model in use */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageRead"];
+        };
+      };
+      /** @description Missing, invalid, expired or revoked token */
+      401: {
         headers: {
           [name: string]: unknown;
         };

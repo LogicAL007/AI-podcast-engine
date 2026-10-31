@@ -22,6 +22,7 @@ from podcast_engine.api.controllers.ops_controller import OpsController
 from podcast_engine.api.controllers.shows_controller import ShowController
 from podcast_engine.api.controllers.sources_controller import SourceController
 from podcast_engine.api.controllers.uploads_controller import UploadController
+from podcast_engine.api.controllers.usage_controller import UsageController
 from podcast_engine.api.controllers.voices_controller import VoiceController
 from podcast_engine.api.cookies import CSRF_COOKIE, CSRF_HEADER, SAFE_METHODS, SESSION_COOKIE
 from podcast_engine.api.errors import (
@@ -30,6 +31,7 @@ from podcast_engine.api.errors import (
     http_errors,
     to_http,
 )
+from podcast_engine.api.google_sign_in import CALLBACK_PATH, GoogleSignIn
 from podcast_engine.api.models.auth_model import CurrentUser
 from podcast_engine.api.models.episodes_model import EpisodeRead
 from podcast_engine.api.repositories.assistant_usage_repository import (
@@ -64,6 +66,7 @@ from podcast_engine.api.services.ops_service import Check, OpsService
 from podcast_engine.api.services.shows_service import ShowService
 from podcast_engine.api.services.sources_service import SourceService
 from podcast_engine.api.services.uploads_service import UploadService
+from podcast_engine.api.services.usage_service import UsageService
 from podcast_engine.api.services.voices_service import VoiceService
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.db import get_engine
@@ -248,6 +251,13 @@ def get_ops_controller(
     return OpsController(OpsService(checks))
 
 
+def get_usage_controller() -> UsageController:
+    from podcast_engine.common.quota import make_budget
+
+    settings = get_settings()
+    return UsageController(UsageService(settings, make_budget(settings)))
+
+
 def get_home_controller() -> HomeController:
     return HomeController(token_days=get_settings().auth_token_days)
 
@@ -381,9 +391,21 @@ def get_auth_controller(
     service: AuthServiceDep, mailer: Annotated[Mailer, Depends(get_mailer)]
 ) -> AuthController:
     settings = get_settings()
+    secret = settings.google_client_secret.get_secret_value()
+    google = (
+        GoogleSignIn(
+            settings.google_client_id,
+            secret,
+            settings.public_web_url.rstrip("/") + CALLBACK_PATH,
+            settings.auth_token_key.get_secret_value().encode(),
+        )
+        if settings.google_client_id and secret
+        else None
+    )
     return AuthController(
         service,
         mailer,
         cookie_secure=settings.public_web_url.startswith("https://"),
         token_days=settings.auth_token_days,
+        google=google,
     )

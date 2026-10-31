@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     login_lockout_minutes: int = Field(default=15, ge=1)
     password_reset_minutes: int = Field(default=30, ge=5, le=1440)
     password_reset_max_requests: int = Field(default=3, ge=1)  # per account per hour
+    # Sign in with Google: an OAuth client (type "Web application") from Google Cloud Console,
+    # whose redirect URI is <PUBLIC_WEB_URL>/api/v1/auth/google/callback. Blank: no Google button.
+    google_client_id: str = ""
+    google_client_secret: SecretStr = SecretStr("")  # from Vault
+    google_client_secret_file: Path | None = None
 
     # Email (password reset). The compose stack sends to Mailpit, a local inbox on :8025.
     smtp_host: str = ""  # blank: email is not sent (reset links are not delivered)
@@ -125,7 +130,13 @@ class Settings(BaseSettings):
 
 
 # Secrets kept in Vault under these keys (and the *_file fallbacks with the same names).
-VAULT_SECRETS = ("llm_api_key", "tts_api_key", "auth_token_key", "smtp_password")
+VAULT_SECRETS = (
+    "llm_api_key",
+    "tts_api_key",
+    "auth_token_key",
+    "smtp_password",
+    "google_client_secret",
+)
 
 
 def _read_secret(path: Path) -> SecretStr:

@@ -23,6 +23,7 @@ export type AssistantAnswer = Schemas["Answer"];
 export type StageRunRead = Schemas["StageRunRead"];
 export type SourceRead = Schemas["SourceRead"];
 export type UploadRead = Schemas["UploadRead"];
+export type UsageRead = Schemas["UsageRead"];
 
 /** A page of results, as every list endpoint returns them. */
 export interface Page<T> {

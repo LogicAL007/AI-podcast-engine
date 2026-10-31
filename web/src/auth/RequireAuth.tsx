@@ -24,7 +24,5 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
 /** Where to go after signing in: the page the user wanted, if it is one of ours. */
 export function safeNext(next: string | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//")
-    ? next
-    : "/shows";
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }

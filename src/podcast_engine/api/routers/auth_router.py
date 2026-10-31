@@ -15,6 +15,7 @@ from fastapi import (
     Response,
     status,
 )
+from fastapi.responses import RedirectResponse
 
 from podcast_engine.api.controllers.auth_controller import AuthController
 from podcast_engine.api.cookies import CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE
@@ -23,6 +24,7 @@ from podcast_engine.api.dependencies import (
     get_current_user,
     get_optional_user,
 )
+from podcast_engine.api.google_sign_in import PENDING_COOKIE
 from podcast_engine.api.models.auth_model import (
     Accepted,
     AccountDelete,
@@ -152,6 +154,55 @@ def end_session(
     """Revoke the browser's login token and clear its cookies. If the token no longer works,
     the cookies are still cleared, so a stale sign-in can always be ended."""
     controller.end_session(session, csrf, _address(request), response)
+
+
+@router.get(
+    "/google/start",
+    response_class=RedirectResponse,
+    status_code=status.HTTP_302_FOUND,
+    summary="Sign in with Google (web app)",
+    response_description="A redirect to Google's account chooser",
+    responses=errors(e404="Google sign-in is not configured on this server"),
+)
+def google_start(
+    controller: Controller,
+    next_path: Annotated[
+        str | None,
+        Query(alias="next", description="Where to go after signing in: a path on this site"),
+    ] = None,
+) -> RedirectResponse:
+    """Start signing in with Google: the browser is sent to Google with a random `state`, a
+    `nonce` and a PKCE challenge, which a short-lived signed cookie (`pe_google`) keeps for the
+    way back. Open this as a page, not with `fetch`."""
+    return controller.google_start(next_path)
+
+
+@router.get(
+    "/google/callback",
+    response_class=RedirectResponse,
+    status_code=status.HTTP_303_SEE_OTHER,
+    summary="Finish signing in with Google",
+    response_description="A redirect into the app, or to `/login?google=<reason>` on failure",
+    responses=errors(e404="Google sign-in is not configured on this server"),
+)
+def google_callback(
+    controller: Controller,
+    request: Request,
+    code: Annotated[str | None, Query(description="The authorization code from Google")] = None,
+    state: Annotated[str | None, Query(description="The `state` sent to Google")] = None,
+    error: Annotated[
+        str | None, Query(description="Set by Google when sign-in was cancelled or failed")
+    ] = None,
+    pending: Annotated[
+        str | None, Cookie(alias=PENDING_COOKIE, description="The signed sign-in cookie")
+    ] = None,
+) -> RedirectResponse:
+    """Where Google sends the browser back. The code is exchanged for an ID token whose issuer,
+    audience, expiry, nonce and verified email are checked. An account with that email signs in;
+    with none, one is created only while sign-up is open. The session cookies are then set as
+    for `POST /auth/browser-session`. Failures go back to the sign-in page with a reason:
+    `cancelled`, `expired`, `unverified`, `no_account`, `busy` or `failed`."""
+    return controller.google_callback(code, state, error, pending, _address(request))
 
 
 @router.get(

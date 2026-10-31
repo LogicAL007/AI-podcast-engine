@@ -15,6 +15,7 @@ def harness() -> Harness:
     assert h.client.get("/v1/auth/setup").json() == {
         "first_account_open": True,
         "signup_open": False,
+        "google_sign_in": False,
     }
     h.client.post("/v1/auth/register", json={"email": EMAIL, "password": PASSWORD})
     return h
@@ -33,6 +34,7 @@ def test_setup_closes_once_the_first_account_exists(harness: Harness) -> None:
     assert harness.client.get("/v1/auth/setup").json() == {
         "first_account_open": False,
         "signup_open": False,
+        "google_sign_in": False,
     }
 
 

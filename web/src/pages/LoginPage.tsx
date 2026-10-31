@@ -7,6 +7,7 @@ import { safeNext } from "../auth/RequireAuth";
 import { Alert, ErrorAlert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { TextField } from "../components/Field";
+import { GOOGLE_PROBLEMS, GoogleButton } from "../components/GoogleButton";
 import { PublicLayout } from "../layout/PublicLayout";
 
 export function LoginPage() {
@@ -19,6 +20,8 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+
+  const googleProblem = GOOGLE_PROBLEMS[params.get("google") ?? ""];
 
   if (user) return <Navigate to={next} replace />;
   if (setup.data?.first_account_open) return <Navigate to="/setup" replace />;
@@ -38,7 +41,14 @@ export function LoginPage() {
   }
 
   return (
-    <PublicLayout title="Sign in">
+    <PublicLayout title="Sign in to Podcast Engine" split>
+      {googleProblem ? <Alert tone="error">{googleProblem}</Alert> : null}
+      {setup.data?.google_sign_in ? (
+        <>
+          <GoogleButton label="Sign in with Google" next={next} />
+          <p className="auth-or">or</p>
+        </>
+      ) : null}
       {params.get("reset") === "done" ? (
         <Alert tone="success">
           Your password was changed. Sign in with the new one.

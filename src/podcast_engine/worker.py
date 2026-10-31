@@ -13,8 +13,11 @@ import sys
 from collections.abc import Sequence
 
 from podcast_engine.common.config import get_settings
+from podcast_engine.common.logging import configure_logging, get_logger
 from podcast_engine.common.metrics import start_metrics_server
 from podcast_engine.common.queue import Stage, celery_app
+
+log = get_logger("worker")
 
 
 def worker_args(
@@ -59,6 +62,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("at least one stage is required unless --healthcheck is given")
 
     settings = get_settings()
+    if Stage.VOICE in args.stages:
+        from podcast_engine.stages.voice.backends import backend_unavailable
+
+        if problem := backend_unavailable(settings):
+            # Stand down without taking a job: voicing waits in the queue for a worker that can
+            # do it. Exit 0, so a restart policy of on-failure leaves this worker stopped.
+            configure_logging(settings.log_level)
+            log.warning("voice_worker_standing_down", backend=settings.tts_backend, reason=problem)
+            return 0
     start_metrics_server(settings.metrics_port)
     celery_app.worker_main(
         worker_args(

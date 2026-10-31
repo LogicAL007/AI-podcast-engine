@@ -57,6 +57,7 @@ BAD_LOGIN = "wrong email or password"
 BAD_TOKEN = "the token is missing, invalid, expired or revoked"  # noqa: S105
 BAD_CSRF = "send the X-CSRF-Token header with the value of the pe_csrf cookie"
 BAD_RESET = "the reset link is invalid or has expired; ask for a new one"
+NO_GOOGLE_ACCOUNT = "no account uses this Google address, and sign-up is closed"
 
 
 def _utc_now() -> datetime:
@@ -274,6 +275,36 @@ class AuthService:
         return TokenResponse(
             access_token=token, token_id=stored.token_id, expires_at=stored.expires_at
         )
+
+    def google_sign_in(self, email: str, *, address: str = "") -> tuple[TokenResponse, bool]:
+        """A new login token for the account with this Google-verified email, and whether that
+        account was just created.
+
+        Google has confirmed the address belongs to whoever signed in, so an existing account
+        with it signs in (a password lock does not apply: no password was tried). With no such
+        account, one is created only when sign-up is open, always as a creator; it has no usable
+        password until its owner sets one with a password reset.
+        """
+        user = self._repository.find_user(email)
+        created = False
+        if user is None:
+            if not self._signup_open or self.setup_open():
+                self._event("login_failed", None, address, reason="google_no_account",
+                            account_hash=account_key(email)[:16])  # fmt: skip
+                raise UnauthenticatedError(NO_GOOGLE_ACCOUNT)
+            self.register(email, secrets.token_urlsafe(32), "creator", by=None, address=address)
+            user = self._repository.find_user(email)
+            created = True
+        if user is None or user.disabled:
+            self._event("login_failed", user.user_id if user else None, address, reason="disabled")
+            raise UnauthenticatedError(BAD_LOGIN)
+        token, stored = self._issue(user.user_id, "session")
+        self._event("login_succeeded", user.user_id, address, token_id=str(stored.token_id),
+                    method="google")  # fmt: skip
+        response = TokenResponse(
+            access_token=token, token_id=stored.token_id, expires_at=stored.expires_at
+        )
+        return response, created
 
     def logout(self, current: CurrentUser, *, address: str = "") -> None:
         self._repository.revoke(current.token_id, current.user_id, self._now())

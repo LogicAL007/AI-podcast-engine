@@ -1,9 +1,10 @@
-import { Navigate, Route, Routes } from "react-router";
+import { Route, Routes } from "react-router";
 
 import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./layout/AppShell";
 import { EpisodePage } from "./pages/episodes/EpisodePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { CompanionPage } from "./pages/CompanionPage";
 import { NewVoicePage } from "./pages/voices/NewVoicePage";
@@ -40,7 +41,7 @@ export function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/shows" replace />} />
+        <Route index element={<HomePage />} />
         <Route path="/shows" element={<ShowsPage />} />
         <Route path="/shows/new" element={<NewShowPage />} />
         <Route path="/shows/:showId" element={<ShowPage />} />

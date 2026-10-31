@@ -476,6 +476,170 @@
         }
       }
     },
+    "/v1/auth/google/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign in with Google (web app)",
+        "description": "Start signing in with Google: the browser is sent to Google with a random `state`, a\n`nonce` and a PKCE challenge, which a short-lived signed cookie (`pe_google`) keeps for the\nway back. Open this as a page, not with `fetch`.",
+        "operationId": "google_start",
+        "parameters": [
+          {
+            "name": "next",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Where to go after signing in: a path on this site",
+              "title": "Next"
+            },
+            "description": "Where to go after signing in: a path on this site"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "A redirect to Google's account chooser"
+          },
+          "404": {
+            "description": "Google sign-in is not configured on this server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/google/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Finish signing in with Google",
+        "description": "Where Google sends the browser back. The code is exchanged for an ID token whose issuer,\naudience, expiry, nonce and verified email are checked. An account with that email signs in;\nwith none, one is created only while sign-up is open. The session cookies are then set as\nfor `POST /auth/browser-session`. Failures go back to the sign-in page with a reason:\n`cancelled`, `expired`, `unverified`, `no_account`, `busy` or `failed`.",
+        "operationId": "google_callback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The authorization code from Google",
+              "title": "Code"
+            },
+            "description": "The authorization code from Google"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `state` sent to Google",
+              "title": "State"
+            },
+            "description": "The `state` sent to Google"
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Set by Google when sign-in was cancelled or failed",
+              "title": "Error"
+            },
+            "description": "Set by Google when sign-in was cancelled or failed"
+          },
+          {
+            "name": "pe_google",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The signed sign-in cookie",
+              "title": "Pe Google"
+            },
+            "description": "The signed sign-in cookie"
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "A redirect into the app, or to `/login?google=<reason>` on failure"
+          },
+          "404": {
+            "description": "Google sign-in is not configured on this server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/setup": {
       "get": {
         "tags": [
@@ -5071,6 +5235,56 @@
           }
         ]
       }
+    },
+    "/v1/usage": {
+      "get": {
+        "tags": [
+          "usage"
+        ],
+        "summary": "Today's Gemini usage",
+        "description": "How much of today's Gemini budget is spent. The free tier caps requests per model per day,\nresetting at midnight Pacific time; `LLM_REQUESTS_PER_DAY` and `TTS_REQUESTS_PER_DAY` set the\ncaps here. The budget is shared by every account and the bot, so this is the same for all.",
+        "operationId": "usage_today",
+        "responses": {
+          "200": {
+            "description": "Requests used and left today, per Gemini model in use",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -6635,6 +6849,66 @@
         ],
         "title": "LoginRequest"
       },
+      "ModelUsage": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "The Gemini model",
+            "examples": [
+              "gemini-3.8-flash"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "voice"
+            ],
+            "title": "Kind",
+            "description": "`text`: plans, scripts, fact-checks and the bot; `voice`: speech"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used",
+            "description": "Requests sent today (Pacific time)"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit",
+            "description": "Today's cap (LLM_/TTS_REQUESTS_PER_DAY); null: none"
+          },
+          "left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left",
+            "description": "Requests left today; null when there is no cap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "kind",
+          "used",
+          "limit",
+          "left"
+        ],
+        "title": "ModelUsage",
+        "description": "One Gemini model's requests today."
+      },
       "Operation": {
         "properties": {
           "method": {
@@ -7909,6 +8183,12 @@
             "title": "Signup Open",
             "description": "True when anyone may create their own account (always a `creator`)",
             "default": false
+          },
+          "google_sign_in": {
+            "type": "boolean",
+            "title": "Google Sign In",
+            "description": "True when people can sign in with Google (`GET /auth/google/start`)",
+            "default": false
           }
         },
         "type": "object",
@@ -8662,6 +8942,55 @@
         "title": "UploadRead",
         "description": "An uploaded source file. Its text is read when the show's next episode is ingested."
       },
+      "UsageRead": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day",
+            "description": "Today's date in Pacific time, when Gemini's quota resets"
+          },
+          "resets_in_seconds": {
+            "type": "integer",
+            "title": "Resets In Seconds",
+            "description": "Seconds until the quota resets (midnight Pacific)"
+          },
+          "writer": {
+            "type": "string",
+            "enum": [
+              "gemini",
+              "offline"
+            ],
+            "title": "Writer",
+            "description": "Who writes scripts: Gemini, or the offline extractive writer"
+          },
+          "voice_engine": {
+            "type": "string",
+            "title": "Voice Engine",
+            "description": "What voices episodes: `gemini`, `chatterbox` (cloned voices, no quota), `say` or `placeholder`",
+            "examples": [
+              "chatterbox"
+            ]
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelUsage"
+            },
+            "type": "array",
+            "title": "Models",
+            "description": "The Gemini models in use and their budgets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "resets_in_seconds",
+          "writer",
+          "voice_engine",
+          "models"
+        ],
+        "title": "UsageRead",
+        "description": "What today's Gemini budget allows, shared by every account on this server."
+      },
       "UserRead": {
         "properties": {
           "user_id": {
@@ -8950,6 +9279,10 @@
     {
       "name": "assistant",
       "description": "The companion bot's answers, grounded in your own episode, with suggested next steps. Rate-limited per person."
+    },
+    {
+      "name": "usage",
+      "description": "Today's Gemini requests, used and left, against the daily free-tier caps."
     },
     {
       "name": "feeds",

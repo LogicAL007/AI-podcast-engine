@@ -73,8 +73,8 @@ describe("RequireAuth", () => {
 
   it("only returns to pages of this app after signing in", () => {
     expect(safeNext("/shows/1")).toBe("/shows/1");
-    expect(safeNext("https://evil.example")).toBe("/shows");
-    expect(safeNext("//evil.example")).toBe("/shows");
-    expect(safeNext(null)).toBe("/shows");
+    expect(safeNext("https://evil.example")).toBe("/");
+    expect(safeNext("//evil.example")).toBe("/");
+    expect(safeNext(null)).toBe("/");
   });
 });

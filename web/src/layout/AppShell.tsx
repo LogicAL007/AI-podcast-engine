@@ -11,6 +11,7 @@ import { Button, LinkButton } from "../components/Button";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useRememberedFlag } from "../hooks/useRememberedFlag";
 import { LiquidLogo } from "../visual/LiquidLogo";
+import { UsageCard } from "./UsageCard";
 
 export function Brand({ size = 34 }: { size?: number }) {
   return (
@@ -25,6 +26,8 @@ export function Brand({ size = 34 }: { size?: number }) {
 const NARROW = "(max-width: 56rem)";
 
 type IconName =
+  | "home"
+  | "search"
   | "shows"
   | "voices"
   | "add"
@@ -36,6 +39,13 @@ type IconName =
 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<typeof name, ReactNode> = {
+    home: <path d="M3.5 9 10 3.5 16.5 9M5.5 7.5V16h3.5v-4.5h2V16h3.5V7.5" />,
+    search: (
+      <>
+        <circle cx="9" cy="9" r="5.5" />
+        <path d="m13 13 4 4" />
+      </>
+    ),
     shows: (
       <>
         <rect x="3" y="4" width="14" height="12" rx="2.5" />
@@ -130,6 +140,7 @@ export function AppShell() {
   // Shows stay highlighted inside a show and its episodes.
   const inShows =
     pathname.startsWith("/shows") || pathname.startsWith("/episodes");
+  const atHome = pathname === "/";
   const hidden = narrow && !open;
 
   return (
@@ -155,9 +166,9 @@ export function AppShell() {
               <Icon name="menu" />
             </button>
             <Link
-              to="/shows"
+              to="/"
               className="brand-link"
-              aria-label="Podcast Engine, your shows"
+              aria-label="Podcast Engine, home"
             >
               <Brand size={30} />
             </Link>
@@ -186,9 +197,9 @@ export function AppShell() {
         >
           <div className="sidebar-top">
             <Link
-              to="/shows"
+              to="/"
               className="brand-link"
-              aria-label="Podcast Engine, your shows"
+              aria-label="Podcast Engine, home"
             >
               <Brand size={34} />
             </Link>
@@ -224,7 +235,36 @@ export function AppShell() {
             ) : null}
           </div>
 
+          <div className="sidebar-icons">
+            <Link
+              to="/"
+              className={atHome ? "icon-tab active" : "icon-tab"}
+              aria-label="Home"
+              aria-current={atHome ? "page" : undefined}
+              title="Home"
+            >
+              <Icon name="home" />
+            </Link>
+            <Link
+              to="/shows/new"
+              className="icon-tab"
+              aria-label="Create a show"
+              title="Create a show"
+            >
+              <Icon name="add" />
+            </Link>
+            <Link
+              to="/?search=1"
+              className="icon-tab"
+              aria-label="Search"
+              title="Search"
+            >
+              <Icon name="search" />
+            </Link>
+          </div>
+
           <nav className="sidebar-nav" aria-label="Main">
+            <p className="sidebar-heading">Studio</p>
             <Link
               to="/shows"
               className={inShows ? "side-link active" : "side-link"}
@@ -274,6 +314,7 @@ export function AppShell() {
           </div>
 
           <div className="sidebar-bottom">
+            <UsageCard collapsed={collapsed} />
             <Link
               to="/companion"
               className="companion-card"

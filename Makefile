@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help api openapi web-client test-312 bench-db notebook-test notebook-clean setup secrets build up dev down voice-host logs lint format typecheck test check
+.PHONY: help api openapi web-client test-312 bench-db notebook-test notebook-clean setup secrets rotate-secret build up dev down voice-host logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
@@ -34,6 +34,16 @@ secrets:  ## Create empty secret files (fill them in before running stages)
 	@for f in llm_api_key tts_api_key vault_app_token; do test -f secrets/$$f.txt || : > secrets/$$f.txt; done
 	@test -f secrets/vault-ca.pem || : > secrets/vault-ca.pem
 	@test -f .env || cp .env.example .env
+
+rotate-secret:  ## Store a replaced secret in Vault and restart what reads it: make rotate-secret NAME=llm_api_key
+	@case "$(NAME)" in llm_api_key|tts_api_key|smtp_password|google_client_secret) ;; \
+		*) echo "NAME must be llm_api_key, tts_api_key, smtp_password or google_client_secret"; exit 1;; esac
+	@test -s secrets/$(NAME).txt || { echo "Put the new value in secrets/$(NAME).txt first."; exit 1; }
+	@chmod 600 secrets/$(NAME).txt
+	$(COMPOSE) run --rm -T vault-init python -m podcast_engine.common.vault_init set $(NAME) < secrets/$(NAME).txt
+	@# Secrets are read once at start, so everything that reads them starts again.
+	$(COMPOSE) up -d --force-recreate --no-deps api index_plan script_factcheck assemble ingest_publish scheduler voice
+	@echo "Stored $(NAME). Now revoke the old value with its provider."
 
 build:  ## Build every image
 	$(COMPOSE) build

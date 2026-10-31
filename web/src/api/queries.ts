@@ -22,6 +22,7 @@ import type {
   SourceRead,
   StageRunRead,
   UploadRead,
+  UsageRead,
   VoiceRead,
 } from "./types";
 
@@ -43,6 +44,9 @@ export const keys = {
   claims: (id: string) => ["episode", id, "claims"] as const,
   notes: (url: string) => ["notes", url] as const,
   voices: ["voices"] as const,
+  recentEpisodes: ["episodes", "recent"] as const,
+  reviewQueue: ["episodes", "needs_review"] as const,
+  usage: ["usage"] as const,
   consent: ["voices", "consent"] as const,
 };
 
@@ -488,5 +492,44 @@ export function useAskAssistant() {
   return useMutation({
     mutationFn: async (question: AssistantQuestion): Promise<AssistantAnswer> =>
       unwrap(await api.POST("/v1/assistant/ask", { body: question })),
+  });
+}
+
+// ---- home: recent episodes across shows, the review queue and today's Gemini budget ---------
+
+/** The newest episodes of every show, kept fresh while any is being made. */
+export function useRecentEpisodes() {
+  return useQuery({
+    queryKey: keys.recentEpisodes,
+    queryFn: async (): Promise<Page<EpisodeRead>> =>
+      unwrap(await api.GET("/v1/episodes", { params: { query: paging(0) } })),
+    refetchInterval: (query) =>
+      query.state.data?.items.some(
+        (e) => e.status === "queued" || e.status === "processing",
+      )
+        ? 5_000
+        : false,
+  });
+}
+
+/** Episodes waiting for a person: held by the fact-check, or paused before voicing. */
+export function useReviewQueue() {
+  return useQuery({
+    queryKey: keys.reviewQueue,
+    queryFn: async (): Promise<Page<EpisodeRead>> =>
+      unwrap(
+        await api.GET("/v1/episodes", {
+          params: { query: { status: "needs_review", limit: 5, offset: 0 } },
+        }),
+      ),
+  });
+}
+
+/** Today's Gemini requests, used and left; shared by every account, so refreshed often. */
+export function useUsage() {
+  return useQuery({
+    queryKey: keys.usage,
+    queryFn: async (): Promise<UsageRead> => unwrap(await api.GET("/v1/usage")),
+    refetchInterval: 60_000,
   });
 }

@@ -65,6 +65,8 @@ x-app-env: &app-env
   AUTH_TOKEN_DAYS: ${AUTH_TOKEN_DAYS:-180}
   # true: anyone can create their own creator account at /signup (each one can spend LLM/TTS quota)
   SIGNUP_OPEN: ${SIGNUP_OPEN:-false}
+  # Sign in with Google: the OAuth client's id here, its secret in Vault as google_client_secret.
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   # Password-reset email. Mailpit catches it locally (inbox at http://localhost:8025); point these
   # at a real mail service (password in Vault as smtp_password) to deliver for real.
   SMTP_HOST: ${SMTP_HOST:-mailpit}
@@ -378,6 +380,10 @@ services:
         EXTRAS: ${VOICE_EXTRAS:-voice,llm}
         TORCH_INDEX_URL: ${VOICE_TORCH_INDEX_URL:-}
     command: [python, -m, podcast_engine.worker, voice]
+    # Without its backend (Chatterbox is not in this image by default, and Docker on macOS cannot
+    # use the Mac's GPU) the worker exits cleanly before taking a job, and stays stopped;
+    # `make voice-host` then voices on the Mac. It is restarted only if it crashes.
+    restart: on-failure
     volumes:
       - hf_cache:/home/app/.cache/huggingface # Chatterbox's model weights, downloaded once
       - tts_cache:/data/tts_cache

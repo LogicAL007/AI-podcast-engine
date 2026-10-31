@@ -59,6 +59,96 @@ export const SAMPLE_SHOW: Pick<
     "Based on the Wikipedia articles Tide and Tidal force, CC BY-SA 4.0.",
 };
 
+/** A ready-made show for the home page's templates: it opens the form filled in. */
+export interface ShowTemplate {
+  id: string;
+  title: string;
+  tags: string[];
+  values: Partial<ShowValues>;
+}
+
+const wiki = (...pages: string[]) =>
+  pages.map((page) => `https://en.wikipedia.org/wiki/${page}`).join("\n");
+
+export const SHOW_TEMPLATES: ShowTemplate[] = [
+  {
+    id: "tides",
+    title: "How the Moon makes the tides",
+    tags: ["Explainer", "Wikipedia"],
+    values: SAMPLE_SHOW,
+  },
+  {
+    id: "nasa",
+    title: "This week at NASA",
+    tags: ["Daily", "News feed"],
+    values: {
+      topic: "This week's NASA news",
+      sources: "https://www.nasa.gov/news-release/feed/",
+      topic_keywords: "NASA, mission, launch, spacecraft, astronauts, science",
+      attribution: "Based on NASA news releases (public domain).",
+      ranking_profile: "daily",
+      tone: "casual",
+    },
+  },
+  {
+    id: "python",
+    title: "What's new in Python 3.13",
+    tags: ["Explainer", "Documentation"],
+    values: {
+      topic: "What's new in Python 3.13",
+      sources: "https://docs.python.org/3/whatsnew/3.13.html",
+      topic_keywords:
+        "Python 3.13, interpreter, free-threaded, JIT, REPL, typing",
+      attribution:
+        "Based on the Python documentation, Python Software Foundation.",
+      expertise: "expert",
+    },
+  },
+  {
+    id: "vaccines",
+    title: "How vaccines train the immune system",
+    tags: ["Explainer", "Science"],
+    values: {
+      topic: "How vaccines train the immune system",
+      sources: wiki("Vaccine", "Adaptive_immune_system"),
+      topic_keywords:
+        "vaccine, immune system, antibodies, antigen, memory cells",
+      attribution:
+        "Based on the Wikipedia articles Vaccine and Adaptive immune system, CC BY-SA 4.0.",
+      expertise: "beginner",
+    },
+  },
+  {
+    id: "black-holes",
+    title: "Black holes, explained",
+    tags: ["Explainer", "Space"],
+    values: {
+      topic: "What black holes are and how we see them",
+      sources: wiki("Black_hole", "Event_horizon"),
+      topic_keywords:
+        "black hole, event horizon, gravity, Hawking radiation, spacetime",
+      attribution:
+        "Based on the Wikipedia articles Black hole and Event horizon, CC BY-SA 4.0.",
+    },
+  },
+  {
+    id: "llms",
+    title: "How large language models work",
+    tags: ["Explainer", "AI"],
+    values: {
+      topic: "How large language models work",
+      sources: wiki(
+        "Large_language_model",
+        "Transformer_(deep_learning_architecture)",
+      ),
+      topic_keywords:
+        "large language model, transformer, attention, tokens, training",
+      attribution:
+        "Based on the Wikipedia articles Large language model and Transformer, CC BY-SA 4.0.",
+    },
+  },
+];
+
 /** Languages offered in the form. A show saved with another tag keeps it (languageOptions). */
 export const LANGUAGES: { value: string; label: string }[] = [
   { value: "en", label: "English" },

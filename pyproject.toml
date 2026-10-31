@@ -33,6 +33,8 @@ anthropic = ["anthropic>=0.40"]
 voice = ["httpx>=0.27"]
 assemble = ["numpy>=1.26", "pydub>=0.25", "pyloudnorm>=0.1"]
 publish = ["feedgen>=1.0"]
+# Renders docs/reports/*.py into PDF reports.
+reports = ["reportlab>=4.2"]
 # The vault-certs one-shot: creates the local CA and Vault's TLS certificate.
 tls = ["cryptography>=43"]
 # Voice cloning backend (Chatterbox, MIT). Heavy: pulls torch and pins transformers and gradio, so

@@ -325,3 +325,7 @@ class SetupStatus(BaseModel):
         default=False,
         description="True when anyone may create their own account (always a `creator`)",
     )
+    google_sign_in: bool = Field(
+        default=False,
+        description="True when people can sign in with Google (`GET /auth/google/start`)",
+    )

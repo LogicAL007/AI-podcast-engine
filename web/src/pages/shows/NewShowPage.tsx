@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { useCreateShow, useVoices } from "../../api/queries";
 import { useAssistant } from "../../bots/assistant";
 import { ShowForm } from "./ShowForm";
-import { EMPTY_SHOW, SAMPLE_SHOW } from "./showValues";
+import { EMPTY_SHOW, SAMPLE_SHOW, SHOW_TEMPLATES } from "./showValues";
 import { usePageTitle } from "../../hooks/usePageTitle";
 
 export function NewShowPage() {
@@ -12,12 +12,14 @@ export function NewShowPage() {
   const voices = useVoices();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  // ?sample=1 (from the welcome card) opens the form with the sample show filled in.
-  const initial =
-    params.get("sample") === "1"
+  // ?sample=1 (the welcome card) or ?template=<id> (the home page) opens the form filled in.
+  const template = SHOW_TEMPLATES.find((t) => t.id === params.get("template"));
+  const sample = params.get("sample") === "1";
+  const initial = template
+    ? { ...EMPTY_SHOW, ...template.values }
+    : sample
       ? { ...EMPTY_SHOW, ...SAMPLE_SHOW }
       : EMPTY_SHOW;
-  const sample = params.get("sample") === "1";
   useAssistant({
     page: "new_show",
     key: "new_show",
@@ -66,6 +68,7 @@ export function NewShowPage() {
       </div>
       <div className="card" style={{ maxWidth: "48rem" }}>
         <ShowForm
+          key={template?.id ?? (sample ? "sample" : "blank")}
           voices={voices.data?.items}
           wizard
           initial={initial}

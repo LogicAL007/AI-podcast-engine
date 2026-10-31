@@ -368,6 +368,35 @@ class GeminiTtsBackend(_NoConsentNeeded):
         return self._audio(self._generate(config, turns), " and ".join(speakers))
 
 
+# What each backend needs installed in this process, and where to run it instead.
+NEEDS: dict[str, tuple[tuple[str, ...], str]] = {
+    "chatterbox": (
+        ("torch", "chatterbox"),
+        "Chatterbox is not installed here. Docker on macOS cannot use the Mac's GPU, so run the "
+        "voice worker on the Mac with `make voice-host` (or build this image with "
+        "VOICE_EXTRAS=voice,llm,cloning for slow CPU-only voicing).",
+    ),
+    "gemini": (("google.genai",), "google-genai is not installed here: add the llm extra."),
+}
+
+
+def backend_unavailable(settings: Settings) -> str | None:
+    """Why this process cannot run the configured voice backend, or None if it can.
+
+    Checked before a voice worker takes any job, so a worker without the backend (the Docker
+    voice image without Chatterbox, for example) never takes a job it would fail.
+    """
+    from importlib.util import find_spec
+    from shutil import which
+
+    choice = settings.tts_backend
+    if choice == "say" and which("say") is None:
+        return "The say backend needs macOS's say command, which this machine does not have."
+    needed, advice = NEEDS.get(choice, ((), ""))
+    missing = [module for module in needed if find_spec(module.split(".")[0]) is None]
+    return f"{advice} Missing: {', '.join(missing)}." if missing else None
+
+
 def make_backend(
     settings: Settings,
     hosts: list[str],

@@ -64,6 +64,10 @@ TAGS: list[dict[str, Any]] = [
         "description": "The companion bot's answers, grounded in your own episode, with "
         "suggested next steps. Rate-limited per person.",
     },
+    {
+        "name": "usage",
+        "description": "Today's Gemini requests, used and left, against the daily free-tier caps.",
+    },
     {"name": "feeds", "description": "Each show's RSS feed, for podcast apps."},
     {
         "name": "ops",

@@ -17,6 +17,7 @@ from podcast_engine.api.routers.ops_router import router as ops_router
 from podcast_engine.api.routers.shows_router import router as shows_router
 from podcast_engine.api.routers.sources_router import router as sources_router
 from podcast_engine.api.routers.uploads_router import router as uploads_router
+from podcast_engine.api.routers.usage_router import router as usage_router
 from podcast_engine.api.routers.voices_router import router as voices_router
 from podcast_engine.common.config import get_settings
 from podcast_engine.common.logging import configure_logging
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
         uploads_router,
         voices_router,
         assistant_router,
+        usage_router,
     )
     for protected in protected_routers:
         app.include_router(

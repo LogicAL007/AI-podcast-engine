@@ -127,6 +127,10 @@ read. Postgres and S3 passwords stay in `.env`, because those containers need th
 docker compose run --rm -T vault-init set llm_api_key < secrets/llm_api_key.txt
 docker compose restart index_plan script_factcheck voice   # services read secrets at start
 
+# replace a secret (a leaked key, say): put the new value in secrets/<name>.txt, then
+make rotate-secret NAME=llm_api_key   # or tts_api_key, smtp_password, google_client_secret
+# and revoke the old value with its provider (AI Studio, Google Cloud Console, ...)
+
 # the first account becomes the admin; then log in for a six-month token
 curl -X POST localhost:8000/v1/auth/register -H 'content-type: application/json' \
   -d '{"email": "you@example.org", "password": "a long passphrase of your own"}'
@@ -176,15 +180,21 @@ changed are re-scripted and re-voiced. If nothing changed, the episode ends as `
 | `TTS_REQUESTS_PER_DAY` | `0` | The same for `TTS_MODEL`: one request per part read aloud, so an episode needs its segments plus 3. The free tier is about 15 |
 | `ASSISTANT_QUESTIONS_PER_HOUR` | `20` | Questions each person may ask the companion bot an hour. With `LLM_ENABLED=true` each one is a model call; otherwise the built-in help answers |
 | `SIGNUP_OPEN` | `false` | `true`: anyone can create their own `creator` account at `/signup` (throttled per address). Each account can spend your LLM and TTS quota |
+| `GOOGLE_CLIENT_ID` | blank | Shows "Sign in with Google". Create an OAuth client (type *Web application*) in Google Cloud Console with the redirect URI `<PUBLIC_WEB_URL>/api/v1/auth/google/callback`, and put its secret in `secrets/google_client_secret.txt` (vault-init stores it in Vault) |
 | `MAX_REWRITES` | `2` | Gate loops before an episode is held as `needs_review` |
 | `REFRESH_INTERVAL_HOURS` | `0` | Scheduler refresh period for published shows; `0` is off |
 
 **Cloned voices (Chatterbox) run on the host.** Chatterbox needs torch and ideally a GPU (MPS on a
-Mac), so it is not in the voice image. Stop the voice container and run the voice worker from
-`.venv-cloning` against the stack. The dev overlay publishes the ports. `config/voices.yaml` holds
-the consent record each cloned voice needs. Voices recorded in the voice studio and assigned to a
-show's hosts replace the file's entry for that host. `make voice-host` does all of this with its own
-overlay, `docker-compose.voice-host.yml` (the S3 API on port 9010; it reads `.env`); keep it running while episodes are voiced, and stop it with Ctrl-C.
+Mac), and Docker on macOS cannot reach the Mac's GPU, so Chatterbox is not in the voice image.
+`make voice-host` runs the voice worker from `.venv-cloning` against the stack, with its own overlay,
+`docker-compose.voice-host.yml`, which publishes the database, queue and storage ports (the S3 API
+on 9010; it reads `.env`). Keep it running while episodes are voiced; stop it with Ctrl-C. Set
+`COMPOSE_FILE=docker-compose.yml:docker-compose.voice-host.yml` in `.env` so that every
+`docker compose` command keeps those ports. The voice container checks for its backend before
+taking any job: without Chatterbox it logs why and stops (`voice_worker_standing_down`), so jobs
+wait in the queue for the host worker instead of failing. `config/voices.yaml` holds the consent
+record each cloned voice needs. Voices recorded in the voice studio and assigned to a show's hosts
+replace the file's entry for that host.
 
 Each script line carries a delivery (neutral, warm, curious, excited, thoughtful, amused, serious)
 chosen by the script writer. Chatterbox reads it through its expressiveness and pace
