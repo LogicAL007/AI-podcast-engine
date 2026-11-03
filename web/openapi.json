@@ -2833,7 +2833,7 @@
           "episodes"
         ],
         "summary": "Start an episode",
-        "description": "Create an episode and start generating it in the background. Returns at once, with the\nepisode `queued`; its status shows progress.\n\nFor a show that already has a published episode, this is a refresh: only segments whose\nsources changed are re-scripted and re-voiced, and if no source changed the episode ends as\n`unchanged`.",
+        "description": "Create an episode and start generating it in the background. Returns at once, with the\nepisode `queued`; its status shows progress.\n\nFor a show that already has a published episode, this is a refresh: the sources are read\nagain (searches run again), only segments whose sources changed are re-scripted and\nre-voiced, and if no source changed the episode ends as `unchanged`. Send\n`{\"rebuild\": true}` to regenerate every segment instead, changed or not.",
         "operationId": "start_episode",
         "security": [
           {
@@ -2857,6 +2857,23 @@
             "description": "The show's id"
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EpisodeStart"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Options"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "The new episode, `queued`; poll it for progress",
@@ -4667,19 +4684,66 @@
           "voices"
         ],
         "summary": "Read the consent form",
-        "description": "The consent statement a speaker must agree to before their voice is recorded or uploaded.\nIts version and text are stored with every voice.",
+        "description": "The consent form a speaker must read and agree to before their voice is recorded or\nuploaded. Its version and full text (`statement`) are stored with every voice signed on it;\nvoices signed on an earlier version keep the text they agreed to.",
         "operationId": "consent_form",
         "responses": {
           "200": {
-            "description": "The version and exact wording a speaker agrees to",
+            "description": "The consent form, section by section, and where to get it as a PDF",
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object",
-                  "title": "Response Consent Form"
+                  "$ref": "#/components/schemas/ConsentDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      }
+    },
+    "/v1/voices/consent.pdf": {
+      "get": {
+        "tags": [
+          "voices"
+        ],
+        "summary": "Download the consent form as a PDF",
+        "description": "The same consent form as a PDF, to read, keep or print. For someone else's voice, a\nprinted copy signed by the speaker can be kept as their written permission.",
+        "operationId": "consent_form_pdf",
+        "responses": {
+          "200": {
+            "description": "The consent form",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
@@ -6156,6 +6220,71 @@
         "title": "ClaimRead",
         "description": "A factual statement in the script and the evidence for it."
       },
+      "ConsentDocument": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Which wording this is; stored with every voice signed on it"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "The form's title"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ConsentSection"
+            },
+            "type": "array",
+            "title": "Sections",
+            "description": "The form, section by section"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement",
+            "description": "The full text as one string: what a signed voice stores"
+          },
+          "pdf": {
+            "type": "string",
+            "title": "Pdf",
+            "description": "Where to download the same form as a PDF"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "title",
+          "sections",
+          "statement",
+          "pdf"
+        ],
+        "title": "ConsentDocument",
+        "description": "The consent form a speaker reads in full and agrees to before a voice is recorded."
+      },
+      "ConsentSection": {
+        "properties": {
+          "heading": {
+            "type": "string",
+            "title": "Heading",
+            "description": "The section's heading"
+          },
+          "paragraphs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paragraphs",
+            "description": "The section's text, one paragraph per item"
+          }
+        },
+        "type": "object",
+        "required": [
+          "heading",
+          "paragraphs"
+        ],
+        "title": "ConsentSection"
+      },
       "CurrentUser": {
         "properties": {
           "user_id": {
@@ -6383,6 +6512,12 @@
             "title": "Rewrite Count",
             "description": "Times the fact-check gate sent the script back"
           },
+          "rebuild": {
+            "type": "boolean",
+            "title": "Rebuild",
+            "description": "A refresh that regenerates every segment, even if no source changed",
+            "default": false
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6486,6 +6621,24 @@
         ],
         "title": "EpisodeScript",
         "description": "The script with each claim's citations and verdict, for review."
+      },
+      "EpisodeStart": {
+        "properties": {
+          "rebuild": {
+            "type": "boolean",
+            "title": "Rebuild",
+            "description": "For a show with a published episode: regenerate every segment from the sources as they are now, even if none changed, instead of only the segments whose sources changed. Uses more of the day's Gemini requests",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "EpisodeStart",
+        "description": "How to make the episode. Optional: with no body, a refresh redoes only what changed.",
+        "examples": [
+          {
+            "rebuild": true
+          }
+        ]
       },
       "EpisodeStatus": {
         "type": "string",
@@ -8264,6 +8417,22 @@
               ]
             ]
           },
+          "search_queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Search Queries",
+            "description": "Searches run each time an episode is made; the top results are read like the show's own pages, so a refresh picks up new results (FR2). Up to 3",
+            "default": [],
+            "examples": [
+              [
+                "ClickHouse column-oriented database"
+              ]
+            ]
+          },
           "topic_keywords": {
             "type": "string",
             "maxLength": 1000,
@@ -8339,6 +8508,9 @@
             "max_segments": 6,
             "ranking_profile": "explainer",
             "review_before_voice": false,
+            "search_queries": [
+              "ClickHouse column-oriented database"
+            ],
             "sources": [
               "https://clickhouse.com/docs/get-started/about/intro"
             ],
@@ -8392,6 +8564,14 @@
             "type": "array",
             "title": "Sources",
             "description": "Source page URLs"
+          },
+          "search_queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Search Queries",
+            "description": "Searches whose top results are read as sources"
           },
           "topic_keywords": {
             "type": "string",
@@ -8562,6 +8742,28 @@
               }
             ],
             "title": "Sources"
+          },
+          "search_queries": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "type": "array",
+                "maxItems": 3,
+                "description": "Searches run each time an episode is made; the top results are read like the show's own pages, so a refresh picks up new results (FR2). Up to 3",
+                "examples": [
+                  [
+                    "ClickHouse column-oriented database"
+                  ]
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Queries"
           },
           "topic_keywords": {
             "anyOf": [

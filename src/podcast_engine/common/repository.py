@@ -33,6 +33,7 @@ class ShowRecord(_Record):
     language: str
     expertise: ExpertiseLevel
     sources: list[str]
+    search_queries: list[str] = []
     topic_keywords: str
     attribution: str
     max_segments: int
@@ -49,6 +50,7 @@ class EpisodeRecord(_Record):
     error: str | None
     revision: int
     rewrite_count: int
+    rebuild: bool = False  # regenerate every segment, even if no source changed
     changed_item_ids: list[UUID] | None
     script: dict[str, Any] | None
     fact_check: dict[str, Any] | None
@@ -182,9 +184,9 @@ _EPISODE_PLAIN = {
     "published_at",
 }
 _EPISODE_COLUMNS = (
-    "episode_id, show_id, status, stage, error, revision, rewrite_count, changed_item_ids, script, "
-    "fact_check, voice_lines, assembly, audio_key, notes_key, manifest, created_at, published_at, "
-    "approved_at"
+    "episode_id, show_id, status, stage, error, revision, rewrite_count, rebuild, "
+    "changed_item_ids, script, fact_check, voice_lines, assembly, audio_key, notes_key, manifest, "
+    "created_at, published_at, approved_at"
 )
 
 
@@ -204,7 +206,8 @@ class PipelineRepository:
                     text(
                         "SELECT show_id, topic, tone, target_minutes, host_count, language, "
                         "expertise, "
-                        "sources, topic_keywords, attribution, max_segments, ranking_profile, "
+                        "sources, search_queries, topic_keywords, attribution, max_segments, "
+                        "ranking_profile, "
                         "review_before_voice, host_voices "
                         "FROM shows WHERE show_id = :id"
                     ),
@@ -227,11 +230,14 @@ class PipelineRepository:
             )
         return EpisodeRecord.model_validate(dict(row))
 
-    def create_episode(self, show_id: UUID) -> UUID:
+    def create_episode(self, show_id: UUID, *, rebuild: bool = False) -> UUID:
         with self._engine.begin() as connection:
             episode_id: UUID = connection.execute(
-                text("INSERT INTO episodes (show_id) VALUES (:id) RETURNING episode_id"),
-                {"id": show_id},
+                text(
+                    "INSERT INTO episodes (show_id, rebuild) VALUES (:id, :rebuild)"
+                    " RETURNING episode_id"
+                ),
+                {"id": show_id, "rebuild": rebuild},
             ).scalar_one()
         return episode_id
 
@@ -300,6 +306,12 @@ class PipelineRepository:
             ).mappings()
             records = [VoiceRecord.model_validate(dict(row)) for row in rows]
         return {str(record.voice_id): record for record in records}
+
+    def voice_hashes(self) -> set[str]:
+        """The fingerprints of every registered voice: copies of anything else are withdrawn."""
+        with self._engine.connect() as connection:
+            rows = connection.execute(text("SELECT sha256 FROM voices")).scalars()
+            return set(rows)
 
     def list_published(self, show_id: UUID) -> list[EpisodeRecord]:
         with self._engine.connect() as connection:

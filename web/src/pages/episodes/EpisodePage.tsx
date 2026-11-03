@@ -29,6 +29,7 @@ import { formatDate } from "../format";
 import { NotFoundPage } from "../NotFoundPage";
 import { ClaimsTab } from "./ClaimsTab";
 import { ListenTab } from "./ListenTab";
+import { RefreshDialog } from "./RefreshDialog";
 import { RunsTab } from "./RunsTab";
 import { ScriptTab } from "./ScriptTab";
 import { usePageTitle } from "../../hooks/usePageTitle";
@@ -121,15 +122,15 @@ function useEpisodeAssist(
   } else if (status === "published") {
     actions.push(tab("listen", "Listen"), {
       id: "generate_episode",
-      label: "Make the next episode",
+      label: "Refresh",
       run: () =>
         again
           .mutateAsync()
           .then((next) => navigate(`/episodes/${next.episode_id}`)),
       confirm: {
-        title: "Make the next episode?",
-        body: "It reads the sources again and redoes only what changed. Writing and voicing it can use your Gemini quota.",
-        confirmLabel: "Make it",
+        title: "Refresh this episode?",
+        body: "It reads the sources and runs the searches again, then redoes only what changed. Writing and voicing it can use your Podcast Engine quota. To redo everything, use the Refresh button at the top.",
+        confirmLabel: "Refresh it",
       },
     });
   } else if (episode.stage === "factcheck") {
@@ -258,7 +259,12 @@ function EpisodeHeader({
   const cancel = useEpisodeAction(episode.episode_id, "cancel");
   const remove = useDeleteEpisode(episode.episode_id, episode.show_id);
   const navigate = useNavigate();
-  const [confirm, setConfirm] = useState<"cancel" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<
+    "cancel" | "delete" | "refresh" | null
+  >(null);
+  // A finished episode can be refreshed: the next revision, from the sources as they are now.
+  const canRefresh =
+    episode.status === "published" || episode.status === "unchanged";
   const canRetry =
     episode.status === "failed" || episode.status === "cancelled";
   const canCancel = ["queued", "processing", "needs_review"].includes(
@@ -308,6 +314,9 @@ function EpisodeHeader({
               You will be notified when it is done.
             </span>
           ) : null}
+          {canRefresh ? (
+            <Button onClick={() => setConfirm("refresh")}>Refresh</Button>
+          ) : null}
           {canRetry ? (
             <Button busy={retry.isPending} onClick={() => retry.mutate()}>
               Retry
@@ -346,11 +355,17 @@ function EpisodeHeader({
       ) : null}
       {episode.status === "unchanged" ? (
         <Alert tone="info">
-          None of the sources changed, so no new episode was needed.
+          None of the sources changed, so no new episode was needed. To make one
+          anyway, choose Refresh, then “Everything, from scratch”.
         </Alert>
       ) : null}
       <ErrorAlert error={retry.error} />
 
+      <RefreshDialog
+        showId={episode.show_id}
+        open={confirm === "refresh"}
+        onClose={() => setConfirm(null)}
+      />
       <ConfirmDialog
         open={confirm === "cancel"}
         title="Cancel this episode?"

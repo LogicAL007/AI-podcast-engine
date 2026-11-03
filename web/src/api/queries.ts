@@ -185,13 +185,16 @@ export function useShowEpisodes(showId: string, offset: number) {
   });
 }
 
+/** Start an episode. For a published show it is a refresh: only what changed is redone,
+ * unless `rebuild` asks for every segment to be regenerated. */
 export function useStartEpisode(showId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (): Promise<EpisodeRead> =>
+    mutationFn: async (options?: { rebuild?: boolean }): Promise<EpisodeRead> =>
       unwrap(
         await api.POST("/v1/shows/{show_id}/episodes", {
           params: { path: { show_id: showId } },
+          body: options?.rebuild ? { rebuild: true } : undefined,
         }),
       ),
     onSuccess: (episode) => {

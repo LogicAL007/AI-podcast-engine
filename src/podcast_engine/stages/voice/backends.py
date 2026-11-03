@@ -269,7 +269,12 @@ class GeminiTtsBackend(_NoConsentNeeded):
                 )
             except (errors.ServerError, errors.ClientError) as error:
                 limited = isinstance(error, errors.ClientError) and error.code == 429
-                if self.budget is not None and not limited:
+                # As for text: only a rejected request counts, not an overloaded 503 or a 429.
+                if (
+                    self.budget is not None
+                    and isinstance(error, errors.ClientError)
+                    and not limited
+                ):
                     self.budget.spend(self.model)
                 if limited and is_daily_quota(error):
                     raise GeminiQuotaError(

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from podcast_engine.api.models.pagination_model import Paged
 from podcast_engine.api.models.voices_model import VoiceRead
+from podcast_engine.stages.voice.registry import clips_voiced_with
 
 _COLUMNS = (
     "voice_id, name, speaker, license, source, duration_seconds, consent, object_key, created_at"
@@ -31,6 +32,8 @@ class VoiceRepository(Protocol):
     def delete(self, voice_id: UUID, owner_id: UUID) -> bool: ...
 
     def object_keys(self, owner_id: UUID) -> list[str]: ...
+
+    def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]: ...
 
 
 class PostgresVoiceRepository:
@@ -122,3 +125,27 @@ class PostgresVoiceRepository:
             {"owner_id": owner_id},
         ).scalars()
         return list(rows)
+
+    def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]:
+        """Stored speech clips made with this voice in the owner's episodes, to delete when it is
+        withdrawn. None while another registered voice has the same recording: they are its too."""
+        sha256 = self._session.execute(
+            text("SELECT sha256 FROM voices WHERE voice_id = :id AND owner_id = :owner_id"),
+            {"id": voice_id, "owner_id": owner_id},
+        ).scalar_one_or_none()
+        if sha256 is None:
+            return []
+        shared = self._session.execute(
+            text("SELECT count(*) FROM voices WHERE sha256 = :sha256 AND voice_id <> :id"),
+            {"sha256": sha256, "id": voice_id},
+        ).scalar_one()
+        if shared:
+            return []
+        rows = self._session.execute(
+            text(
+                "SELECT e.voice_lines, e.manifest FROM episodes e JOIN shows s USING (show_id)"
+                " WHERE s.owner_id = :owner_id AND e.voice_lines IS NOT NULL"
+            ),
+            {"owner_id": owner_id},
+        ).all()
+        return clips_voiced_with(sha256, [(row.voice_lines, row.manifest) for row in rows])

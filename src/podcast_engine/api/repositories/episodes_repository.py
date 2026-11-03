@@ -22,9 +22,9 @@ from podcast_engine.api.models.pagination_model import Paged
 from podcast_engine.common.models import EpisodeStatus
 
 _COLUMNS = (
-    "episode_id, show_id, status, stage, error, revision, rewrite_count, created_at, published_at,"
-    " approved_at, audio_key IS NOT NULL AS has_audio, notes_key IS NOT NULL AS has_notes,"
-    " manifest->>'tts_provider' AS voice_provider"
+    "episode_id, show_id, status, stage, error, revision, rewrite_count, rebuild, created_at,"
+    " published_at, approved_at, audio_key IS NOT NULL AS has_audio,"
+    " notes_key IS NOT NULL AS has_notes, manifest->>'tts_provider' AS voice_provider"
 )
 # An episode is someone's through its show.
 _OWNED = "show_id IN (SELECT show_id FROM shows WHERE owner_id = :owner_id)"
@@ -33,7 +33,7 @@ _UPDATABLE = frozenset({"status", "stage", "error", "approved_at", "rewrite_coun
 
 
 class EpisodeRepository(Protocol):
-    def add(self, show_id: UUID) -> EpisodeRead: ...
+    def add(self, show_id: UUID, *, rebuild: bool = False) -> EpisodeRead: ...
 
     def get(self, episode_id: UUID, owner_id: UUID) -> EpisodeRead | None: ...
 
@@ -87,11 +87,14 @@ class PostgresEpisodeRepository:
     def _count(self, sql: str, params: dict[str, Any]) -> int:
         return int(self._session.execute(text(sql), params).scalar_one())
 
-    def add(self, show_id: UUID) -> EpisodeRead:
+    def add(self, show_id: UUID, *, rebuild: bool = False) -> EpisodeRead:
         row = (
             self._session.execute(
-                text(f"INSERT INTO episodes (show_id) VALUES (:show_id) RETURNING {_COLUMNS}"),  # noqa: S608
-                {"show_id": show_id},
+                text(
+                    "INSERT INTO episodes (show_id, rebuild) VALUES (:show_id, :rebuild)"  # noqa: S608
+                    f" RETURNING {_COLUMNS}"
+                ),
+                {"show_id": show_id, "rebuild": rebuild},
             )
             .mappings()
             .one()

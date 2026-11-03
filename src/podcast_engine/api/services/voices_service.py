@@ -152,7 +152,10 @@ class VoiceService:
         return self._store.get(voice.object_key)
 
     def delete(self, voice_id: UUID, owner: UUID) -> None:
-        """Withdraw a voice: its record and recording go, and no host of a show uses it."""
+        """Withdraw a voice: its record, its recording and the speech clips made with it go, and
+        no host of a show uses it. Finished episodes keep their audio (the form says so)."""
         voice = self.get(voice_id, owner)
+        clips = self._voices.clip_keys(voice_id, owner)
         self._voices.delete(voice_id, owner)
-        self._store.delete(voice.object_key)
+        for key in [voice.object_key, *clips]:
+            self._store.delete(key)

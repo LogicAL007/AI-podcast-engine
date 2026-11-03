@@ -8,7 +8,14 @@ import pytest
 
 from podcast_engine.common.config import Settings
 from podcast_engine.common.llm import GeminiQuotaError
-from podcast_engine.common.quota import PACIFIC, DailyBudget, MemoryCounter, episode_needs
+from podcast_engine.common.quota import (
+    PACIFIC,
+    DailyBudget,
+    MemoryCounter,
+    episode_needs,
+    reserve_episode,
+    spending_for,
+)
 
 errors = pytest.importorskip("google.genai.errors")
 
@@ -111,3 +118,68 @@ def test_the_voice_backend_stops_at_the_budget() -> None:
         tts.synthesise("Alex", "And again.")
     assert len(models.models) == 1
     assert budget.used(VOICE) == 1
+
+
+def overloaded() -> Any:
+    return errors.ServerError(
+        503,
+        {"error": {"code": 503, "message": "The model is overloaded.", "status": "UNAVAILABLE"}},
+    )
+
+
+def test_overloaded_answers_do_not_use_up_the_budget() -> None:
+    llm, models, _ = client([overloaded(), overloaded()])
+    llm.budget = DailyBudget(MemoryCounter(), {TEXT: 18})
+    assert ask(llm).title == "Tides"  # two 503s, then answered
+    assert len(models.models) == 3
+    assert llm.budget.used(TEXT) == 1  # only the request that was served counts
+
+
+def test_an_episode_reserves_what_it_needs_and_nothing_else_may_spend_it() -> None:
+    budget = DailyBudget(MemoryCounter(), {TEXT: 18})
+    budget.reserve("episode-a", {TEXT: 8}, "a whole episode")
+    assert budget.available(TEXT) == 10  # the bot sees what is left after the reservation
+    with pytest.raises(GeminiQuotaError, match="8 reserved by other episodes"):
+        budget.require({TEXT: 11}, "the bot's answer")
+    with spending_for("episode-a"):
+        budget.require({TEXT: 18}, "the episode's own requests")  # its own reservation counts
+        budget.spend(TEXT, 3)
+    assert budget.holdings(TEXT) == {"episode-a": 5}
+    assert budget.available(TEXT) == 10
+    budget.spend(TEXT, 2)  # the bot spends from what is not reserved
+    assert (budget.used(TEXT), budget.available(TEXT)) == (5, 8)
+
+
+def test_a_second_episode_cannot_reserve_what_the_first_holds() -> None:
+    budget = DailyBudget(MemoryCounter(), {TEXT: 18})
+    budget.reserve("episode-a", {TEXT: 12}, "a whole episode")
+    with pytest.raises(GeminiQuotaError, match="12 reserved by other episodes"):
+        budget.reserve("episode-b", {TEXT: 8}, "a whole episode")
+    assert budget.holdings(TEXT) == {"episode-a": 12}
+
+
+def test_releasing_gives_back_what_is_unused_and_reserving_again_does_not_double() -> None:
+    budget = DailyBudget(MemoryCounter(), {TEXT: 18, VOICE: 12})
+    budget.reserve("episode-a", {TEXT: 8, VOICE: 9}, "a whole episode")
+    budget.reserve("episode-a", {TEXT: 8, VOICE: 9}, "a whole episode")  # a retried plan stage
+    assert (budget.holdings(TEXT), budget.holdings(VOICE)) == ({"episode-a": 8}, {"episode-a": 9})
+    budget.release("episode-a")
+    assert (budget.available(TEXT), budget.available(VOICE)) == (18, 12)
+
+
+def test_an_episode_is_reserved_on_the_fallback_when_the_main_model_is_spent() -> None:
+    settings = Settings(
+        llm_enabled=True,
+        llm_provider="gemini",
+        llm_model=TEXT,
+        llm_fallback_model="fallback-model",
+        tts_backend="chatterbox",
+    )
+    budget = DailyBudget(MemoryCounter(), {TEXT: 18, "fallback-model": 18})
+    budget.spend(TEXT, 18)
+    reserve_episode(budget, settings, "episode-a", 6)
+    assert budget.holdings("fallback-model") == {"episode-a": 8}
+    assert budget.holdings(TEXT) == {}
+    no_fallback = settings.model_copy(update={"llm_fallback_model": ""})
+    with pytest.raises(GeminiQuotaError):  # without a fallback the episode does not start
+        reserve_episode(budget, no_fallback, "episode-b", 6)

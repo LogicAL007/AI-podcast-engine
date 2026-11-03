@@ -2,15 +2,22 @@
 
 Gemini's free tier allows a fixed number of requests per model per day, reset at midnight Pacific
 time. Once that is used up every further call fails until the reset, often halfway through an
-episode. The budget counts the requests actually sent (rate-limited ones are refused before they
-count) in Redis, so every worker and the API share one count. Each call checks the budget first,
-and the stages check that a whole step fits before they spend anything on it.
+episode. The budget counts, in Redis, the requests Gemini actually served or rejected as invalid,
+so every worker and the API share one count. Answers that did no work (overloaded 503s, rate-limit
+429s, network failures) are not counted. Each call checks the budget first.
+
+An episode reserves the requests it needs when it is planned. Its own requests draw that
+reservation down; nothing else (the bot, other episodes) may spend it. The reservation is released
+when the episode ends, fails or pauses for review. The episode a request belongs to is taken from
+``spending_for``, which the stage runner sets around each stage.
 
 ``python -m podcast_engine.common.quota`` prints today's counts.
 """
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 from zoneinfo import ZoneInfo
@@ -20,6 +27,19 @@ from podcast_engine.common.llm import GeminiQuotaError
 
 PACIFIC = ZoneInfo("America/Los_Angeles")  # where Google's daily quotas reset
 KEEP_S = 2 * 24 * 3600  # a day's count is kept a little past its day, then Redis drops it
+
+# The episode whose stage is running in this thread, if any: its requests use its reservation.
+_SPENDING_FOR: ContextVar[str | None] = ContextVar("gemini_spending_for", default=None)
+
+
+@contextmanager
+def spending_for(owner: str) -> Iterator[None]:
+    """Requests made inside this block belong to ``owner`` (an episode id)."""
+    token = _SPENDING_FOR.set(owner)
+    try:
+        yield
+    finally:
+        _SPENDING_FOR.reset(token)
 
 
 class Counter(Protocol):
@@ -31,12 +51,19 @@ class Counter(Protocol):
 
     def expire(self, key: str, seconds: int) -> Any: ...
 
+    def hincrby(self, name: str, key: str, amount: int = 1) -> Any: ...
+
+    def hgetall(self, name: str) -> Any: ...
+
+    def hdel(self, name: str, *keys: str) -> Any: ...
+
 
 class MemoryCounter:
     """The same counts in one process (tests, or a run without Redis)."""
 
     def __init__(self) -> None:
         self.counts: dict[str, int] = {}
+        self.hashes: dict[str, dict[str, int]] = {}
 
     def get(self, key: str) -> int | None:
         return self.counts.get(key)
@@ -46,7 +73,19 @@ class MemoryCounter:
         return self.counts[key]
 
     def expire(self, key: str, seconds: int) -> bool:  # noqa: ARG002 - one process never expires
-        return key in self.counts
+        return key in self.counts or key in self.hashes
+
+    def hincrby(self, name: str, key: str, amount: int = 1) -> int:
+        fields = self.hashes.setdefault(name, {})
+        fields[key] = fields.get(key, 0) + amount
+        return fields[key]
+
+    def hgetall(self, name: str) -> dict[str, int]:
+        return dict(self.hashes.get(name, {}))
+
+    def hdel(self, name: str, *keys: str) -> int:
+        held = self.hashes.get(name, {})
+        return sum(held.pop(key, None) is not None for key in keys)
 
 
 class DailyBudget:
@@ -69,6 +108,9 @@ class DailyBudget:
     def _key(self, model: str) -> str:
         return f"gemini-requests:{self.day()}:{model}"
 
+    def _held_key(self, model: str) -> str:
+        return f"gemini-reserved:{self.day()}:{model}"
+
     def used(self, model: str) -> int:
         return int(self.counter.get(self._key(model)) or 0)
 
@@ -77,12 +119,46 @@ class DailyBudget:
         limit = self.limits.get(model)
         return None if limit is None else max(limit - self.used(model), 0)
 
+    def holdings(self, model: str) -> dict[str, int]:
+        """Requests each episode still has reserved for ``model`` today."""
+        raw = self.counter.hgetall(self._held_key(model)) or {}
+        held = {(k.decode() if isinstance(k, bytes) else str(k)): int(v) for k, v in raw.items()}
+        return {owner: n for owner, n in held.items() if n > 0}
+
+    def available(self, model: str, owner: str | None = None) -> int | None:
+        """Requests ``owner`` may still spend today: what is left, less what others reserved."""
+        left = self.left(model)
+        if left is None:
+            return None
+        others = sum(n for who, n in self.holdings(model).items() if who != owner)
+        return max(left - others, 0)
+
+    def reserve(self, owner: str, needs: dict[str, int], purpose: str) -> None:
+        """Set aside ``needs`` for ``owner``, after checking it fits (GeminiQuotaError if not)."""
+        with spending_for(owner):
+            self.require(needs, purpose)
+        for model, wanted in needs.items():
+            if model not in self.limits:
+                continue
+            key = self._held_key(model)
+            current = self.holdings(model).get(owner, 0)
+            self.counter.hincrby(key, owner, wanted - current)
+            self.counter.expire(key, KEEP_S)
+
+    def release(self, owner: str) -> None:
+        """Give back whatever ``owner`` still has reserved."""
+        for model in self.limits:
+            self.counter.hdel(self._held_key(model), owner)
+
     def spend(self, model: str, requests: int = 1) -> None:
         if model not in self.limits:
             return
         key = self._key(model)
         self.counter.incrby(key, requests)
         self.counter.expire(key, KEEP_S)
+        owner = _SPENDING_FOR.get()
+        if owner is not None and (held := self.holdings(model).get(owner, 0)):
+            self.counter.hincrby(self._held_key(model), owner, -min(held, requests))
 
     def resets_in(self) -> timedelta:
         now = self._now()
@@ -93,15 +169,19 @@ class DailyBudget:
         """Why ``needs`` (requests per model) does not fit in today's budget, or None if it does.
 
         ``reserve`` requests of each limit stay unused, kept for something more important.
+        Requests other episodes have reserved are not available; the current episode's own are.
         """
+        owner = _SPENDING_FOR.get()
         short = []
         for model, wanted in needs.items():
-            left = self.left(model)
-            if left is not None and wanted > left - reserve:
-                usable = max(left - reserve, 0)
+            available = self.available(model, owner)
+            if available is not None and wanted > available - reserve:
+                usable = max(available - reserve, 0)
+                held = sum(n for who, n in self.holdings(model).items() if who != owner)
+                note = f", {held} reserved by other episodes" if held else ""
                 short.append(
                     f"{wanted} {model} request{'s' if wanted != 1 else ''} "
-                    f"({usable} of today's {self.limits[model]} left)"
+                    f"({usable} of today's {self.limits[model]} left{note})"
                 )
         return "; ".join(short) or None
 
@@ -131,6 +211,27 @@ def episode_needs(settings: Settings, segments: int, *, plan: bool = True) -> di
     return needs
 
 
+def reserve_episode(
+    budget: DailyBudget, settings: Settings, owner: str, segments: int, *, plan: bool = True
+) -> None:
+    """Reserve a whole episode's requests; on the fallback model if the main one cannot cover it.
+
+    The text client moves to the fallback by itself once the main model's budget is spent, so
+    the episode's text requests are then reserved there.
+    """
+    needs = episode_needs(settings, segments, plan=plan)
+    try:
+        budget.reserve(owner, needs, "a whole episode")
+    except GeminiQuotaError:
+        fallback = settings.llm_fallback_model
+        if not fallback or settings.llm_model not in needs:
+            raise
+        moved = {
+            fallback if model == settings.llm_model else model: n for model, n in needs.items()
+        }
+        budget.reserve(owner, moved, "a whole episode")
+
+
 def make_budget(settings: Settings) -> DailyBudget | None:
     """The budget for the configured models, or None when no daily limit is set."""
     limits = {
@@ -157,7 +258,8 @@ def main() -> None:
     else:
         hours = budget.resets_in().total_seconds() / 3600
         lines = [f"Pacific day {budget.day()}, resets in about {hours:.1f} h"] + [
-            f"  {model}: {budget.used(model)} used, {budget.left(model)} left of {limit}"
+            f"  {model}: {budget.used(model)} used, {budget.left(model)} left of {limit}, "
+            f"{sum(budget.holdings(model).values())} reserved"
             for model, limit in budget.limits.items()
         ]
     print("\n".join(lines))  # noqa: T201 - the command's output

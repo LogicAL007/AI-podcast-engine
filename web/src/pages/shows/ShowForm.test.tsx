@@ -47,6 +47,33 @@ describe("new show wizard", () => {
     );
   });
 
+  it("sends searches, one per line, tidied", async () => {
+    const onSubmit = wizard();
+    await userEvent.type(screen.getByLabelText(/Topic/), "Tides and the moon");
+    await userEvent.type(
+      screen.getByLabelText(/Searches/),
+      "  ocean   tides {enter}{enter}moon phases",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create show" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search_queries: ["ocean tides", "moon phases"],
+      }),
+    );
+  });
+
+  it("allows at most three searches", async () => {
+    wizard();
+    await userEvent.type(screen.getByLabelText(/Topic/), "Tides and the moon");
+    await userEvent.type(
+      screen.getByLabelText(/Searches/),
+      "one{enter}two{enter}three{enter}four",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("At most 3 searches.")).toBeInTheDocument();
+  });
+
   it("keeps what was typed when going back", async () => {
     wizard();
     await userEvent.type(screen.getByLabelText(/Topic/), "Bridges");

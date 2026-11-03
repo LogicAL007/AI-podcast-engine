@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -30,6 +31,7 @@ import {
   type ConsentErrors,
   type ConsentValues,
 } from "./consent";
+import { ConsentDocument } from "./ConsentDocument";
 
 const STEPS = ["Consent", "Record or upload", "Review and register"];
 
@@ -200,6 +202,9 @@ function ConsentStep({
 }) {
   const form = useConsentForm();
   const [errors, setErrors] = useState<ConsentErrors>({});
+  // The agreements are asked for only once the whole form has been read.
+  const [read, setRead] = useState(false);
+  const markRead = useCallback(() => setRead(true), []);
   const set = <K extends keyof ConsentValues>(
     key: K,
     value: ConsentValues[K],
@@ -208,6 +213,7 @@ function ConsentStep({
 
   function next(event: FormEvent) {
     event.preventDefault();
+    if (!read) return;
     const problems = consentProblems(values);
     setErrors(problems);
     if (!Object.keys(problems).length) onDone();
@@ -216,9 +222,15 @@ function ConsentStep({
   return (
     <form className="stack" onSubmit={next} noValidate>
       <p className="muted">
-        A voice can only be cloned with its speaker&apos;s permission. Complete
-        this form before recording or uploading; it is kept with the recording.
+        A voice can only be cloned with its speaker&apos;s permission. Read the
+        consent form in full, then fill in and sign it before recording or
+        uploading; it is kept with the recording.
       </p>
+      {form.data ? (
+        <ConsentDocument consent={form.data} onRead={markRead} />
+      ) : (
+        <p className="muted">Loading the consent form…</p>
+      )}
       <fieldset className="choice-group">
         <legend>Whose voice is it?</legend>
         <div className="character-cards">
@@ -277,19 +289,19 @@ function ConsentStep({
         error={errors.license}
         onChange={(event) => set("license", event.target.value)}
       />
-      <div className="consent-statement" aria-live="polite">
-        <p className="consent-label">
-          Consent statement {form.data ? `(version ${form.data.version})` : ""}
-        </p>
-        <p>{form.data?.statement ?? "Loading the consent statement…"}</p>
-      </div>
       <fieldset
         className="choice-group stack"
         style={{ gap: "var(--space-2)" }}
+        disabled={!read}
       >
         <legend>Agreements</legend>
+        {!read ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Read the consent form to the end to agree.
+          </p>
+        ) : null}
         <CheckboxField
-          label="I agree to the consent statement above."
+          label="I have read the consent form above and agree to it."
           checked={values.agree_clone}
           onChange={(event) => set("agree_clone", event.target.checked)}
         />
@@ -325,7 +337,7 @@ function ConsentStep({
         Signed on {formatDate(new Date().toISOString())}.
       </p>
       <div className="row">
-        <Button type="submit" disabled={!form.data}>
+        <Button type="submit" disabled={!form.data || !read}>
           Agree and continue
         </Button>
       </div>

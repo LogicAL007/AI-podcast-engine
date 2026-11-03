@@ -126,6 +126,15 @@ export function ShowForm({
             error={errors.sources}
             onChange={(event) => set("sources", event.target.value)}
           />
+          <TextArea
+            label="Searches"
+            data-tour="show-searches"
+            hint="Optional. Up to 3 searches, one per line, such as “ocean tides moon”. Each time an episode is made, the top results are read like your pages, so Refresh picks up what is new."
+            rows={2}
+            value={values.searches}
+            error={errors.searches}
+            onChange={(event) => set("searches", event.target.value)}
+          />
         </>
       ) : null}
       {showSecond ? (

@@ -1,5 +1,7 @@
 """Today's Gemini usage: what is spent and left, for the sidebar's budget card."""
 
+from typing import Any
+
 from podcast_engine.api import dependencies
 from podcast_engine.api.controllers.usage_controller import UsageController
 from podcast_engine.api.services.usage_service import UsageService
@@ -10,14 +12,15 @@ from tests.unit.api.conftest import Harness
 TEXT, VOICE = "gemini-3.8-flash", "gemini-3.8-flash-tts"
 
 
-def _usage(harness: Harness, budget: DailyBudget | None, **settings: object) -> dict:
+def _usage(harness: Harness, budget: DailyBudget | None, **settings: object) -> dict[str, Any]:
     config = Settings(llm_model=TEXT, tts_model=VOICE, **settings)  # type: ignore[arg-type]
     harness.client.app.dependency_overrides[dependencies.get_usage_controller] = (  # type: ignore[attr-defined]
         lambda: UsageController(UsageService(config, budget))
     )
     response = harness.client.get("/v1/usage")
     assert response.status_code == 200, response.text
-    return response.json()
+    usage: dict[str, Any] = response.json()
+    return usage
 
 
 def test_reports_requests_used_and_left_for_each_model_in_use(harness: Harness) -> None:

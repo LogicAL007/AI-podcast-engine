@@ -13,19 +13,20 @@ from podcast_engine.api.models.shows_model import ShowCreate, ShowRead
 
 _COLUMNS = (
     "show_id, topic, tone, target_minutes, host_count, language, expertise, sources,"
-    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, host_voices,"
-    " created_at"
+    " search_queries, topic_keywords, attribution, max_segments, ranking_profile,"
+    " review_before_voice, host_voices, created_at"
 )
 _INSERT = (
     "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources,"  # noqa: S608
-    " topic_keywords, attribution, max_segments, ranking_profile, review_before_voice, host_voices,"
-    " owner_id)"
+    " search_queries, topic_keywords, attribution, max_segments, ranking_profile,"
+    " review_before_voice, host_voices, owner_id)"
     " VALUES (:topic, :tone, :target_minutes, :host_count, :language, :expertise,"
-    " CAST(:sources AS jsonb), :topic_keywords, :attribution, :max_segments, :ranking_profile,"
-    " :review_before_voice, CAST(:host_voices AS jsonb), :owner_id)"
+    " CAST(:sources AS jsonb), CAST(:search_queries AS jsonb), :topic_keywords, :attribution,"
+    " :max_segments, :ranking_profile, :review_before_voice, CAST(:host_voices AS jsonb),"
+    " :owner_id)"
     f" RETURNING {_COLUMNS}"
 )
-_JSON_COLUMNS = frozenset({"sources", "host_voices"})
+_JSON_COLUMNS = frozenset({"sources", "search_queries", "host_voices"})
 _UPDATABLE = frozenset(
     {
         "topic",
@@ -35,6 +36,7 @@ _UPDATABLE = frozenset(
         "language",
         "expertise",
         "sources",
+        "search_queries",
         "topic_keywords",
         "attribution",
         "max_segments",
@@ -187,6 +189,8 @@ def _to_params(values: Mapping[str, Any]) -> dict[str, Any]:
     params = dict(values)
     if "sources" in params:
         params["sources"] = json.dumps([str(url) for url in params["sources"]])
+    if "search_queries" in params:
+        params["search_queries"] = json.dumps(list(params["search_queries"]))
     if "host_voices" in params:
         params["host_voices"] = json.dumps({h: str(v) for h, v in params["host_voices"].items()})
     return params

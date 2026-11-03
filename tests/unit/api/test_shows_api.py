@@ -21,8 +21,19 @@ def test_create_rejects_invalid_input(harness: Harness) -> None:
         {**VALID, "target_minutes": 0},
         {**VALID, "language": "english"},
         {**VALID, "sources": ["not a url"]},
+        {**VALID, "search_queries": ["a", "b", "c", "d"]},  # at most 3
+        {**VALID, "search_queries": ["x"]},  # too short to search
+        {**VALID, "search_queries": ["x" * 201]},
     ):
         assert harness.client.post("/v1/shows", json=bad).status_code == 422, bad
+
+
+def test_searches_are_tidied_and_can_be_the_only_source(harness: Harness) -> None:
+    body = {"topic": "Ocean tides", "search_queries": ["  ocean   tides ", "ocean tides", "moon"]}
+    show = harness.client.post("/v1/shows", json=body).json()
+    assert show["search_queries"] == ["ocean tides", "moon"]  # spaces tidied, duplicates gone
+    patched = harness.client.patch(f"/v1/shows/{show['show_id']}", json={"search_queries": []})
+    assert patched.json()["search_queries"] == []
 
 
 def test_get_list_update_delete_round_trip(harness: Harness) -> None:

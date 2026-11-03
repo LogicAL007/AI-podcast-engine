@@ -159,3 +159,28 @@ def test_a_request_gemini_rejects_fails_the_stage_without_retries() -> None:
     assert run_stage(Stage.VOICE, stage, uuid4(), ctx, last_attempt=False) is None
     assert updates[-1]["status"] is EpisodeStatus.FAILED
     assert "speaker missing" in updates[-1]["error"]
+
+
+def test_a_model_that_keeps_timing_out_moves_to_the_fallback() -> None:
+    timeout = httpx.ReadTimeout("timed out")
+    llm, models, _ = client([timeout] * 3, fallback="gemini-3.8-flash-lite")
+    assert ask(llm).title == "Tides"
+    assert models.models == ["gemini-3.8-flash"] * 3 + ["gemini-3.8-flash-lite"]
+
+
+def test_requests_have_a_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    from google import genai
+
+    made: list[Any] = []
+    monkeypatch.setattr(genai, "Client", lambda **kwargs: made.append(kwargs))
+    GeminiClient("test-key", "gemini-3.8-flash", seed=1, timeout=90)
+    assert made[0]["http_options"].timeout == 90_000
+
+
+def test_a_fallback_out_of_quota_sends_requests_back_to_the_main_model() -> None:
+    llm, models, _ = client([], fallback="gemini-3.8-flash-lite")
+    llm.active = "gemini-3.8-flash-lite"  # an earlier request found the main model busy
+    models.outcomes = [quota_error(PER_DAY)]
+    assert ask(llm).title == "Tides"
+    assert models.models == ["gemini-3.8-flash-lite", "gemini-3.8-flash"]
+    assert llm.active == "gemini-3.8-flash"

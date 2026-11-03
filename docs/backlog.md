@@ -11,5 +11,5 @@ To update it, edit the item in `ITEMS` (status, notes), bump `VERSION`, add a li
 
 ```sh
 pip install -e ".[reports]"
-python docs/reports/defect_risk_report.py
+make -C research report   # research/ is git-ignored, local only
 ```

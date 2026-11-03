@@ -104,12 +104,13 @@ class FakeEpisodeRepository:
         self.claims: dict[UUID, list[ClaimDetail]] = {}
         self.files: dict[UUID, EpisodeFiles] = {}
 
-    def add(self, show_id: UUID) -> EpisodeRead:
+    def add(self, show_id: UUID, *, rebuild: bool = False) -> EpisodeRead:
         episode = EpisodeRead(
             episode_id=uuid4(),
             show_id=show_id,
             status=EpisodeStatus.QUEUED,
             rewrite_count=0,
+            rebuild=rebuild,
             created_at=datetime.now(UTC),
             published_at=None,
         )
@@ -461,6 +462,7 @@ class FakeVoiceRepository:
         from podcast_engine.api.models.voices_model import VoiceRead
 
         self.rows: dict[UUID, tuple[UUID, VoiceRead]] = {}
+        self.clips: dict[UUID, list[str]] = {}  # speech clips made with each voice
         self._shows = shows
 
     def add(self, owner_id: UUID, values: dict[str, Any]) -> Any:
@@ -496,3 +498,6 @@ class FakeVoiceRepository:
 
     def object_keys(self, owner_id: UUID) -> list[str]:
         return [v.object_key for owner, v in self.rows.values() if owner == owner_id]
+
+    def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]:
+        return self.clips.get(voice_id, []) if self.get(voice_id, owner_id) else []

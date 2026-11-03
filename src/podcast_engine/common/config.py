@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"  # "gemini" or "anthropic"
     llm_model: str = "gemini-3.8-flash"
     llm_fallback_model: str = ""  # opt-in: another model if llm_model stays overloaded
+    llm_timeout_seconds: float = Field(default=180, gt=0)  # per Gemini request, then retried
     tts_backend: str = "placeholder"  # "placeholder", "say", "chatterbox" or "gemini"
     tts_model: str = "gemini-3.8-flash-tts"  # used by the "gemini" backend
     signup_open: bool = False  # True: anyone may create a creator account at /signup
@@ -104,6 +106,12 @@ class Settings(BaseSettings):
     passages_per_segment: int = Field(default=0, ge=0)  # 0: 3 offline, 6 with an LLM
     migrations_dir: Path = Path("/app/db/migrations")
     feed_max_items: int = Field(default=10, ge=1, le=100)  # newest entries read from each feed
+    # Search results as a source (FR2): each of a show's searches reads this many top results.
+    # "wikipedia" needs no key; "brave" (web-wide, paid) needs SEARCH_API_KEY; "off" skips them.
+    search_provider: Literal["wikipedia", "brave", "off"] = "wikipedia"
+    search_results: int = Field(default=3, ge=1, le=10)
+    search_api_key: SecretStr = SecretStr("")  # from Vault (Brave)
+    search_api_key_file: Path | None = None
     max_upload_mb: int = Field(default=25, ge=1)  # largest PDF a creator may upload
     # Scheduler (FR8): hours between automatic refreshes of each published show; 0 turns it off.
     refresh_interval_hours: float = Field(default=0.0, ge=0.0)
@@ -136,6 +144,7 @@ VAULT_SECRETS = (
     "auth_token_key",
     "smtp_password",
     "google_client_secret",
+    "search_api_key",
 )
 
 

@@ -5,13 +5,18 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Path, Request, Response, UploadFile, status
 
+from podcast_engine.api.consent_pdf import FILENAME, consent_pdf
 from podcast_engine.api.controllers.voices_controller import VoiceController
 from podcast_engine.api.dependencies import CurrentUserDep, get_voice_controller
 from podcast_engine.api.models.pagination_model import Page
 from podcast_engine.api.models.voices_model import (
+    CONSENT_SECTIONS,
     CONSENT_STATEMENT,
+    CONSENT_TITLE,
     CONSENT_VERSION,
+    ConsentDocument,
     ConsentForm,
+    ConsentSection,
     Relationship,
     VoiceRead,
     VoiceSource,
@@ -28,13 +33,40 @@ NOT_FOUND = errors(e404="Voice not found")
 
 @router.get(
     "/consent",
+    response_model=ConsentDocument,
     summary="Read the consent form",
-    response_description="The version and exact wording a speaker agrees to",
+    response_description="The consent form, section by section, and where to get it as a PDF",
 )
-def consent_form() -> dict[str, str]:
-    """The consent statement a speaker must agree to before their voice is recorded or uploaded.
-    Its version and text are stored with every voice."""
-    return {"version": CONSENT_VERSION, "statement": CONSENT_STATEMENT}
+def consent_form(request: Request) -> ConsentDocument:
+    """The consent form a speaker must read and agree to before their voice is recorded or
+    uploaded. Its version and full text (`statement`) are stored with every voice signed on it;
+    voices signed on an earlier version keep the text they agreed to."""
+    return ConsentDocument(
+        version=CONSENT_VERSION,
+        title=CONSENT_TITLE,
+        sections=[ConsentSection(heading=h, paragraphs=list(p)) for h, p in CONSENT_SECTIONS],
+        statement=CONSENT_STATEMENT,
+        pdf=str(request.url_for("consent_form_pdf").path),
+    )
+
+
+@router.get(
+    "/consent.pdf",
+    summary="Download the consent form as a PDF",
+    response_class=Response,
+    responses=file_response("application/pdf", "The consent form", binary=True),
+)
+def consent_form_pdf() -> Response:
+    """The same consent form as a PDF, to read, keep or print. For someone else's voice, a
+    printed copy signed by the speaker can be kept as their written permission."""
+    return Response(
+        consent_pdf(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{FILENAME}"',
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
 
 
 @router.post(

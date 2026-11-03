@@ -25,7 +25,14 @@ dependencies = [
 
 # One extra per container image, so each stage installs only what it needs.
 [project.optional-dependencies]
-api = ["argon2-cffi>=25.1", "fastapi>=0.110", "python-multipart>=0.0.9", "uvicorn[standard]>=0.29"]
+# reportlab renders the voice consent form as a PDF (GET /v1/voices/consent.pdf).
+api = [
+    "argon2-cffi>=25.1",
+    "fastapi>=0.110",
+    "python-multipart>=0.0.9",
+    "reportlab>=4.2",
+    "uvicorn[standard]>=0.29",
+]
 ingest = ["feedparser>=6.0", "httpx>=0.27", "lxml>=5.0", "pymupdf>=1.24", "trafilatura>=1.9"]
 embeddings = ["pgvector>=0.3", "sentence-transformers>=3.0"]
 llm = ["google-genai>=1.0"]
@@ -33,7 +40,7 @@ anthropic = ["anthropic>=0.40"]
 voice = ["httpx>=0.27"]
 assemble = ["numpy>=1.26", "pydub>=0.25", "pyloudnorm>=0.1"]
 publish = ["feedgen>=1.0"]
-# Renders docs/reports/*.py into PDF reports.
+# Renders research/reports/*.py into PDF reports.
 reports = ["reportlab>=4.2"]
 # The vault-certs one-shot: creates the local CA and Vault's TLS certificate.
 tls = ["cryptography>=43"]
@@ -42,7 +49,7 @@ tls = ["cryptography>=43"]
 # resemble-perth (Chatterbox's watermarker) imports pkg_resources, which setuptools 81+ removed, and
 # without it Chatterbox fails to start with "'NoneType' object is not callable".
 cloning = ["chatterbox-tts>=0.1.7", "setuptools<81"]
-# Everything notebooks/podcast_flow.ipynb imports; sentence-transformers is optional (see `embeddings`).
+# Everything research/notebooks/podcast_flow.ipynb imports; sentence-transformers is optional (see `embeddings`).
 notebook = [
     "anthropic>=0.40",
     "feedgen>=1.0",
@@ -96,13 +103,15 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "ARG"]  # test passwords and tokens are fixtures
+"research/**/tests/**" = ["S101", "S105", "S106", "ARG"]
+# research/ is git-ignored, so ruff skips it unless run inside it (make -C research lint).
 # Evaluation scripts are command-line tools that print their reports.
-"evaluation/**" = ["T201"]
+"research/evaluation/**" = ["T201"]
 # Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the
 # text goes in on stdin, never through a shell). The RNG only picks banter lines.
-"notebooks/**" = ["A004", "ARG001", "ARG002", "E402", "E501", "S101", "S311", "S603", "S607", "SIM905", "T201"]
+"research/notebooks/**" = ["A004", "ARG001", "ARG002", "E402", "E501", "S101", "S311", "S603", "S607", "SIM905", "T201"]
 # Architecture diagrams: long lines are diagram text; '·' and '−' are typography; build prints.
-"presentation/diagrams/**" = ["E501", "RUF001", "T201"]
+"research/presentation/diagrams/**" = ["E501", "RUF001", "T201"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -111,7 +120,7 @@ quote-style = "double"
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests", "evaluation"]
+files = ["src", "tests"]  # research/ is checked by make -C research typecheck
 # Test doubles that replace third-party SDKs on PYTHONPATH; not worth type-checking.
 exclude = ["tests/fixtures/"]
 
@@ -130,10 +139,12 @@ module = [
     "feedparser.*",
     "fitz.*",
     "stop_words.*",
+    "librosa.*",
     "lxml.*",
     "pgvector.*",
     "pydub.*",
     "pyloudnorm.*",
+    "reportlab.*",
     "sentence_transformers.*",
     "trafilatura.*",
 ]
@@ -149,7 +160,7 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers --cov=podcast_engine --cov-report=term-missing"
 markers = [
     "integration: needs the docker compose stack running",
-    "notebook: executes notebooks/podcast_flow.ipynb (slow; no network or API key needed)",
+    "notebook: executes research/notebooks/podcast_flow.ipynb (slow; no network or API key needed)",
 ]
 # PyMuPDF's compiled bindings warn about their own SWIG types on import; nothing to act on.
 filterwarnings = [

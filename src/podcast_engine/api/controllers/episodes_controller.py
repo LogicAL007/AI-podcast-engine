@@ -30,8 +30,8 @@ class EpisodeController:
     def __init__(self, service: EpisodeService) -> None:
         self._service = service
 
-    def start(self, show_id: UUID, owner: UUID) -> EpisodeRead:
-        return http_errors(lambda: self._service.start(show_id, owner))
+    def start(self, show_id: UUID, owner: UUID, *, rebuild: bool = False) -> EpisodeRead:
+        return http_errors(lambda: self._service.start(show_id, owner, rebuild=rebuild))
 
     def get(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
         return http_errors(lambda: self._service.get(episode_id, owner))

@@ -66,18 +66,19 @@ class EpisodeService:
         self._now = now
 
     # ---- creating and reading -------------------------------------------------------------
-    def start(self, show_id: UUID, owner: UUID) -> EpisodeRead:
+    def start(self, show_id: UUID, owner: UUID, *, rebuild: bool = False) -> EpisodeRead:
         """Create an episode for a show and hand it to the pipeline.
 
         The first episode builds everything. A later one is a refresh: only segments whose
         sources changed are regenerated, and if none changed the episode ends as ``unchanged``.
+        With ``rebuild``, a refresh regenerates every segment, changed or not.
 
         The row is committed before the job is enqueued, so a worker can always read it. If the
         queue is unreachable the episode is marked failed rather than left queued forever.
         """
         if self._shows.get(show_id, owner) is None:
             raise NotFoundError("show", show_id)
-        episode = self._episodes.add(show_id)
+        episode = self._episodes.add(show_id, rebuild=rebuild)
         self._dispatch(episode.episode_id, Stage.INGEST)
         return episode
 

@@ -57,7 +57,7 @@ export function ShowPage() {
                   ),
               confirm: {
                 title: "Generate an episode?",
-                body: "It reads the sources, writes and fact-checks a script, then voices it. With the model on, that uses your Gemini quota.",
+                body: "It reads the sources, writes and fact-checks a script, then voices it. With the model on, that uses your Podcast Engine quota.",
                 confirmLabel: "Generate",
               },
             },

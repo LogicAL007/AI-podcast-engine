@@ -2,7 +2,8 @@
 
 Turns live, changing sources into a grounded, multi-voice podcast episode. Each episode is
 assembled at generation time from current sources, with every factual claim tied to a cited
-passage. See the PRD for goals, requirements (FR1–FR13) and the evaluation plan.
+passage. The PRD (goals, requirements FR1–FR13, evaluation plan) and the research proposal are
+kept with the other research material in `research/`, which is git-ignored and stays local.
 
 ## Pipeline
 
@@ -34,12 +35,12 @@ db/migrations/     idempotent SQL applied by the `db-migrate` service on every `
 config/            show definitions, source reliability tiers, pronunciation lexicon
 prompts/           versioned prompts (`<name>.v<N>.md`), logged per episode
 assets/audio/      intro/outro/transition audio
-evaluation/        RQ1–RQ3 study material and benchmarks (not containerised)
-docs/              api.md (the API), erd.md (the data model), observability.md (metrics and logs), notebook.md
-notebooks/         podcast_flow.ipynb: the whole pipeline, runnable offline
+docs/              api.md (the API), erd.md (the data model), observability.md (metrics and logs)
 monitoring/        Prometheus scrape configuration
 docker/            stage.Dockerfile, the one recipe behind every Python image (api and worker targets)
 tests/             unit/ (no services needed), integration/ (marked `integration`)
+research/          git-ignored, local only: PRD, proposal, presentation, reports, notebooks, and the
+                   RQ1–RQ3 evaluation code and results (`make -C research help`)
 ```
 
 ## Docker
@@ -83,7 +84,7 @@ make dev            # same, with ./src mounted for edits without rebuilding
 ```bash
 make setup          # editable install + pre-commit hooks
 make check          # ruff, strict mypy, unit tests (what CI runs)
-make notebook-test  # runs notebooks/podcast_flow.ipynb offline and checks the flow
+make -C research notebook-test  # runs the notebook offline (only where research/ exists)
 ```
 
 ## Web app
@@ -128,7 +129,7 @@ docker compose run --rm -T vault-init set llm_api_key < secrets/llm_api_key.txt
 docker compose restart index_plan script_factcheck voice   # services read secrets at start
 
 # replace a secret (a leaked key, say): put the new value in secrets/<name>.txt, then
-make rotate-secret NAME=llm_api_key   # or tts_api_key, smtp_password, google_client_secret
+make rotate-secret NAME=llm_api_key   # or tts_api_key, smtp_password, google_client_secret, search_api_key
 # and revoke the old value with its provider (AI Studio, Google Cloud Console, ...)
 
 # the first account becomes the admin; then log in for a six-month token
@@ -144,7 +145,7 @@ It also lasts six months.
 
 ## Running an episode
 
-The stages implement the flow validated in `notebooks/podcast_flow.ipynb`. A web page is split into
+The stages implement the flow validated in the pipeline notebook (`research/notebooks/`). A web page is split into
 sections, and each section is a source with its own hash and anchor. Sections are chunked
 (80 words, 40 overlap) and embedded into pgvector. Passages are ranked by topic, recency and
 authority, one segment is planned per section, and a two-host script quotes or paraphrases cited
@@ -166,9 +167,39 @@ curl -o episode.wav localhost:8000/v1/episodes/<episode_id>/audio.wav
 curl localhost:8000/v1/feeds/<show_id>/rss.xml
 ```
 
-Posting another episode for the same show is a **refresh** (FR8). Only segments whose sections
-changed are re-scripted and re-voiced. If nothing changed, the episode ends as `unchanged`. Set
-`REFRESH_INTERVAL_HOURS` to have the scheduler do this on a timer.
+Posting another episode for the same show is a **refresh** (FR8): the **Refresh** button on a
+published episode. The sources are read again and the searches run again; only segments whose
+sections changed are re-scripted and re-voiced, and if nothing changed the episode ends as
+`unchanged`. Choosing "Everything, from scratch" (`{"rebuild": true}`) regenerates every segment
+instead. Set `REFRESH_INTERVAL_HOURS` to have the scheduler refresh on a timer as well (off by
+default: on the Gemini free tier, refreshing by hand keeps the day's requests for you).
+
+**Demonstrating refresh with a source that changes.** `make demo-site` starts a fictional local
+news page (*The Port Arden Ledger*, `demo/site/`) whose story moves through three editions:
+1. As first published.
+2. Only the Timeline section changes.
+3. A new "Subscriptions open" section is added.
+
+To run the demo:
+1. Create a show with `http://demo-site:8095/` as its source. That's the address the workers use
+   inside the stack; the browser opens `http://localhost:8095`.
+2. Generate an episode.
+3. Publish the next edition with the button on the page or `make demo-next`.
+4. Press **Refresh** on the episode. Only the segment built from the changed section is
+   re-scripted and re-voiced.
+5. `make demo-reset` goes back to edition 1.
+
+Citation links in that episode's notes point at `demo-site:8095`, which only resolves inside the
+stack.
+
+**Searches as sources (FR2).** Besides web pages, feeds and PDFs, a show can have up to 3
+searches. Each time an episode is made, the top `SEARCH_RESULTS` results of each are read like the
+show's own pages, so every section is citable and a refresh sees new results as changed sources.
+The default provider is Wikipedia's search API (`SEARCH_PROVIDER=wikipedia`, no key, the show's
+language): articles are read through the API as plain text, dated by their last edit, and rank as
+established sources. `brave` searches the whole web with a Brave Search API key
+(`secrets/search_api_key.txt`, or `make rotate-secret NAME=search_api_key`); it is paid. Google's
+Custom Search JSON API is closed to new customers, so it is not offered.
 
 | Setting (`.env`) | Default | |
 |---|---|---|
@@ -176,13 +207,15 @@ changed are re-scripted and re-voiced. If nothing changed, the episode ends as `
 | `EMBEDDING_MODEL` | `hashing` | Offline. A sentence-transformers id works if it has 384 dimensions (for example `BAAI/bge-small-en-v1.5`) |
 | `TTS_BACKEND` | `placeholder` | `placeholder` (tones, for testing) or `gemini` (prebuilt voices, key in `secrets/tts_api_key.txt`, else the LLM key) in containers. `say` and `chatterbox` run on a host, see below |
 | `TTS_REQUESTS_PER_MINUTE` | `0` | `gemini` only: space voice requests out to this rate (the free tier allows 3 a minute); `0` = no limit. Rate-limited requests are retried after the wait Gemini asks for |
-| `LLM_REQUESTS_PER_DAY` | `0` | Gemini text requests `LLM_MODEL` (and `LLM_FALLBACK_MODEL`) may make per Pacific day, counted in Redis across every worker and the API; `0` = not counted. Set it just under your daily cap (AI Studio, Rate limits; the free tier is about 20). An episode starts only if the day can finish it (outline, one request per segment, fact-check), a rewrite the day cannot cover is held for review, and the companion bot uses at most half of it. `python -m podcast_engine.common.quota` prints today's counts |
+| `LLM_REQUESTS_PER_DAY` | `0` | Gemini text requests `LLM_MODEL` (and `LLM_FALLBACK_MODEL`) may make per Pacific day, counted in Redis across every worker and the API; `0` = not counted. Set it just under your daily cap (AI Studio, Rate limits; the free tier is about 20). An episode starts only if the day can finish it (outline, one request per segment, fact-check), and those requests are then reserved for it, so the bot and other episodes cannot spend them; the reservation is released when it ends, fails or pauses for review. If `LLM_MODEL` cannot cover it, it is reserved on `LLM_FALLBACK_MODEL`. Only requests Gemini served or rejected count: overloaded 503s, 429s and network failures do not. A rewrite the day cannot cover is held for review, the companion bot uses at most half of the day, and the script is saved segment by segment, so a retry writes only what is missing. `python -m podcast_engine.common.quota` prints today's counts and reservations |
 | `TTS_REQUESTS_PER_DAY` | `0` | The same for `TTS_MODEL`: one request per part read aloud, so an episode needs its segments plus 3. The free tier is about 15 |
 | `ASSISTANT_QUESTIONS_PER_HOUR` | `20` | Questions each person may ask the companion bot an hour. With `LLM_ENABLED=true` each one is a model call; otherwise the built-in help answers |
 | `SIGNUP_OPEN` | `false` | `true`: anyone can create their own `creator` account at `/signup` (throttled per address). Each account can spend your LLM and TTS quota |
 | `GOOGLE_CLIENT_ID` | blank | Shows "Sign in with Google". Create an OAuth client (type *Web application*) in Google Cloud Console with the redirect URI `<PUBLIC_WEB_URL>/api/v1/auth/google/callback`, and put its secret in `secrets/google_client_secret.txt` (vault-init stores it in Vault) |
 | `MAX_REWRITES` | `2` | Gate loops before an episode is held as `needs_review` |
-| `REFRESH_INTERVAL_HOURS` | `0` | Scheduler refresh period for published shows; `0` is off |
+| `REFRESH_INTERVAL_HOURS` | `0` | Scheduler refresh period for published shows; `0` is off (use the Refresh button) |
+| `SEARCH_PROVIDER` | `wikipedia` | Where a show's searches look: `wikipedia` (no key), `brave` (paid, key in `secrets/search_api_key.txt`) or `off` |
+| `SEARCH_RESULTS` | `3` | Top results read for each search (1 to 10) |
 
 **Cloned voices (Chatterbox) run on the host.** Chatterbox needs torch and ideally a GPU (MPS on a
 Mac), and Docker on macOS cannot reach the Mac's GPU, so Chatterbox is not in the voice image.
@@ -192,7 +225,17 @@ on 9010; it reads `.env`). Keep it running while episodes are voiced; stop it wi
 `COMPOSE_FILE=docker-compose.yml:docker-compose.voice-host.yml` in `.env` so that every
 `docker compose` command keeps those ports. The voice container checks for its backend before
 taking any job: without Chatterbox it logs why and stops (`voice_worker_standing_down`), so jobs
-wait in the queue for the host worker instead of failing. `config/voices.yaml` holds the consent
+wait in the queue for the host worker instead of failing.
+
+**Voice consent.** Before recording, the voice studio shows the consent form in full as a
+document; agreement is possible only after scrolling to its end. The same form is at
+`GET /v1/voices/consent.pdf`, to keep or print: a printed copy signed by the speaker can serve as
+the written permission for someone else's voice. Each voice stores the version and full text its
+speaker agreed to, so voices signed on an earlier version keep that record. Deleting a voice
+withdraws consent: the recording and the speech clips made with it go from storage, and the
+voicing worker deletes its working copy before it next voices an episode. The form's text is
+`CONSENT_SECTIONS` in `api/models/voices_model.py`; every claim in it about the software is checked
+against the code, so a change to how voices are stored or used must update it (and its version). `config/voices.yaml` holds the consent
 record each cloned voice needs. Voices recorded in the voice studio and assigned to a show's hosts
 replace the file's entry for that host.
 
@@ -218,11 +261,12 @@ settings, which is handy for one-off host runs.
 ## Status
 
 Implemented: the API, all eight stages, the fact-check loop, incremental refresh and the
-scheduler; web pages, RSS/Atom feeds and uploaded PDFs as sources; review and editing before
+scheduler and the Refresh button; web pages, RSS/Atom feeds, uploaded PDFs and search results as
+sources; review and editing before
 voicing (`review_before_voice`, the review queue at `/episodes?status=needs_review`); retry,
 cancel and delete; paginated lists. Tested end to end against Postgres with offline settings
-([tests/integration/](tests/integration/)). Not built yet: search results as a source, pages
-behind authentication, and MP3 output. Each user sees only their own shows
+([tests/integration/](tests/integration/)). Not built yet: pages behind authentication, and MP3
+output. Each user sees only their own shows
 ([docs/erd.md](docs/erd.md)).
 The Gemini and Claude paths are exercised only against fake SDKs in the notebook tests.
 

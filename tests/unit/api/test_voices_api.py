@@ -1,12 +1,16 @@
 """Registering cloned voices: the consent form, the recording's checks, privacy and withdrawal."""
 
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 import pytest
 
-from podcast_engine.api.models.voices_model import CONSENT_STATEMENT, CONSENT_VERSION
+from podcast_engine.api.models.voices_model import (
+    CONSENT_SECTIONS,
+    CONSENT_STATEMENT,
+    CONSENT_VERSION,
+)
 from podcast_engine.common.audio import SR, wav_bytes
 from tests.unit.api.conftest import ADMIN, Harness
 
@@ -59,9 +63,40 @@ def test_a_signed_recording_is_registered_with_its_consent_record(harness: Harne
     assert harness.client.get("/v1/voices").json()["total"] == 1
 
 
-def test_the_consent_form_can_be_read_before_recording(harness: Harness) -> None:
+def test_the_consent_form_can_be_read_in_full_before_recording(harness: Harness) -> None:
     form = harness.client.get("/v1/voices/consent").json()
-    assert form == {"version": CONSENT_VERSION, "statement": CONSENT_STATEMENT}
+    assert form["version"] == CONSENT_VERSION
+    assert form["statement"] == CONSENT_STATEMENT
+    assert form["pdf"] == "/v1/voices/consent.pdf"
+    headings = [section["heading"] for section in form["sections"]]
+    assert headings == [heading for heading, _ in CONSENT_SECTIONS]
+    # What the meaningful-consent guidance asks a form to emphasise is all there.
+    for topic in ("What is collected", "What it is used for", "Risks", "Withdrawing consent"):
+        assert any(topic in heading for heading in headings)
+    # The stored statement is the whole form, so a signed voice keeps every word agreed to.
+    for _, paragraphs in CONSENT_SECTIONS:
+        for text in paragraphs:
+            assert text in CONSENT_STATEMENT
+
+
+def test_the_consent_form_downloads_as_a_pdf(harness: Harness) -> None:
+    response = harness.client.get("/v1/voices/consent.pdf")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-")
+    disposition = response.headers["content-disposition"]
+    assert disposition == f'inline; filename="voice-consent-form-{CONSENT_VERSION}.pdf"'
+
+
+def test_voices_signed_on_an_earlier_form_keep_their_record(harness: Harness) -> None:
+    voice = register(harness).json()
+    _, stored = next(iter(harness.voices.rows.values()))
+    stored.consent.version, stored.consent.statement = "2026-10-25", "The earlier wording."
+    again = harness.client.get(f"/v1/voices/{voice['voice_id']}").json()
+    assert (again["consent"]["version"], again["consent"]["statement"]) == (
+        "2026-10-25",
+        "The earlier wording.",
+    )
 
 
 @pytest.mark.parametrize(
@@ -137,9 +172,13 @@ def test_hosts_speak_with_registered_voices_and_deleting_one_withdraws_it(
     assert show["host_voices"] == {"Alex": voice_id}
     key = harness.voices.rows[next(iter(harness.voices.rows))][1].object_key
     assert key in harness.store.objects
+    clip = "tts/made-with-this-voice.wav"
+    harness.store.put(clip, b"RIFF", "audio/wav")
+    harness.voices.clips[UUID(voice_id)] = [clip]
 
     assert harness.client.delete(f"/v1/voices/{voice_id}").status_code == 204
     assert key not in harness.store.objects
+    assert clip not in harness.store.objects  # the speech made with it goes too
     assert harness.client.get(f"/v1/shows/{show['show_id']}").json()["host_voices"] == {}
 
 

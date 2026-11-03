@@ -169,7 +169,7 @@ export function ChatPanel({
         </button>
       </form>
       <p className="chat-note muted">
-        Answers can use your Gemini quota
+        Answers can use your Podcast Engine quota
         {left !== null
           ? ` · ${left} question${left === 1 ? "" : "s"} left this hour`
           : ""}

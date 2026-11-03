@@ -29,6 +29,21 @@ class EpisodeLinks(BaseModel):
     feed: str = Field(description="The show's RSS feed")
 
 
+class EpisodeStart(BaseModel):
+    """How to make the episode. Optional: with no body, a refresh redoes only what changed."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"rebuild": True}]})
+
+    rebuild: bool = Field(
+        default=False,
+        description=(
+            "For a show with a published episode: regenerate every segment from the sources as "
+            "they are now, even if none changed, instead of only the segments whose sources "
+            "changed. Uses more of the day's Gemini requests"
+        ),
+    )
+
+
 class EpisodeRead(BaseModel):
     """An episode and its progress through the pipeline."""
 
@@ -51,6 +66,10 @@ class EpisodeRead(BaseModel):
     )
     revision: int = Field(default=1, description="1 for a show's first episode, +1 per refresh")
     rewrite_count: int = Field(description="Times the fact-check gate sent the script back")
+    rebuild: bool = Field(
+        default=False,
+        description="A refresh that regenerates every segment, even if no source changed",
+    )
     created_at: datetime = Field(description="When the episode was started")
     published_at: datetime | None = Field(description="When it was published; null until then")
     approved_at: datetime | None = Field(

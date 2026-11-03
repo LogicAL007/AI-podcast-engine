@@ -234,3 +234,31 @@ def test_pauses_follow_the_turns_of_the_conversation() -> None:
     assert pause_after(fact, reply) == pause_after(question, answer)  # so do quick reactions
     assert pause_after(answer, same) < pause_after(fact, question)  # carrying on: brief
     assert pause_after(EPISODE[0], EPISODE[1]) == 0.7  # after the AI disclosure
+
+
+def test_show_notes_name_the_product_not_the_hosted_model() -> None:
+    from podcast_engine.stages.publish.service import build_show_notes
+    from tests.unit.test_ingest import _show
+
+    manifest = {
+        "script_backend": "gemini:gemini-3.8-flash",
+        "voices": {"Alex": {"credit": "Gemini TTS prebuilt voice Kore (no real person cloned)"}},
+        "seed": 1,
+    }
+    notes = build_show_notes(
+        show=_show([]), episode_id=uuid4(), revision=1, script={}, chapters=[],
+        item_of_chunk={}, items={}, manifest=manifest,
+    )  # fmt: skip
+    assert "Script and fact-check: Podcast Engine;" in notes
+    assert "Alex: Podcast Engine prebuilt voice Kore (no real person cloned)" in notes
+    assert "gemini" not in notes.lower()
+
+
+def test_a_narrator_does_not_greet_themself() -> None:
+    from podcast_engine.stages.voice.service import episode_lines
+
+    duo = [line["text"] for line in episode_lines("Tides", ["Alex", "Sam"], {})]
+    solo = episode_lines("Tides", ["Alex"], {})
+    assert "Glad to be here. Let's get into it." in duo
+    assert "Glad to be here. Let's get into it." not in [line["text"] for line in solo]
+    assert {line["speaker"] for line in solo} == {"Alex"}

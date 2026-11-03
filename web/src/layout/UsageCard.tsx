@@ -21,8 +21,8 @@ function line(model: UsageRead["models"][number]): string {
 }
 
 /**
- * Today's Gemini budget at the foot of the sidebar: shared by every account and the bot, and
- * reset at midnight Pacific time.
+ * Today's request budget at the foot of the sidebar, under the product's name rather than the
+ * model's: shared by every account and the bot, and reset at midnight Pacific time.
  */
 export function UsageCard({ collapsed }: { collapsed: boolean }) {
   const usage = useUsage();
@@ -34,13 +34,13 @@ export function UsageCard({ collapsed }: { collapsed: boolean }) {
   const low = main?.limit != null && share <= 0.25;
   const summary = main
     ? line(main)
-    : "Gemini is not in use: no daily quota applies";
+    : "The writing model is off: no daily quota applies";
 
   if (collapsed) {
     return (
       <p
         className={low ? "usage-mini usage-low" : "usage-mini"}
-        title={`Today's Gemini budget: ${summary}`}
+        title={`Today's Podcast Engine budget: ${summary}`}
         data-tour="nav-usage"
       >
         {main?.limit != null ? main.left : "∞"}
@@ -54,7 +54,7 @@ export function UsageCard({ collapsed }: { collapsed: boolean }) {
       data-tour="nav-usage"
     >
       <h2 id="usage-title" className="usage-title">
-        Today's Gemini budget
+        Today's Podcast Engine budget
       </h2>
       <p className="usage-main">
         <strong>{summary}</strong>

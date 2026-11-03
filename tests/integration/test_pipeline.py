@@ -171,6 +171,24 @@ def test_refresh_with_unchanged_sources_stops_after_ingest(engine: Engine, show_
     assert ctx.repo.get_episode(second).status is EpisodeStatus.UNCHANGED
 
 
+def test_a_rebuild_regenerates_every_segment_even_if_nothing_changed(
+    engine: Engine, show_id: UUID
+) -> None:
+    ctx = make_context(engine, MemoryStore())
+    run_inline(new_episode(ctx, show_id), ctx)
+
+    second = ctx.repo.create_episode(show_id, rebuild=True)
+    route = run_inline(second, ctx)
+
+    after = ctx.repo.get_episode(second)
+    assert route[0] == "ingest"
+    assert len(route) > 1  # it did not stop at ingest
+    assert after.status is EpisodeStatus.PUBLISHED, after.error
+    assert after.rebuild
+    assert after.revision == 2
+    assert after.changed_item_ids is None  # planned and written afresh, not carried over
+
+
 def test_refresh_regenerates_only_the_changed_segment(engine: Engine, show_id: UUID) -> None:
     store = MemoryStore()
     ctx = make_context(engine, store)

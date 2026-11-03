@@ -26,7 +26,10 @@ export function PublicLayout({
         <section className="auth-split-form">
           <Backdrop />
           <GlassPanel className="public-card auth-card" radius={28}>
-            <LiquidLogo size={48} />
+            <span className="auth-logo">
+              <LiquidLogo size={52} />
+              <span className="auth-logo-name">Podcast Engine</span>
+            </span>
             <h1 className="auth-title">{title}</h1>
             <div className="stack">{children}</div>
           </GlassPanel>
@@ -54,6 +57,7 @@ function AuthDescription() {
   return (
     <aside className="auth-split-about" aria-label="About Podcast Engine">
       <div className="auth-about">
+        <span className="auth-about-mark" aria-hidden="true" />
         <p className="auth-about-brand">Podcast Engine</p>
         <p className="auth-about-eyebrow">
           Grounded&nbsp;·&nbsp;Checked&nbsp;·&nbsp;Voiced

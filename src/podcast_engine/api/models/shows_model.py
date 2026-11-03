@@ -40,6 +40,27 @@ SourceUrls = Annotated[
         examples=[["https://clickhouse.com/docs/get-started/about/intro"]],
     ),
 ]
+
+
+def _tidy_queries(value: list[str]) -> list[str]:
+    queries = list(dict.fromkeys(" ".join(q.split()) for q in value))
+    if any(len(q) < 2 for q in queries):
+        raise ValueError("a search needs at least 2 characters")
+    return queries
+
+
+SearchQueries = Annotated[
+    list[Annotated[str, Field(max_length=200)]],
+    AfterValidator(_tidy_queries),
+    Field(
+        max_length=3,
+        description=(
+            "Searches run each time an episode is made; the top results are read like the "
+            "show's own pages, so a refresh picks up new results (FR2). Up to 3"
+        ),
+        examples=[["ClickHouse column-oriented database"]],
+    ),
+]
 Keywords = Annotated[
     str,
     Field(
@@ -102,6 +123,7 @@ EXAMPLE: dict[str, Any] = {
     "language": "en",
     "expertise": "beginner",
     "sources": ["https://clickhouse.com/docs/get-started/about/intro"],
+    "search_queries": ["ClickHouse column-oriented database"],
     "topic_keywords": "ClickHouse column-oriented database OLAP analytics queries",
     "attribution": "Source material: ClickHouse Documentation, CC BY-NC-SA 4.0.",
     "max_segments": 6,
@@ -122,6 +144,7 @@ class ShowCreate(BaseModel):
     language: Language = "en"
     expertise: Expertise = ExpertiseLevel.INTERMEDIATE
     sources: SourceUrls = []
+    search_queries: SearchQueries = []
     topic_keywords: Keywords = ""
     attribution: Attribution = ""
     max_segments: MaxSegments = 6
@@ -144,6 +167,7 @@ class ShowUpdate(BaseModel):
     language: Language | None = None
     expertise: Expertise | None = None
     sources: SourceUrls | None = None
+    search_queries: SearchQueries | None = None
     topic_keywords: Keywords | None = None
     attribution: Attribution | None = None
     max_segments: MaxSegments | None = None
@@ -165,6 +189,9 @@ class ShowRead(BaseModel):
     language: str = Field(description="BCP 47 language tag")
     expertise: ExpertiseLevel = Field(description="How much the audience already knows")
     sources: list[str] = Field(description="Source page URLs")
+    search_queries: list[str] = Field(
+        default_factory=list, description="Searches whose top results are read as sources"
+    )
     topic_keywords: str = Field(default="", description="Words matched with the topic")
     attribution: str = Field(default="", description="Credit and licence line for the show notes")
     max_segments: int = Field(default=6, description="At most this many segments per episode")

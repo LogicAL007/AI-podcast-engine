@@ -234,9 +234,6 @@ secrets/*
 web/node_modules/
 web/dist/
 
-# Notebook run output (audio, feeds, caches)
-notebooks/output/
-
 # Voice reference recordings are people's voices: never commit them
 assets/voices/*
 !assets/voices/.gitkeep
@@ -244,7 +241,6 @@ assets/voices/*
 # Separate environment for the voice-cloning backend (heavy pinned dependencies)
 .venv-cloning/
 
-# Evaluation runs: keep reports and JSON, not audio, object stores or cached page snapshots
-evaluation/results/**/store*/
-evaluation/results/**/*.wav
-evaluation/results/pages/
+# Research material, kept locally only: the PRD and proposal decks, the presentation, reports,
+# the notebooks, and the RQ1-RQ3 evaluation code, results and participant data
+research/

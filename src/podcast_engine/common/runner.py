@@ -7,11 +7,17 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from podcast_engine.common.config import get_settings
-from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_context
+from podcast_engine.common.context import (
+    PROMPT_VERSIONS,
+    PipelineContext,
+    get_context,
+    script_prompt,
+)
 from podcast_engine.common.llm import GeminiQuotaError, is_refused
 from podcast_engine.common.logging import configure_logging, get_logger
 from podcast_engine.common.models import EpisodeStatus
 from podcast_engine.common.queue import Stage, celery_app, dispatch, task_name
+from podcast_engine.common.quota import spending_for
 from podcast_engine.common.timing import stage_timer
 
 
@@ -48,6 +54,16 @@ def _llm_usage(ctx: PipelineContext) -> dict[str, int]:
     return dict(llm.usage) if llm is not None else {}
 
 
+def _release_budget(ctx: PipelineContext, episode_id: UUID) -> None:
+    """The episode has stopped (ended, failed or paused): give back its unused reservation."""
+    try:
+        budget = getattr(ctx, "budget", None)  # test contexts may have none
+        if budget is not None:
+            budget.release(str(episode_id))
+    except Exception:  # an unreachable Redis must not hide the stage's own outcome
+        log.exception("budget_release_failed", episode_id=str(episode_id))
+
+
 def run_stage(
     stage: Stage,
     function: StageFunction,
@@ -70,12 +86,13 @@ def run_stage(
     usage_before = _llm_usage(ctx)
     started = time.perf_counter()
     try:
-        with stage_timer(stage, episode_id):
+        with stage_timer(stage, episode_id), spending_for(str(episode_id)):
             following = function(episode_id, ctx)
     except PERMANENT_ERRORS as error:
         ctx.repo.update_episode(
             episode_id, status=EpisodeStatus.FAILED, error=f"{stage.value}: {error}"[:2000]
         )
+        _release_budget(ctx, episode_id)
         return None
     except Exception as error:
         refused = is_refused(error)  # each retry would spend a request and fail the same way
@@ -83,6 +100,7 @@ def run_stage(
             ctx.repo.update_episode(
                 episode_id, status=EpisodeStatus.FAILED, error=f"{stage.value}: {error}"[:2000]
             )
+            _release_budget(ctx, episode_id)
         if refused:
             return None
         raise
@@ -96,6 +114,10 @@ def run_stage(
             totals[name] = totals.get(name, 0) + value
         ctx.repo.update_episode(episode_id, manifest=manifest)
     prompt = _PROMPT_OF.get(stage)
+    if prompt == "script" and ctx.settings.llm_enabled:  # a narration for a one-host show
+        prompt = script_prompt(
+            ctx.repo.get_show(ctx.repo.get_episode(episode_id).show_id).host_count
+        )
     ctx.repo.record_stage_run(
         episode_id,
         stage.value,
@@ -108,7 +130,9 @@ def run_stage(
     )
     if following is not None and ctx.repo.get_episode(episode_id).status is EpisodeStatus.CANCELLED:
         log.info("pipeline_stopped", episode_id=str(episode_id), after=stage.value)
-        return None
+        following = None
+    if following is None:  # published, unchanged, held for review, or cancelled
+        _release_budget(ctx, episode_id)
     return following
 
 

@@ -14,6 +14,7 @@ function episode(voice_provider: string | null): EpisodeRead {
     error: null,
     revision: 1,
     rewrite_count: 0,
+    rebuild: false,
     created_at: "2026-10-24T09:00:00Z",
     published_at: "2026-10-24T09:06:00Z",
     approved_at: null,

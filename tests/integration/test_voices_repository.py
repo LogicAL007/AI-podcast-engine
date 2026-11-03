@@ -61,7 +61,27 @@ def test_voices_in_sql(session: Session, engine: Engine) -> None:
     found = pipeline.get_voices([str(voice_id), str(uuid4())])
     assert list(found) == [str(voice_id)]
     assert found[str(voice_id)].consent["relationship"] == "self"
+    sha = found[str(voice_id)].sha256
+    assert sha in pipeline.voice_hashes()
+
+    session.execute(
+        text(
+            "INSERT INTO episodes (show_id, voice_lines, manifest) VALUES (:show_id,"
+            " CAST(:lines AS jsonb), CAST(:manifest AS jsonb))"
+        ),
+        {
+            "show_id": show.show_id,
+            "lines": '[{"speaker": "Alex", "key": "tts/alex.wav"},'
+            ' {"speaker": "Sam", "key": "tts/sam.wav"}]',
+            "manifest": '{"voices": {"Alex": {"voice_id": "chatterbox:abc:styles1"},'
+            ' "Sam": {"voice_id": "chatterbox:default:styles1"}}}',
+        },
+    )
+    session.commit()
+    assert voices.clip_keys(voice_id, owner) == ["tts/alex.wav"]  # deleted with the voice
+    assert voices.clip_keys(voice_id, uuid4()) == []
 
     assert voices.delete(voice_id, owner)
+    assert sha not in pipeline.voice_hashes()  # the voicing worker now deletes its copy
     assert shows.get(show.show_id, owner).host_voices == {}  # type: ignore[union-attr]
     assert voices.object_keys(owner) == []

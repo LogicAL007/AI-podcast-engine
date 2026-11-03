@@ -8,7 +8,12 @@ from uuid import UUID, uuid5
 
 from pydantic import BaseModel, Field
 
-from podcast_engine.common.context import PROMPT_VERSIONS, PipelineContext, get_context
+from podcast_engine.common.context import (
+    PROMPT_VERSIONS,
+    PipelineContext,
+    get_context,
+    script_prompt,
+)
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.models import Claim, Delivery, ScriptLine
 from podcast_engine.common.queue import Stage
@@ -156,9 +161,22 @@ def write_segment_offline(
     return [line for line in lines if line.text not in avoid]
 
 
+# Spoken words per minute the length budget assumes, and the seconds of every episode that are not
+# segments: the disclosure, opening and closing lines, chimes and transitions. Measured on a
+# 2-minute Chatterbox episode (25 s); without it a 2-minute show ran to 2:23.
+WORDS_PER_MINUTE = 150
+FRAME_SECONDS = 25
+
+
+def segment_words(target_minutes: int, segment_count: int) -> int:
+    """The spoken words one segment gets, so the whole episode, frame included, fits the target."""
+    seconds = max(target_minutes * 60 - FRAME_SECONDS, 0)
+    return max(60, seconds * WORDS_PER_MINUTE // 60 // max(segment_count, 1))
+
+
 def style_for(show: ShowRecord, hosts: list[str], segment_count: int) -> str:
     """Tone, audience, hosts and length for one segment; shared with the RQ1 ungrounded baseline."""
-    words = max(60, show.target_minutes * 150 // max(segment_count, 1))
+    words = segment_words(show.target_minutes, segment_count)
     return (
         f"Tone: {show.tone.value}. Audience expertise: {show.expertise.value}. Language: "
         f"{show.language}. Hosts: {', '.join(hosts)}. About {words} spoken words for this segment."
@@ -189,8 +207,9 @@ def write_segment_llm(
             "\n\nA reviewer found these statements unsupported by the passages. Do not repeat "
             "them:\n- " + "\n- ".join(sorted(avoid))
         )
+    prompt = script_prompt(len(hosts))
     draft = ctx.llm.parse(
-        system=load_prompt(ctx.settings.prompts_dir, "script", PROMPT_VERSIONS["script"])
+        system=load_prompt(ctx.settings.prompts_dir, prompt, PROMPT_VERSIONS[prompt])
         + "\n\n"
         + style,
         user=(
@@ -223,8 +242,8 @@ def write_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
     items = {item.item_id: item for item in ctx.repo.list_items(show.show_id)}
     to_write = [s for s in segments if s.needs_script]
     if ctx.llm is not None and ctx.budget is not None and not ctx.settings.llm_fallback_model:
-        # The script is saved once every segment is written, so do not start what cannot finish.
-        # (A fallback model has its own quota; with one, each call is checked as it goes.)
+        # Do not start what cannot finish today (the episode's reservation counts as available).
+        # A fallback model has its own quota; with one, each call is checked as it goes.
         ctx.budget.require(
             {ctx.settings.llm_model: len(to_write)}, f"writing {len(to_write)} segment(s)"
         )
@@ -261,9 +280,10 @@ def write_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
             drafts, labelled, hosts=hosts, episode_id=episode_id, position=segment.position
         )
         written[str(segment.position)] = [line.model_dump(mode="json") for line in lines]
-    script["segments"] = dict(sorted(written.items(), key=lambda kv: int(kv[0])))
-    ctx.repo.update_episode(episode_id, script=script)
-    for segment in to_write:
+        # Saved at once, so if a later segment fails (an overloaded model, today's budget), a
+        # retry writes only the segments still missing.
+        script["segments"] = dict(sorted(written.items(), key=lambda kv: int(kv[0])))
+        ctx.repo.update_episode(episode_id, script=script)
         ctx.repo.update_segment(episode_id, segment.position, needs_script=False)
     log.info(
         "script_written",

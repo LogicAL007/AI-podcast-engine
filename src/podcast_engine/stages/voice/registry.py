@@ -7,7 +7,9 @@ voice, which clones nobody.
 """
 
 import hashlib
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict
@@ -80,3 +82,18 @@ def fingerprint(voice: ClonedVoice, root: Path) -> str:
         return "default"
     data = (root / str(voice.reference_audio)).read_bytes()
     return hashlib.sha256(data).hexdigest()[:12]
+
+
+def clips_voiced_with(
+    sha256: str, episodes: Iterable[tuple[list[dict[str, Any]] | None, dict[str, Any] | None]]
+) -> list[str]:
+    """Stored clips of lines spoken in the voice whose recording has this checksum, from each
+    episode's (voice_lines, manifest). The manifest names each host's voice as
+    ``chatterbox:<fingerprint>:...``, so a host is matched by the recording, not the voice's id."""
+    prefix = f"chatterbox:{sha256[:12]}:"
+    keys: list[str] = []
+    for lines, manifest in episodes:
+        voices = (manifest or {}).get("voices", {})
+        hosts = {h for h, voice in voices.items() if str(voice.get("voice_id")).startswith(prefix)}
+        keys += [ln["key"] for ln in lines or [] if ln.get("key") and ln["speaker"] in hosts]
+    return list(dict.fromkeys(keys))

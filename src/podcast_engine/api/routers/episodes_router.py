@@ -22,6 +22,7 @@ from podcast_engine.api.models.episodes_model import (
     ClaimDetail,
     EpisodeRead,
     EpisodeScript,
+    EpisodeStart,
     ScriptEdit,
     StageRunRead,
 )
@@ -51,15 +52,21 @@ StatusFilter = Annotated[
         e404="Show not found", e503="Job queue unavailable; the episode is marked `failed`"
     ),
 )
-def start_episode(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> EpisodeRead:
+def start_episode(
+    show_id: ShowId,
+    me: CurrentUserDep,
+    controller: Controller,
+    options: EpisodeStart | None = None,
+) -> EpisodeRead:
     """Create an episode and start generating it in the background. Returns at once, with the
     episode `queued`; its status shows progress.
 
-    For a show that already has a published episode, this is a refresh: only segments whose
-    sources changed are re-scripted and re-voiced, and if no source changed the episode ends as
-    `unchanged`.
+    For a show that already has a published episode, this is a refresh: the sources are read
+    again (searches run again), only segments whose sources changed are re-scripted and
+    re-voiced, and if no source changed the episode ends as `unchanged`. Send
+    `{"rebuild": true}` to regenerate every segment instead, changed or not.
     """
-    return controller.start(show_id, me.user_id)
+    return controller.start(show_id, me.user_id, rebuild=bool(options and options.rebuild))
 
 
 @router.get(

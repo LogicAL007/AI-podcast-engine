@@ -109,9 +109,11 @@ class GeminiClient(LlmClient):
         sleep: Callable[[float], None] = time.sleep,
         budget: "DailyBudget | None" = None,
         reserve: int = 0,
+        timeout: float = 180.0,
     ) -> None:
         super().__init__(model, seed)
         from google import genai
+        from google.genai import types
 
         self.sleep = sleep
         self.budget = budget
@@ -120,7 +122,9 @@ class GeminiClient(LlmClient):
         self.active = model  # becomes the fallback once the main model stays busy
         self.busy_retries = 0
         try:
-            self.client = genai.Client(api_key=api_key) if api_key else genai.Client()
+            # Without a timeout, a request Gemini never answers holds the stage forever.
+            options = types.HttpOptions(timeout=int(timeout * 1000))
+            self.client = genai.Client(api_key=api_key or None, http_options=options)
         except ValueError as error:
             raise LlmError(f"No Gemini credentials were found. {KEY_HELP['gemini']}") from error
 
@@ -141,8 +145,11 @@ class GeminiClient(LlmClient):
                 )
             except (errors.ServerError, errors.ClientError, httpx.TransportError) as error:
                 limited = isinstance(error, errors.ClientError) and error.code == 429
-                reached = not limited and not isinstance(error, httpx.TransportError)
-                if self.budget is not None and reached:  # Gemini took the request, so it counts
+                # Only a request Gemini read and rejected (a 4xx other than 429) counts. An
+                # overloaded 503, a 429 and a network failure did no work, so they do not use up
+                # the day; if Google counts them anyway, its own 429 daily-quota error stops us.
+                reached = isinstance(error, errors.ClientError) and not limited
+                if self.budget is not None and reached:
                     self.budget.spend(model)
                 if limited and is_daily_quota(error):
                     raise GeminiQuotaError(
@@ -168,6 +175,7 @@ class GeminiClient(LlmClient):
     def parse(
         self, *, system: str, user: str, output_format: type[T], max_tokens: int = 16000
     ) -> T:
+        import httpx
         from google.genai import errors, types
 
         schema = output_format.model_json_schema()
@@ -186,9 +194,11 @@ class GeminiClient(LlmClient):
             max_output_tokens=max_tokens,
             seed=self.seed,
         )
+        # The model in use first, then the other one: once on the fallback, a fallback that is out
+        # of quota (or busy too) sends the request back to the main model rather than failing.
         candidates = [
             self.active,
-            *([self.fallback] if self.fallback and self.fallback != self.active else []),
+            *(m for m in (self.model, self.fallback) if m and m != self.active),
         ]
         response: Any = None
         model = self.active
@@ -203,8 +213,14 @@ class GeminiClient(LlmClient):
                         raise
                     response = self._call(model, user, plain_json, tries)
                 break
-            except (errors.ServerError, errors.ClientError, GeminiQuotaError) as error:
-                # Busy, rate-limited or out of quota for today: the fallback has its own quota.
+            except (
+                errors.ServerError,
+                errors.ClientError,
+                GeminiQuotaError,
+                httpx.TransportError,
+            ) as error:
+                # Busy, timing out, rate-limited or out of quota for today: the fallback has its
+                # own quota.
                 still_busy = not isinstance(error, errors.ClientError) or error.code == 429
                 if not still_busy or not has_next:
                     raise
@@ -286,6 +302,7 @@ def make_llm(
             fallback=settings.llm_fallback_model,
             budget=budget,
             reserve=reserve,
+            timeout=settings.llm_timeout_seconds,
         )
     if settings.llm_provider == "anthropic":
         return ClaudeClient(key, settings.llm_model, seed=settings.seed)

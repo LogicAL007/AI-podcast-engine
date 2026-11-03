@@ -19,6 +19,16 @@ def test_start_returns_202_and_enqueues(harness: Harness) -> None:
     assert [str(e) for e in harness.enqueued] == [body["episode_id"]]
 
 
+def test_a_refresh_can_ask_to_rebuild_every_segment(harness: Harness) -> None:
+    show_id = _show(harness)
+    plain = harness.client.post(f"/v1/shows/{show_id}/episodes").json()
+    rebuilt = harness.client.post(f"/v1/shows/{show_id}/episodes", json={"rebuild": True})
+    assert rebuilt.status_code == 202
+    assert (plain["rebuild"], rebuilt.json()["rebuild"]) == (False, True)
+    bad = harness.client.post(f"/v1/shows/{show_id}/episodes", json={"rebuild": "sometimes"})
+    assert bad.status_code == 422
+
+
 def test_start_for_unknown_show_is_404_and_enqueues_nothing(harness: Harness) -> None:
     assert harness.client.post(f"/v1/shows/{uuid4()}/episodes").status_code == 404
     assert harness.enqueued == []

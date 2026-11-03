@@ -15,6 +15,7 @@ export interface ShowValues {
   language: string;
   expertise: ExpertiseLevel;
   sources: string; // one URL per line
+  searches: string; // one search per line
   topic_keywords: string;
   attribution: string;
   max_segments: string;
@@ -36,6 +37,7 @@ export const EMPTY_SHOW: ShowValues = {
   language: "en",
   expertise: "intermediate",
   sources: "",
+  searches: "",
   topic_keywords: "",
   attribution: "",
   max_segments: "6",
@@ -173,7 +175,7 @@ export function languageOptions(
 }
 
 /** The first step of a new show asks only for these; the rest have defaults. */
-export const STEP_ONE: (keyof ShowValues)[] = ["topic", "sources"];
+export const STEP_ONE: (keyof ShowValues)[] = ["topic", "sources", "searches"];
 /** Rarely changed settings, kept behind "More options". */
 export const ADVANCED: (keyof ShowValues)[] = [
   "max_segments",
@@ -203,6 +205,7 @@ export function valuesOf(show: ShowRead): ShowValues {
     language: show.language,
     expertise: show.expertise,
     sources: show.sources.join("\n"),
+    searches: (show.search_queries ?? []).join("\n"),
     topic_keywords: show.topic_keywords ?? "",
     attribution: show.attribution ?? "",
     max_segments: String(show.max_segments ?? 6),
@@ -259,6 +262,14 @@ export function validateShow(values: ShowValues): {
     errors.sources = `Not a web address: ${bad.slice(0, 2).join(", ")}`;
   else if (sources.length > 50) errors.sources = "At most 50 sources.";
 
+  const searches = values.searches
+    .split("\n")
+    .map((line) => line.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+  if (searches.length > 3) errors.searches = "At most 3 searches.";
+  else if (searches.some((query) => query.length < 2 || query.length > 200))
+    errors.searches = "Each search needs 2 to 200 characters.";
+
   if (values.topic_keywords.length > 1000)
     errors.topic_keywords = "At most 1000 characters.";
   if (values.attribution.length > 2000)
@@ -275,6 +286,7 @@ export function validateShow(values: ShowValues): {
       language: values.language.trim(),
       expertise: values.expertise,
       sources,
+      search_queries: searches,
       topic_keywords: values.topic_keywords.trim(),
       attribution: values.attribution.trim(),
       max_segments: segments as number,

@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from podcast_engine.common.config import Settings, get_settings
 from podcast_engine.common.embeddings import Embedder, make_embedder
@@ -17,11 +18,19 @@ from podcast_engine.common.quota import DailyBudget, make_budget
 from podcast_engine.common.repository import PipelineRepository
 from podcast_engine.common.storage import ObjectStore
 
+if TYPE_CHECKING:
+    from podcast_engine.stages.ingest.search import SearchProvider
+
 # Host names, in speaking order; a show with host_count N uses the first N.
 HOST_NAMES = ("Alex", "Sam", "Jordan", "Riley")
 
 # Prompt file versions in use (prompts/<name>.v<N>.md), recorded in each episode's manifest.
-PROMPT_VERSIONS = {"outline": 1, "script": 3, "factcheck": 1}
+PROMPT_VERSIONS = {"outline": 1, "script": 4, "script_narrator": 1, "factcheck": 1}
+
+
+def script_prompt(host_count: int) -> str:
+    """The script prompt for a show: a conversation for two or more hosts, else a narration."""
+    return "script" if host_count > 1 else "script_narrator"
 
 
 def _utc_now() -> datetime:
@@ -34,6 +43,7 @@ class PipelineContext:
     repo: PipelineRepository
     store: ObjectStore
     fetch: Callable[[str], str] | None = None  # URL -> HTML; None uses the real HTTP fetch
+    search: "SearchProvider | None" = None  # tests inject one; None uses SEARCH_PROVIDER
     now: Callable[[], datetime] = field(default=_utc_now)
     llm_override: LlmClient | None = None  # tests inject a client here
     budget_override: DailyBudget | None = None  # tests inject a budget here

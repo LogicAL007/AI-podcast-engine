@@ -52,7 +52,12 @@ describe("script edits", () => {
     expect(edit.segments[0]).toEqual({
       position: 1,
       lines: [
-        { speaker: "Alex", text: "Welcome.", chunk_ids: null, delivery: "warm" },
+        {
+          speaker: "Alex",
+          text: "Welcome.",
+          chunk_ids: null,
+          delivery: "warm",
+        },
         {
           speaker: "Sam",
           text: "Tides follow the moon, mostly.",

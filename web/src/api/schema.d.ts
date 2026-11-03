@@ -721,9 +721,10 @@ export interface paths {
      * @description Create an episode and start generating it in the background. Returns at once, with the
      *     episode `queued`; its status shows progress.
      *
-     *     For a show that already has a published episode, this is a refresh: only segments whose
-     *     sources changed are re-scripted and re-voiced, and if no source changed the episode ends as
-     *     `unchanged`.
+     *     For a show that already has a published episode, this is a refresh: the sources are read
+     *     again (searches run again), only segments whose sources changed are re-scripted and
+     *     re-voiced, and if no source changed the episode ends as `unchanged`. Send
+     *     `{"rebuild": true}` to regenerate every segment instead, changed or not.
      */
     post: operations["start_episode"];
     delete?: never;
@@ -1020,10 +1021,32 @@ export interface paths {
     };
     /**
      * Read the consent form
-     * @description The consent statement a speaker must agree to before their voice is recorded or uploaded.
-     *     Its version and text are stored with every voice.
+     * @description The consent form a speaker must read and agree to before their voice is recorded or
+     *     uploaded. Its version and full text (`statement`) are stored with every voice signed on it;
+     *     voices signed on an earlier version keep the text they agreed to.
      */
     get: operations["consent_form"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/voices/consent.pdf": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download the consent form as a PDF
+     * @description The same consent form as a PDF, to read, keep or print. For someone else's voice, a
+     *     printed copy signed by the speaker can be kept as their written permission.
+     */
+    get: operations["consent_form_pdf"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1485,13 +1508,7 @@ export interface components {
        * @enum {string}
        */
       hat:
-        | "none"
-        | "antenna"
-        | "headphones"
-        | "cap"
-        | "beanie"
-        | "crown"
-        | "halo";
+        "none" | "antenna" | "headphones" | "cap" | "beanie" | "crown" | "halo";
       /**
        * Neck
        * @description What it wears at its neck
@@ -1685,6 +1702,50 @@ export interface components {
       reason?: string | null;
     };
     /**
+     * ConsentDocument
+     * @description The consent form a speaker reads in full and agrees to before a voice is recorded.
+     */
+    ConsentDocument: {
+      /**
+       * Version
+       * @description Which wording this is; stored with every voice signed on it
+       */
+      version: string;
+      /**
+       * Title
+       * @description The form's title
+       */
+      title: string;
+      /**
+       * Sections
+       * @description The form, section by section
+       */
+      sections: components["schemas"]["ConsentSection"][];
+      /**
+       * Statement
+       * @description The full text as one string: what a signed voice stores
+       */
+      statement: string;
+      /**
+       * Pdf
+       * @description Where to download the same form as a PDF
+       */
+      pdf: string;
+    };
+    /** ConsentSection */
+    ConsentSection: {
+      /**
+       * Heading
+       * @description The section's heading
+       */
+      heading: string;
+      /**
+       * Paragraphs
+       * @description The section's text, one paragraph per item
+       */
+      paragraphs: string[];
+    };
+    /**
      * CurrentUser
      * @description Who is making the request, and with which token.
      */
@@ -1836,6 +1897,12 @@ export interface components {
        */
       rewrite_count: number;
       /**
+       * Rebuild
+       * @description A refresh that regenerates every segment, even if no source changed
+       * @default false
+       */
+      rebuild: boolean;
+      /**
        * Created At
        * Format: date-time
        * @description When the episode was started
@@ -1883,6 +1950,21 @@ export interface components {
       fact_check?: {
         [key: string]: unknown;
       } | null;
+    };
+    /**
+     * EpisodeStart
+     * @description How to make the episode. Optional: with no body, a refresh redoes only what changed.
+     * @example {
+     *       "rebuild": true
+     *     }
+     */
+    EpisodeStart: {
+      /**
+       * Rebuild
+       * @description For a show with a published episode: regenerate every segment from the sources as they are now, even if none changed, instead of only the segments whose sources changed. Uses more of the day's Gemini requests
+       * @default false
+       */
+      rebuild: boolean;
     };
     /**
      * EpisodeStatus
@@ -2890,6 +2972,9 @@ export interface components {
      *       "max_segments": 6,
      *       "ranking_profile": "explainer",
      *       "review_before_voice": false,
+     *       "search_queries": [
+     *         "ClickHouse column-oriented database"
+     *       ],
      *       "sources": [
      *         "https://clickhouse.com/docs/get-started/about/intro"
      *       ],
@@ -2945,6 +3030,15 @@ export interface components {
        *     ]
        */
       sources: string[];
+      /**
+       * Search Queries
+       * @description Searches run each time an episode is made; the top results are read like the show's own pages, so a refresh picks up new results (FR2). Up to 3
+       * @default []
+       * @example [
+       *       "ClickHouse column-oriented database"
+       *     ]
+       */
+      search_queries: string[];
       /**
        * Topic Keywords
        * @description Words that describe the topic, used with it to match passages
@@ -3031,6 +3125,11 @@ export interface components {
        */
       sources: string[];
       /**
+       * Search Queries
+       * @description Searches whose top results are read as sources
+       */
+      search_queries?: string[];
+      /**
        * Topic Keywords
        * @description Words matched with the topic
        * @default
@@ -3095,6 +3194,8 @@ export interface components {
       expertise?: components["schemas"]["ExpertiseLevel"] | null;
       /** Sources */
       sources?: string[] | null;
+      /** Search Queries */
+      search_queries?: string[] | null;
       /** Topic Keywords */
       topic_keywords?: string | null;
       /** Attribution */
@@ -5520,7 +5621,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["EpisodeStart"] | null;
+      };
+    };
     responses: {
       /** @description The new episode, `queued`; poll it for progress */
       202: {
@@ -6614,15 +6719,51 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description The version and exact wording a speaker agrees to */
+      /** @description The consent form, section by section, and where to get it as a PDF */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": {
-            [key: string]: string;
-          };
+          "application/json": components["schemas"]["ConsentDocument"];
+        };
+      };
+      /** @description Missing, invalid, expired or revoked token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+      /** @description Login is not configured */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorDetail"];
+        };
+      };
+    };
+  };
+  consent_form_pdf: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The consent form */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/pdf": string;
         };
       };
       /** @description Missing, invalid, expired or revoked token */

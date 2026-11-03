@@ -58,7 +58,11 @@ def episode_lines(
     return [
         spoken("disclosure", None, first, AI_DISCLOSURE),
         spoken("opening", None, first, f"Welcome to the show. Today: {topic}.", "warm"),
-        spoken("opening", None, second, "Glad to be here. Let's get into it.", "warm"),
+        *(  # a narrator does not greet themself
+            [spoken("opening", None, second, "Glad to be here. Let's get into it.", "warm")]
+            if second != first
+            else []
+        ),
         *(
             spoken("segment", pos, line.speaker, line.text, line.delivery.value, bool(line.claims))
             for pos in sorted(script)
@@ -152,6 +156,23 @@ def registered_voices(
     return voices
 
 
+def prune_withdrawn_voices(ctx: PipelineContext) -> int:
+    """Delete this worker's copies of recordings whose voice has been deleted (consent
+    withdrawn). The consent form promises this happens the next time episodes are voiced."""
+    folder = ctx.settings.data_dir / "tts_cache" / "voices"
+    if not folder.is_dir():
+        return 0
+    kept = ctx.repo.voice_hashes()
+    removed = 0
+    for copy in folder.glob("*.wav"):
+        if copy.stem not in kept:
+            copy.unlink(missing_ok=True)
+            removed += 1
+    if removed:
+        log.info("withdrawn_voices_deleted", copies=removed)
+    return removed
+
+
 def _backend(
     ctx: PipelineContext, hosts: tuple[str, ...], overrides: dict[str, ClonedVoice]
 ) -> TtsBackend:
@@ -173,6 +194,8 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     episode = ctx.repo.get_episode(episode_id)
     show = ctx.repo.get_show(episode.show_id)
     hosts = ctx.hosts(show.host_count)
+    if ctx.settings.tts_backend == "chatterbox":
+        prune_withdrawn_voices(ctx)
     overrides = registered_voices(ctx, show.host_voices, hosts)
     backend = _backend(ctx, tuple(hosts), overrides)
     if len({backend.voice_id(h) for h in hosts}) != len(hosts):
