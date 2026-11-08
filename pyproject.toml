@@ -35,7 +35,8 @@ api = [
 ]
 ingest = ["feedparser>=6.0", "httpx>=0.27", "lxml>=5.0", "pymupdf>=1.24", "trafilatura>=1.9"]
 embeddings = ["pgvector>=0.3", "sentence-transformers>=3.0"]
-llm = ["google-genai>=1.0"]
+# google-genai 3 swapped httpx for httpx2; llm.py catches httpx errors, so stay on 2.x until it is ported.
+llm = ["google-genai>=1.0,<3", "httpx>=0.27"]
 anthropic = ["anthropic>=0.40"]
 voice = ["httpx>=0.27"]
 assemble = ["numpy>=1.26", "pydub>=0.25", "pyloudnorm>=0.1"]
@@ -53,7 +54,7 @@ cloning = ["chatterbox-tts>=0.1.7", "setuptools<81"]
 notebook = [
     "anthropic>=0.40",
     "feedgen>=1.0",
-    "google-genai>=1.0",
+    "google-genai>=1.0,<3",
     "feedparser>=6.0",
     "httpx>=0.27",
     "ipykernel>=6.29",
@@ -107,6 +108,7 @@ select = [
 # research/ is git-ignored, so ruff skips it unless run inside it (make -C research lint).
 # Evaluation scripts are command-line tools that print their reports.
 "research/evaluation/**" = ["T201"]
+"research/study/make_bundle.py" = ["T201"]
 # Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the
 # text goes in on stdin, never through a shell). The RNG only picks banter lines.
 "research/notebooks/**" = ["A004", "ARG001", "ARG002", "E402", "E501", "S101", "S311", "S603", "S607", "SIM905", "T201"]

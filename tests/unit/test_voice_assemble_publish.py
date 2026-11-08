@@ -13,6 +13,7 @@ from podcast_engine.common.quota import DailyBudget, MemoryCounter
 from podcast_engine.stages.assemble.service import (
     SPEECH_RMS,
     mix,
+    mix_natural,
     needs_normalisation,
     pause_after,
     tighten,
@@ -262,3 +263,33 @@ def test_a_narrator_does_not_greet_themself() -> None:
     assert "Glad to be here. Let's get into it." in duo
     assert "Glad to be here. Let's get into it." not in [line["text"] for line in solo]
     assert {line["speaker"] for line in solo} == {"Alex"}
+
+
+def _turns() -> tuple[list[dict[str, Any]], list[np.ndarray | None]]:
+    """A long line from Alex answered by a quick "Right." from Sam, then Alex again."""
+    line = {"kind": "segment", "position": 1, "delivery": "neutral", "claim": False}
+    lines = [
+        {**line, "speaker": "Alex", "text": "Here is a fairly long explanation of the point."},
+        {**line, "speaker": "Sam", "text": "Right."},
+        {**line, "speaker": "Alex", "text": "And here is where it goes next, in more detail."},
+    ]
+    return lines, [np.full(SR, 0.2, dtype=np.float32) for _ in lines]
+
+
+def test_the_natural_mix_overlaps_quick_replies_and_fills_silence_with_room_tone() -> None:
+    lines, clips = _turns()
+    nothing = np.zeros(0, dtype=np.float32)
+    plain, _ = mix(lines, clips, {1: "One"}, intro=nothing, outro=nothing, transition=nothing)
+    natural, chapters = mix_natural(
+        lines, clips, {1: "One"}, intro=nothing, outro=nothing, transition=nothing, seed=7
+    )
+    assert [title for _, title in chapters] == ["One"]
+    assert np.count_nonzero(plain == 0) > SR // 2  # digital silence between the plain lines
+    assert np.count_nonzero(natural == 0) < SR // 100  # room tone under everything
+    # "Right." starts before Alex finishes: two clips sound at once somewhere.
+    assert float(np.max(np.abs(natural))) > 1.5 * SPEECH_RMS  # two levelled clips at once
+    assert len(natural) < len(plain)
+    again, _ = mix_natural(
+        lines, clips, {1: "One"}, intro=nothing, outro=nothing, transition=nothing, seed=7
+    )
+    assert np.array_equal(natural, again)  # reproducible from its seed

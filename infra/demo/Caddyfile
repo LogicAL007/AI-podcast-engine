@@ -1,0 +1,14 @@
+# HTTPS for the demo (Let's Encrypt). SITE_ADDRESS is the server's name: a domain, or
+# <ip-with-dashes>.sslip.io when there is none. The web container (nginx) serves the app and
+# proxies /api to the API, as on the Mac.
+{
+	log default {
+		exclude http.log.error
+	}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy web:80
+}

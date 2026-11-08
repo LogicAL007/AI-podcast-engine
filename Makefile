@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help api openapi web-client test-312 research setup secrets rotate-secret build up dev down voice-host demo-site demo-next demo-reset logs lint format typecheck test check
+.PHONY: help api openapi web-client test-312 research setup secrets rotate-secret build up dev down voice-host demo-site demo-next demo-reset aws-demo-whoami aws-demo-quota aws-demo-up aws-demo-deploy aws-demo-data aws-demo-stop aws-demo-start aws-demo-destroy aws-demo-ci-vars logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
@@ -93,3 +93,51 @@ test-312:  ## Unit tests on Python 3.12, the images' version (3.14 hides some bu
 		&& python -m pytest tests/unit -q --no-cov -p no:cacheprovider'
 
 check: lint typecheck test  ## Everything CI runs
+
+# ---- the whole engine on one AWS server for a live demo (infra/demo/README.md)
+# These targets sign in to AWS as podcast-user (the default AWS CLI profile), whose one inline
+# policy, infra/demo/deployer-policy.json, covers both the study and the demo. Another profile:
+# make aws-demo-up DEMO_PROFILE=name
+DEMO_PROFILE ?= default
+DEMO_REGION := ca-central-1
+DEMO_ENV := AWS_PROFILE=$(DEMO_PROFILE) AWS_REGION=$(DEMO_REGION) AWS_DEFAULT_REGION=$(DEMO_REGION)
+DEMO_TF := $(DEMO_ENV) terraform -chdir=infra/demo
+DEMO_AWS := $(DEMO_ENV) aws
+
+aws-demo-whoami:  ## AWS demo: which AWS user the demo targets run as (podcast-user)
+	$(DEMO_AWS) sts get-caller-identity --query Arn --output text
+
+aws-demo-quota:  ## AWS demo: the account's GPU quota in ca-central-1 (g4dn.xlarge needs 4 vCPUs)
+	$(DEMO_AWS) service-quotas get-service-quota --service-code ec2 \
+		--quota-code L-DB2E81BA --query 'Quota.[QuotaName, Value]' --output text
+
+aws-demo-up:  ## AWS demo: create the server, bucket and roles (Terraform asks before changing anything)
+	$(DEMO_TF) init -input=false >/dev/null
+	$(DEMO_TF) apply
+
+aws-demo-deploy:  ## AWS demo: ship code and settings to the server and (re)start the stack
+	$(DEMO_ENV) infra/demo/deploy.sh
+
+aws-demo-data:  ## AWS demo: as aws-demo-deploy, and replace the server's data with this Mac's
+	$(DEMO_ENV) infra/demo/deploy.sh --with-data
+
+aws-demo-stop:  ## AWS demo: stop the server between rehearsal and demo (its disk and IP still cost a little)
+	$(DEMO_AWS) ec2 stop-instances --instance-ids "$$($(DEMO_TF) output -raw instance_id)" \
+		--query 'StoppingInstances[].CurrentState.Name' --output text
+
+aws-demo-start:  ## AWS demo: start the stopped server; the stack comes back by itself
+	$(DEMO_AWS) ec2 start-instances --instance-ids "$$($(DEMO_TF) output -raw instance_id)" \
+		--query 'StartingInstances[].CurrentState.Name' --output text
+	@echo "Up in a few minutes at $$($(DEMO_TF) output -raw site_url)"
+
+aws-demo-destroy:  ## AWS demo: delete the server, its disk, bucket and roles (Terraform asks first)
+	$(DEMO_TF) destroy
+
+aws-demo-ci-vars:  ## AWS demo: the variables for GitHub's `demo` environment (CD), none of them secret
+	@echo "GitHub -> Settings -> Environments -> demo -> Environment variables:"
+	@echo "  DEMO_ROLE_ARN    = $$($(DEMO_TF) output -raw github_deploy_role_arn)"
+	@echo "  DEMO_INSTANCE_ID = $$($(DEMO_TF) output -raw instance_id)"
+	@echo "  DEMO_BUCKET      = $$($(DEMO_TF) output -raw bucket)"
+	@echo "  DEMO_SITE_URL    = $$($(DEMO_TF) output -raw site_url)"
+	@echo "  DEMO_REGION      = $$($(DEMO_TF) output -raw region)"
+	@if command -v gh >/dev/null; then echo "Or: gh variable set NAME --env demo --body VALUE"; fi

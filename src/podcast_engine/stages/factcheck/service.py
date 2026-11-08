@@ -16,9 +16,10 @@ SUPPORT_THRESHOLD = 0.6  # offline judge: share of a claim's content words found
 
 
 class Verdict(BaseModel):
+    # The reason comes before the verdict: the model states its evidence, then decides from it.
     claim_number: int
-    supported: bool
     reason: str
+    supported: bool
 
 
 class Verdicts(BaseModel):
@@ -61,12 +62,14 @@ def judge_llm(
     if ctx.llm is None:
         raise RuntimeError("judge_llm needs an LLM client")
     listing = "\n\n".join(
-        f"Claim {n}: {claim.text}\nCited passages:\n" + "\n".join(f"- {p}" for p in passages)
+        f"Claim {n}: {claim.text}\nCited passages:\n"
+        + "\n".join(f"- {' '.join(p.split())}" for p in passages)  # one line per passage
         for n, (claim, passages) in enumerate(items, start=1)
     )
     result = ctx.llm.parse(
         system=load_prompt(ctx.settings.prompts_dir, "factcheck", PROMPT_VERSIONS["factcheck"]),
-        user=listing,
+        # The task again after the material, which models follow best (Google's prompting guide).
+        user=f"{listing}\n\nGive one verdict for each of the {len(items)} claims above.",
         output_format=Verdicts,
     )
     return {v.claim_number: (v.supported, v.reason) for v in result.verdicts}

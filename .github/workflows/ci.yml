@@ -44,9 +44,36 @@ jobs:
           cp .env.example .env
           mkdir -p secrets && touch secrets/llm_api_key.txt secrets/tts_api_key.txt
           docker compose config --quiet
+      - name: Validate the AWS demo overlays (Gemini voices, and GPU)
+        run: |
+          export SITE_ADDRESS=demo.example
+          docker compose -f docker-compose.yml -f infra/demo/docker-compose.aws.yml config --quiet
+          docker compose -f docker-compose.yml -f infra/demo/docker-compose.aws.yml -f infra/demo/docker-compose.aws-gpu.yml config --quiet
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: docker/stage.Dockerfile
       - uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: web/Dockerfile
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+      - name: Terraform format and validate (no AWS access needed)
+        working-directory: infra/demo
+        run: |
+          terraform fmt -check -diff
+          terraform init -input=false -backend=false
+          terraform validate
+      - name: Shellcheck the deploy scripts
+        run: |
+          # The server's bootstrap is a Terraform template: fill in its three values first, then
+          # check it and the deploy script it writes on the server.
+          sed -e 's/\${bucket}/demo-bucket/; s/\${ssm_prefix}/\/podcast-demo/; s/\${region}/ca-central-1/; s/\${gpu}/false/; s/\$\${/${/g' \
+            infra/demo/user_data.sh.tftpl > /tmp/user_data.sh
+          awk '/^cat > \/opt\/demo\/deploy.sh/{f=1;next} /^DEPLOY$/{f=0} f' /tmp/user_data.sh > /tmp/server_deploy.sh
+          shellcheck infra/demo/deploy.sh /tmp/user_data.sh /tmp/server_deploy.sh

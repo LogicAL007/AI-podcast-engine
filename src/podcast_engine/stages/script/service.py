@@ -196,10 +196,7 @@ def write_segment_llm(
     if ctx.llm is None:
         raise RuntimeError("write_segment_llm needs an LLM client")
     labelled = {f"P{n + 1}": p for n, p in enumerate(passages)}
-    style = style_for(show, hosts, segment_count) + (
-        " Every line with a factual statement must set is_claim=true and list the passage ids "
-        "that support it; framing and reactions set is_claim=false with no passage ids."
-    )
+    style = style_for(show, hosts, segment_count)
     listing = "\n".join(f"[{pid}] ({p.item.title}) {p.chunk.text}" for pid, p in labelled.items())
     redo = ""
     if avoid:
@@ -214,7 +211,8 @@ def write_segment_llm(
         + style,
         user=(
             f"Show: {show.topic}\nThis is segment {segment.position} of {segment_count}.\n\n"
-            f"Segment title: {segment.title}\n\nPassages:\n{listing}{redo}"
+            f"Segment title: {segment.title}\n\nPassages:\n{listing}{redo}\n\n"
+            "Write this segment's lines, following the rules above."
         ),
         output_format=DraftSegment,
     )

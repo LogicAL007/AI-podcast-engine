@@ -133,7 +133,7 @@ def plan_llm(
         system=load_prompt(ctx.settings.prompts_dir, "outline", PROMPT_VERSIONS["outline"]),
         user=(
             f"Show topic: {show.topic}\nUse at most {show.max_segments} segments.\n\n"
-            f"Passages:\n{listing}"
+            f"Passages:\n{listing}\n\nPlan the segments, following the rules above."
         ),
         output_format=Outline,
     )

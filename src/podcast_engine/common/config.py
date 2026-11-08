@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     llm_fallback_model: str = ""  # opt-in: another model if llm_model stays overloaded
     llm_timeout_seconds: float = Field(default=180, gt=0)  # per Gemini request, then retried
     tts_backend: str = "placeholder"  # "placeholder", "say", "chatterbox" or "gemini"
+    # "natural": room tone, varied pauses and overlapping quick replies (assemble.mix_natural)
+    assembly_style: Literal["plain", "natural"] = "plain"
     tts_model: str = "gemini-3.8-flash-tts"  # used by the "gemini" backend
     signup_open: bool = False  # True: anyone may create a creator account at /signup
     tts_requests_per_minute: int = 0  # "gemini": space requests out (free tier: 3); 0 = no limit
