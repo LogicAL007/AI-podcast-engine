@@ -8,6 +8,8 @@ from pydantic import AfterValidator, AnyHttpUrl, BaseModel, ConfigDict, Field
 
 from podcast_engine.common.context import HOST_NAMES
 from podcast_engine.common.models import ExpertiseLevel, Tone
+from podcast_engine.common.music import ShowMusic
+from podcast_engine.common.voice_fx import VoiceEffects
 
 Topic = Annotated[
     str,
@@ -91,7 +93,7 @@ ReviewBeforeVoice = Annotated[
 ]
 
 
-def _known_hosts(value: dict[str, UUID]) -> dict[str, UUID]:
+def _known_hosts[V](value: dict[str, V]) -> dict[str, V]:
     unknown = sorted(set(value) - set(HOST_NAMES))
     if unknown:
         raise ValueError(f"hosts are named {', '.join(HOST_NAMES)}; not {', '.join(unknown)}")
@@ -108,6 +110,27 @@ HostVoices = Annotated[
             "and other backends, keep their own voices"
         ),
         examples=[{"Alex": "6f1c2e8a-0d5b-4f7e-9a3c-2b8d1e4f5a6b"}],
+    ),
+]
+HostEffects = Annotated[
+    dict[str, VoiceEffects],
+    AfterValidator(_known_hosts),
+    Field(
+        description=(
+            "Voice effects per host name (Alex, Sam, Jordan, Riley), applied when an episode is "
+            "assembled: `deepen` (0-100, up to 5 semitones lower), `warmth` (0-100) and "
+            "`broadcast` (compression, presence and de-essing, a radio voice)"
+        ),
+        examples=[{"Alex": {"deepen": 40, "warmth": 20, "broadcast": True}}],
+    ),
+]
+Music = Annotated[
+    ShowMusic,
+    Field(
+        description=(
+            "Intro, outro, sting and bed: built-in tracks (GET /v1/music) or ones you uploaded. "
+            "Empty slots keep the default chime, and no bed"
+        )
     ),
 ]
 RankingProfile = Annotated[
@@ -151,6 +174,8 @@ class ShowCreate(BaseModel):
     ranking_profile: RankingProfile = "explainer"
     review_before_voice: ReviewBeforeVoice = False
     host_voices: HostVoices = {}
+    host_effects: HostEffects = Field(default_factory=dict)  # optional for clients
+    music: Music = Field(default_factory=ShowMusic)
 
 
 class ShowUpdate(BaseModel):
@@ -174,6 +199,8 @@ class ShowUpdate(BaseModel):
     ranking_profile: RankingProfile | None = None
     review_before_voice: ReviewBeforeVoice | None = None
     host_voices: HostVoices | None = None
+    host_effects: HostEffects | None = None
+    music: Music | None = None
 
 
 class ShowRead(BaseModel):
@@ -202,4 +229,8 @@ class ShowRead(BaseModel):
     host_voices: dict[str, UUID] = Field(
         default_factory=dict, description="Registered voice per host name, for Chatterbox"
     )
+    host_effects: dict[str, VoiceEffects] = Field(
+        default_factory=dict, description="Voice effects per host name"
+    )
+    music: ShowMusic = Field(default_factory=ShowMusic, description="Intro, outro, sting and bed")
     created_at: datetime = Field(description="When the show was created")

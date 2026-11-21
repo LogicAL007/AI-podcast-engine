@@ -349,7 +349,7 @@ class AuthService:
         minutes = int(self._reset_lifetime.total_seconds() // 60)
         return Email(
             to=user.email,
-            subject="Reset your Podcast Engine password",
+            subject="Reset your Oasis password",
             body=(
                 f"Someone asked to reset the password for {user.email}.\n\n"
                 f"To choose a new one, open this link within {minutes} minutes:\n"
@@ -380,7 +380,7 @@ class AuthService:
         self._event("password_reset_completed", found.user_id, address, tokens_revoked=revoked)
         return self._notice(
             found.email,
-            "Your Podcast Engine password was changed",
+            "Your Oasis password was changed",
             "The password for {email} was just changed, and every sign-in ended.",
         )
 
@@ -399,7 +399,7 @@ class AuthService:
         self._event("password_changed", user.user_id, address, sessions_ended=ended)
         return self._notice(
             user.email,
-            "Your Podcast Engine password was changed",
+            "Your Oasis password was changed",
             "The password for {email} was just changed, and other sign-ins ended.",
         )
 
@@ -435,7 +435,7 @@ class AuthService:
         self._event("email_changed", user.user_id, address)
         return self._notice(
             user.email,
-            "Your Podcast Engine email was changed",
+            "Your Oasis email was changed",
             f"The account {{email}} now signs in with {new_email}.",
         )
 

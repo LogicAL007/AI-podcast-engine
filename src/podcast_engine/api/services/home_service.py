@@ -49,7 +49,8 @@ def relation_for(path: str) -> str:
     """A resource's link relation from its path: a segment followed by an id is singular.
 
     ``/shows/{show_id}/episodes`` -> ``tag:podcast-engine,2026:show-episodes``;
-    ``/episodes/{episode_id}/audio.wav`` -> ``...:episode-audio``.
+    ``/episodes/{episode_id}/audio.wav`` -> ``...:episode-audio``. A collection without a plural
+    (``/music``, ``/speech``) names one of its members ``music-item``, ``speech-item``.
     """
     segments = path.strip("/").split("/")
     names = []
@@ -58,7 +59,9 @@ def relation_for(path: str) -> str:
             continue
         name = re.sub(r"\.(wav|md|xml|json)$", "", segment).replace("_", "-")
         followed_by_id = n + 1 < len(segments) and segments[n + 1].startswith("{")
-        names.append(name[:-1] if followed_by_id and name.endswith("s") else name)
+        if followed_by_id:
+            name = name[:-1] if name.endswith("s") else f"{name}-item"
+        names.append(name)
     return RELATION_PREFIX + ("-".join(names) or "root")
 
 

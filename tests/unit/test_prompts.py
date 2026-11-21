@@ -10,7 +10,7 @@ from podcast_engine.common.context import PROMPT_VERSIONS
 from podcast_engine.stages.script.service import load_prompt
 
 PROMPTS = Path(__file__).resolve().parents[2] / "prompts"
-UNGROUNDED = ("script_ungrounded", 2)  # research/evaluation/rq1_claim_audit/generate.py
+UNGROUNDED = ("script_ungrounded", 3)  # research/evaluation/rq1_claim_audit/generate.py
 
 
 def sections(text: str) -> dict[str, str]:

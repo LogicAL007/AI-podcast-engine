@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from podcast_engine.api.models.pagination_model import Paged
 from podcast_engine.api.models.voices_model import VoiceRead
 from podcast_engine.stages.voice.registry import clips_voiced_with
+from podcast_engine.stages.voice.speech_text import raw_speech_keys
 
 _COLUMNS = (
     "voice_id, name, speaker, license, source, duration_seconds, consent, object_key, created_at"
@@ -112,6 +113,13 @@ class PostgresVoiceRepository:
             ),
             {"id": str(voice_id), "owner_id": owner_id},
         )
+        self._session.execute(
+            text(
+                "DELETE FROM speech_clips WHERE owner_id = :owner_id"
+                " AND voice->>'voice_id' = CAST(:id AS text)"
+            ),
+            {"id": str(voice_id), "owner_id": owner_id},
+        )
         result = self._session.execute(
             text("DELETE FROM voices WHERE voice_id = :id AND owner_id = :owner_id"),
             {"id": voice_id, "owner_id": owner_id},
@@ -127,20 +135,31 @@ class PostgresVoiceRepository:
         return list(rows)
 
     def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]:
-        """Stored speech clips made with this voice in the owner's episodes, to delete when it is
-        withdrawn. None while another registered voice has the same recording: they are its too."""
+        """Stored speech made with this voice, to delete when it is withdrawn: its type-to-speech
+        clips always, and the clips (and cached raw speech) in the owner's episodes and studio
+        unless another registered voice has the same recording (then they are that voice's too)."""
         sha256 = self._session.execute(
             text("SELECT sha256 FROM voices WHERE voice_id = :id AND owner_id = :owner_id"),
             {"id": voice_id, "owner_id": owner_id},
         ).scalar_one_or_none()
         if sha256 is None:
             return []
+        studio = self._session.execute(
+            text(
+                "SELECT object_key, text, delivery FROM speech_clips"
+                " WHERE owner_id = :owner_id AND voice->>'voice_id' = :id"
+            ),
+            {"id": str(voice_id), "owner_id": owner_id},
+        ).all()
+        keys = [row.object_key for row in studio if row.object_key]
         shared = self._session.execute(
             text("SELECT count(*) FROM voices WHERE sha256 = :sha256 AND voice_id <> :id"),
             {"sha256": sha256, "id": voice_id},
         ).scalar_one()
         if shared:
-            return []
+            return keys
+        for row in studio:
+            keys += raw_speech_keys(sha256, row.text, row.delivery)
         rows = self._session.execute(
             text(
                 "SELECT e.voice_lines, e.manifest FROM episodes e JOIN shows s USING (show_id)"
@@ -148,4 +167,5 @@ class PostgresVoiceRepository:
             ),
             {"owner_id": owner_id},
         ).all()
-        return clips_voiced_with(sha256, [(row.voice_lines, row.manifest) for row in rows])
+        episodes = clips_voiced_with(sha256, [(row.voice_lines, row.manifest) for row in rows])
+        return list(dict.fromkeys(keys + episodes))

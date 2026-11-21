@@ -123,7 +123,7 @@ class Avatar(BaseModel):
         "`rex`: the full-body robot with moves",
     )
     name: str = Field(
-        default="Scout", min_length=1, max_length=24, description="What the bot is called"
+        default="James", min_length=1, max_length=24, description="What the bot is called"
     )
     color: BodyColour = Field(default="pearl", description="Body colour: a preset or #rrggbb")
     accent: HexColour = Field(default="#c2410c", description="Trim and outfit colour, #rrggbb")

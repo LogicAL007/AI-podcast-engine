@@ -20,7 +20,7 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { id: "welcome", title: "Welcome to Podcast Engine", bot: "greeting" },
+  { id: "welcome", title: "Welcome to Oasis", bot: "greeting" },
   { id: "companion", title: "Meet your companion", bot: "greeting" },
   { id: "how", title: "How an episode is made", bot: "reviewing" },
   { id: "first", title: "Make your first show", bot: "celebrating" },
@@ -85,7 +85,7 @@ export function OnboardingPage() {
         <div className="onboarding-top">
           <span className="brand">
             <LiquidLogo size={32} />
-            Podcast Engine
+            Oasis
           </span>
           <button
             type="button"
@@ -118,8 +118,8 @@ export function OnboardingPage() {
             {step.id === "welcome" ? (
               <>
                 <p className="onboarding-lead">
-                  Podcast Engine turns a topic and the sources you trust into a
-                  podcast episode with two hosts.
+                  Oasis turns a topic and the sources you trust into a podcast
+                  episode with two hosts.
                 </p>
                 <ul className="onboarding-points">
                   <li>

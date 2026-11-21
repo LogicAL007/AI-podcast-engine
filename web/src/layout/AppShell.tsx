@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { useAuth } from "../auth/AuthProvider";
 import { AssistantProvider } from "../bots/assistant";
-import { AssistantDock } from "../bots/AssistantDock";
+import { James } from "../bots/James";
 import { useAvatar } from "../bots/avatar";
 import { AvatarFace } from "../bots/AvatarFace";
 import { preloadBots } from "../bots/BotFigure";
@@ -17,7 +17,7 @@ export function Brand({ size = 34 }: { size?: number }) {
   return (
     <span className="brand">
       <LiquidLogo size={size} />
-      <span className="brand-name">Podcast Engine</span>
+      <span className="brand-name">Oasis</span>
     </span>
   );
 }
@@ -165,11 +165,7 @@ export function AppShell() {
             >
               <Icon name="menu" />
             </button>
-            <Link
-              to="/"
-              className="brand-link"
-              aria-label="Podcast Engine, home"
-            >
+            <Link to="/" className="brand-link" aria-label="Oasis, home">
               <Brand size={30} />
             </Link>
             <Link
@@ -196,11 +192,7 @@ export function AppShell() {
           inert={hidden}
         >
           <div className="sidebar-top">
-            <Link
-              to="/"
-              className="brand-link"
-              aria-label="Podcast Engine, home"
-            >
+            <Link to="/" className="brand-link" aria-label="Oasis, home">
               <Brand size={34} />
             </Link>
             {!narrow ? (
@@ -349,7 +341,7 @@ export function AppShell() {
           <div key={pathname} className="page-enter">
             <Outlet />
           </div>
-          <AssistantDock />
+          <James />
         </main>
       </div>
     </AssistantProvider>

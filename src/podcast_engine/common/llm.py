@@ -258,21 +258,24 @@ class ClaudeClient(LlmClient):
 
     provider = "anthropic"
 
-    def __init__(self, api_key: str, model: str, *, seed: int) -> None:
+    def __init__(self, api_key: str, model: str, *, seed: int, effort: str = "") -> None:
         super().__init__(model, seed)
         import anthropic
 
         self.client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+        self.effort = effort
 
     def parse(
         self, *, system: str, user: str, output_format: type[T], max_tokens: int = 16000
     ) -> T:
+        extra: dict[str, Any] = {"output_config": {"effort": self.effort}} if self.effort else {}
         response = self.client.messages.parse(
             model=self.model,
             max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
-            output_format=output_format,
+            output_format=output_format,  # the SDK merges it into output_config with the effort
+            **extra,
         )
         self._record(self.model, response.usage.input_tokens, response.usage.output_tokens)
         if response.stop_reason == "refusal":
@@ -305,5 +308,5 @@ def make_llm(
             timeout=settings.llm_timeout_seconds,
         )
     if settings.llm_provider == "anthropic":
-        return ClaudeClient(key, settings.llm_model, seed=settings.seed)
+        return ClaudeClient(key, settings.llm_model, seed=settings.seed, effort=settings.llm_effort)
     raise ValueError(f"LLM_PROVIDER must be gemini or anthropic, not {settings.llm_provider!r}")

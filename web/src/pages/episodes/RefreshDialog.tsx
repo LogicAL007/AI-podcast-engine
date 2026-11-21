@@ -15,7 +15,7 @@ const MODES: [Mode, string, string][] = [
   [
     "rebuild",
     "Everything, from scratch",
-    "Plans, writes and voices every segment again from the sources as they are now, even if none changed. Uses the most Podcast Engine requests.",
+    "Plans, writes and voices every segment again from the sources as they are now, even if none changed. Uses the most Oasis requests.",
   ],
 ];
 

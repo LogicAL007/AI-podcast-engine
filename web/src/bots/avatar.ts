@@ -11,7 +11,7 @@ export type { Avatar };
 
 export const DEFAULT_AVATAR: Avatar = {
   character: "toy",
-  name: "Scout",
+  name: "James",
   color: "pearl",
   accent: "#c2410c",
   glow: "amber",
@@ -189,12 +189,17 @@ export const faceHex = (avatar: Avatar) =>
 
 /** Fill in parts an older saved bot does not have. */
 export function complete(avatar: Partial<Avatar> | null | undefined): Avatar {
-  return {
+  const done = {
     ...DEFAULT_AVATAR,
     ...(avatar ?? {}),
     voice: { ...DEFAULT_AVATAR.voice, ...(avatar?.voice ?? {}) },
   } as Avatar;
+  // "Scout" was the default name before the companion became James: a bot never renamed is James.
+  if (done.name === LEGACY_DEFAULT_NAME) done.name = DEFAULT_AVATAR.name;
+  return done;
 }
+
+const LEGACY_DEFAULT_NAME = "Scout";
 
 /** A random but always valid bot, for "Surprise me". The name, personality and voice are kept. */
 export function surprise(

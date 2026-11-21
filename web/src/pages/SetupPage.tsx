@@ -24,7 +24,7 @@ export function SetupPage() {
 
   if (setup.isPending) {
     return (
-      <PublicLayout title="Set up Podcast Engine">
+      <PublicLayout title="Set up Oasis">
         <Spinner label="Checking setup" />
       </PublicLayout>
     );
@@ -49,7 +49,7 @@ export function SetupPage() {
   }
 
   return (
-    <PublicLayout title="Set up Podcast Engine">
+    <PublicLayout title="Set up Oasis">
       <p className="muted">
         Create the first account. It becomes the administrator, and takes over
         any shows made before sign-in existed.

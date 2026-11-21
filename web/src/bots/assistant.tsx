@@ -41,6 +41,18 @@ export interface TourStep {
   text: string;
 }
 
+/** Something worth a word at a pause, such as an episode finishing. James says it only when it
+ * changes while the person is on the page (never for what was already so when they came). */
+export interface Nudge {
+  /** Changes when there is something new to say (an episode id and its new state). */
+  id: string;
+  text: string;
+  /** The page action offered with it (one of `actions`, by id). */
+  action?: string;
+  /** "problem" for a failure: James looks concerned. */
+  tone?: "good" | "problem";
+}
+
 export interface PageAssist {
   page: AssistantPage;
   /** Remembers this place: whether its dock was closed, and whether its tour was taken. */
@@ -55,6 +67,9 @@ export interface PageAssist {
   tour?: TourStep[];
   episodeId?: string;
   showId?: string;
+  /** What James is looking at, for the panel's header ("Episode 3"). */
+  context?: string;
+  nudge?: Nudge;
 }
 
 interface AssistantState {

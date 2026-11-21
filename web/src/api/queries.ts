@@ -14,12 +14,16 @@ import type {
   ClaimDetail,
   EpisodeRead,
   EpisodeScript,
+  MusicTrackRead,
   Page,
   ScriptEdit,
   ShowCreate,
   ShowRead,
   ShowUpdate,
   SourceRead,
+  SpeechClipRead,
+  SpeechCreate,
+  SpeechEngine,
   StageRunRead,
   UploadRead,
   UsageRead,
@@ -48,6 +52,10 @@ export const keys = {
   reviewQueue: ["episodes", "needs_review"] as const,
   usage: ["usage"] as const,
   consent: ["voices", "consent"] as const,
+  speechEngine: ["speech", "engine"] as const,
+  speech: ["speech"] as const,
+  speechClip: (id: string) => ["speech", id] as const,
+  music: ["music"] as const,
 };
 
 const paging = (offset: number) => ({ limit: PAGE_SIZE, offset });
@@ -369,7 +377,7 @@ export function useSaveScript(episodeId: string) {
   });
 }
 
-type EpisodeAction = "approve" | "retry" | "cancel";
+type EpisodeAction = "approve" | "retry" | "cancel" | "remix";
 
 export function useEpisodeAction(episodeId: string, action: EpisodeAction) {
   const client = useQueryClient();
@@ -383,6 +391,10 @@ export function useEpisodeAction(episodeId: string, action: EpisodeAction) {
       if (action === "retry")
         return unwrap(
           await api.POST("/v1/episodes/{episode_id}/retry", params),
+        );
+      if (action === "remix")
+        return unwrap(
+          await api.POST("/v1/episodes/{episode_id}/remix", params),
         );
       return unwrap(await api.POST("/v1/episodes/{episode_id}/cancel", params));
     },
@@ -486,6 +498,132 @@ export function useDeleteVoice() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: keys.voices });
       void client.invalidateQueries({ queryKey: ["show"] }); // hosts that used it lose it
+    },
+  });
+}
+
+// ---- type-to-speech (voiced by the voice worker) --------------------------------------------
+
+export function useSpeechEngine() {
+  return useQuery({
+    queryKey: keys.speechEngine,
+    queryFn: async (): Promise<SpeechEngine> =>
+      unwrap(await api.GET("/v1/speech/engine")),
+    staleTime: 30_000,
+  });
+}
+
+export function useSpeechClips() {
+  return useQuery({
+    queryKey: keys.speech,
+    queryFn: async (): Promise<SpeechClipRead[]> =>
+      unwrap(await api.GET("/v1/speech")),
+  });
+}
+
+const SPEECH_POLL_MS = 1500;
+
+/** One clip, polled until the voice worker has finished it (done or failed). */
+export function useSpeechClip(clipId: string | null) {
+  const client = useQueryClient();
+  return useQuery({
+    queryKey: keys.speechClip(clipId ?? ""),
+    enabled: clipId !== null,
+    queryFn: async (): Promise<SpeechClipRead> => {
+      const clip = unwrap(
+        await api.GET("/v1/speech/{clip_id}", {
+          params: { path: { clip_id: clipId as string } },
+        }),
+      );
+      if (clip.status === "done" || clip.status === "failed")
+        void client.invalidateQueries({ queryKey: keys.speech, exact: true });
+      return clip;
+    },
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "done" || status === "failed" ? false : SPEECH_POLL_MS;
+    },
+  });
+}
+
+export function useCreateSpeech() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: SpeechCreate): Promise<SpeechClipRead> =>
+      unwrap(await api.POST("/v1/speech", { body })),
+    onSuccess: (clip) => {
+      client.setQueryData(keys.speechClip(clip.clip_id), clip);
+      void client.invalidateQueries({ queryKey: keys.speech, exact: true });
+      void client.invalidateQueries({ queryKey: keys.speechEngine });
+    },
+  });
+}
+
+export function useDeleteSpeech() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (clipId: string) =>
+      unwrap(
+        await api.DELETE("/v1/speech/{clip_id}", {
+          params: { path: { clip_id: clipId } },
+        }),
+      ),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: keys.speech, exact: true }),
+  });
+}
+
+// ---- music (built-in tracks and uploads) -------------------------------------------------------
+
+export function useMusic() {
+  return useQuery({
+    queryKey: keys.music,
+    queryFn: async (): Promise<MusicTrackRead[]> =>
+      unwrap(await api.GET("/v1/music")),
+    staleTime: 60_000,
+  });
+}
+
+export interface MusicUpload {
+  wav: Blob;
+  name: string;
+  role: MusicTrackRead["role"];
+  credit: string;
+}
+
+export function useUploadMusic() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (track: MusicUpload): Promise<MusicTrackRead> => {
+      const form = new FormData();
+      form.append("audio", track.wav, "track.wav");
+      form.append("name", track.name);
+      form.append("role", track.role);
+      form.append("credit", track.credit);
+      form.append("rights", "true");
+      return unwrap(
+        await api.POST("/v1/music", {
+          body: form as never,
+          bodySerializer: (body) => body as unknown as FormData,
+        }),
+      );
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.music }),
+  });
+}
+
+export function useDeleteMusic() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (trackId: string) =>
+      unwrap(
+        await api.DELETE("/v1/music/{track_id}", {
+          params: { path: { track_id: trackId } },
+        }),
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.music });
+      void client.invalidateQueries({ queryKey: ["show"] }); // shows that used it lose it
     },
   });
 }

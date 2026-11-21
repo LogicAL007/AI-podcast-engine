@@ -59,7 +59,7 @@ describe("LoginPage", () => {
     );
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(
-      screen.getByRole("complementary", { name: "About Podcast Engine" }),
+      screen.getByRole("complementary", { name: "About Oasis" }),
     ).toBeInTheDocument();
   });
 

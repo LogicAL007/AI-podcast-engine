@@ -10,9 +10,11 @@ from podcast_engine.api.controllers.assistant_controller import AssistantControl
 from podcast_engine.api.controllers.auth_controller import AuthController
 from podcast_engine.api.controllers.episodes_controller import EpisodeController
 from podcast_engine.api.controllers.feeds_controller import FeedController
+from podcast_engine.api.controllers.music_controller import MusicController
 from podcast_engine.api.controllers.ops_controller import OpsController
 from podcast_engine.api.controllers.shows_controller import ShowController
 from podcast_engine.api.controllers.sources_controller import SourceController
+from podcast_engine.api.controllers.speech_controller import SpeechController
 from podcast_engine.api.controllers.uploads_controller import UploadController
 from podcast_engine.api.controllers.voices_controller import VoiceController
 from podcast_engine.api.main import create_app
@@ -26,21 +28,27 @@ from podcast_engine.api.services.assistant_service import AssistantService
 from podcast_engine.api.services.auth_service import AuthService
 from podcast_engine.api.services.episodes_service import EpisodeService, ProgressPacing
 from podcast_engine.api.services.feeds_service import FeedService
+from podcast_engine.api.services.music_service import MusicService
 from podcast_engine.api.services.ops_service import Check, OpsService
 from podcast_engine.api.services.shows_service import ShowService
 from podcast_engine.api.services.sources_service import SourceService
+from podcast_engine.api.services.speech_service import SpeechService
 from podcast_engine.api.services.uploads_service import UploadService
 from podcast_engine.api.services.voices_service import VoiceService
+from podcast_engine.common.config import Settings
 from podcast_engine.common.llm import LlmClient
 from podcast_engine.common.mailer import Email
 from podcast_engine.common.queue import Stage
+from podcast_engine.common.quota import DailyBudget
 from tests.unit.api.fakes import (
     FakeAuthRepository,
     FakeEpisodeRepository,
+    FakeMusicRepository,
     FakeObjectStore,
     FakeSecurityEventRepository,
     FakeShowRepository,
     FakeSourceRepository,
+    FakeSpeechRepository,
     FakeUploadRepository,
     FakeVoiceRepository,
 )
@@ -103,6 +111,12 @@ class Harness:
         self.uploads = FakeUploadRepository()
         self.store = FakeObjectStore()
         self.voices = FakeVoiceRepository(self.shows)
+        self.speech = FakeSpeechRepository()
+        self.music = FakeMusicRepository(self.shows)
+        self.speech_settings = Settings(tts_backend="chatterbox", speech_clips_per_hour=30)
+        self.speech_budget: DailyBudget | None = None
+        self.speech_usage = MemoryAssistantUsage(clock=lambda: self.seconds)
+        self.spoken: list[str] = []  # clip ids sent to the voice queue
         self.auth.on_delete.append(self.shows.drop_owner)
         self.enqueued: list[UUID] = []
         self.stages: list[tuple[UUID, Stage]] = []
@@ -112,7 +126,21 @@ class Harness:
         app = create_app()
         overrides = app.dependency_overrides
         overrides[dependencies.get_show_controller] = lambda: ShowController(
-            ShowService(self.shows, self.voices)
+            ShowService(self.shows, self.voices, self.music)
+        )
+        overrides[dependencies.get_speech_controller] = lambda: SpeechController(
+            SpeechService(
+                self.speech,
+                self.voices,
+                self.store,
+                self.speech_usage,
+                self._enqueue_speech,
+                self.speech_settings,
+                self.speech_budget,
+            )
+        )
+        overrides[dependencies.get_music_controller] = lambda: MusicController(
+            MusicService(self.music, self.store)
         )
         overrides[dependencies.get_voice_controller] = lambda: VoiceController(
             VoiceService(self.voices, self.store)
@@ -167,6 +195,12 @@ class Harness:
         self.seconds += seconds
         if self.on_poll:
             self.on_poll.pop(0)()
+
+    def _enqueue_speech(self, clip_id: str) -> str:
+        if self.queue_down:
+            raise ConnectionError("redis unreachable")
+        self.spoken.append(clip_id)
+        return clip_id
 
     def _enqueue(self, episode_id: UUID, stage: Stage) -> None:
         if self.queue_down:

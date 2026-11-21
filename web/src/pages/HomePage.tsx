@@ -170,7 +170,7 @@ export function HomePage() {
       {
         target: "nav-usage",
         title: "Today's budget",
-        text: "How many Podcast Engine requests are left today. It resets at midnight Pacific time.",
+        text: "How many Oasis requests are left today. It resets at midnight Pacific time.",
       },
     ],
   });

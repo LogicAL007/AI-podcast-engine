@@ -4,7198 +4,8311 @@
  */
 
 export interface paths {
-  "/home": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The API's home document
+         * @description Start here. Lists every resource of the API with its URI or URI template, the methods it
+         *     allows, the formats it returns and accepts, whether it supports byte ranges or paging, and a
+         *     link to its documentation. Also says how authentication works (at present: it is not
+         *     required), where the liveness and readiness checks are, and the conventions every endpoint
+         *     follows.
+         *
+         *     The format is a JSON home document (draft-nottingham-json-home). Ask for
+         *     `application/json-home` to get that media type; otherwise it is served as `application/json`.
+         */
+        get: operations["home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * The API's home document
-     * @description Start here. Lists every resource of the API with its URI or URI template, the methods it
-     *     allows, the formats it returns and accepts, whether it supports byte ranges or paging, and a
-     *     link to its documentation. Also says how authentication works (at present: it is not
-     *     required), where the liveness and readiness checks are, and the conventions every endpoint
-     *     follows.
-     *
-     *     The format is a JSON home document (draft-nottingham-json-home). Ask for
-     *     `application/json-home` to get that media type; otherwise it is served as `application/json`.
-     */
-    get: operations["home"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/.well-known/api-catalog": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/.well-known/api-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The API catalog
+         * @description The API catalog at its well-known address (RFC 9727), for tools that discover APIs
+         *     automatically: a Linkset (RFC 9264) pointing to this API's home document, OpenAPI
+         *     description, interactive documentation and status.
+         */
+        get: operations["api_catalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        /**
+         * Check the API catalog
+         * @description Headers only, including the `api-catalog` link, as RFC 9727 requires.
+         */
+        head: operations["api_catalog_head"];
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * The API catalog
-     * @description The API catalog at its well-known address (RFC 9727), for tools that discover APIs
-     *     automatically: a Linkset (RFC 9264) pointing to this API's home document, OpenAPI
-     *     description, interactive documentation and status.
-     */
-    get: operations["api_catalog"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    /**
-     * Check the API catalog
-     * @description Headers only, including the `api-catalog` link, as RFC 9727 requires.
-     */
-    head: operations["api_catalog_head"];
-    patch?: never;
-    trace?: never;
-  };
-  "/health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness check
+         * @description Answers while the process is serving. Does not check the database, queue or storage: use
+         *     the readiness check for that.
+         */
+        get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Liveness check
-     * @description Answers while the process is serving. Does not check the database, queue or storage: use
-     *     the readiness check for that.
-     */
-    get: operations["health"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/ready": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness check
+         * @description Checks that the database, the job queue and object storage answer, so a load balancer
+         *     sends traffic only to an API that can do its work.
+         */
+        get: operations["ready"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Readiness check
-     * @description Checks that the database, the job queue and object storage answer, so a load balancer
-     *     sends traffic only to an API that can do its work.
-     */
-    get: operations["ready"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/register": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an account
+         * @description Create an account. The very first account needs no token and becomes the admin. After that
+         *     an admin (sending their token) can create accounts as `creator` or `admin`; and when sign-up
+         *     is open (`SIGNUP_OPEN`), anyone can create their own account, always as a `creator`.
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Create an account
-     * @description Create an account. The very first account needs no token and becomes the admin. After that
-     *     an admin (sending their token) can create accounts as `creator` or `admin`; and when sign-up
-     *     is open (`SIGNUP_OPEN`), anyone can create their own account, always as a `creator`.
-     */
-    post: operations["register"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/login": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log in
+         * @description Exchange an email and password for a login token. Send it as `Authorization: Bearer
+         *     <token>` on every other request. It lasts six months, until `POST /auth/logout`, or until the
+         *     account is disabled. Each login creates a new token; earlier ones keep working.
+         *
+         *     After five failed attempts within 15 minutes, the account is locked for 15 minutes (a password
+         *     reset unlocks it). The answer stays "wrong email or password" during the lock, so it does not
+         *     reveal which accounts exist. Many failures from one address get 429 with `Retry-After`.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Log in
-     * @description Exchange an email and password for a login token. Send it as `Authorization: Bearer
-     *     <token>` on every other request. It lasts six months, until `POST /auth/logout`, or until the
-     *     account is disabled. Each login creates a new token; earlier ones keep working.
-     *
-     *     After five failed attempts within 15 minutes, the account is locked for 15 minutes (a password
-     *     reset unlocks it). The answer stays "wrong email or password" during the lock, so it does not
-     *     reveal which accounts exist. Many failures from one address get 429 with `Retry-After`.
-     */
-    post: operations["login"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/browser-session": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/browser-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in (web app)
+         * @description Sign in from a browser. The login token goes into the `pe_session` cookie (HttpOnly,
+         *     SameSite=Strict, six months), which page scripts cannot read, and the `pe_csrf` cookie holds
+         *     a CSRF token. Requests that change something must send it back in the `X-CSRF-Token` header.
+         *     The same limits as `POST /auth/login` apply. Scripts should use that endpoint or an API key.
+         */
+        post: operations["start_session"];
+        /**
+         * Sign out (web app)
+         * @description Revoke the browser's login token and clear its cookies. If the token no longer works,
+         *     the cookies are still cleared, so a stale sign-in can always be ended.
+         */
+        delete: operations["end_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Sign in (web app)
-     * @description Sign in from a browser. The login token goes into the `pe_session` cookie (HttpOnly,
-     *     SameSite=Strict, six months), which page scripts cannot read, and the `pe_csrf` cookie holds
-     *     a CSRF token. Requests that change something must send it back in the `X-CSRF-Token` header.
-     *     The same limits as `POST /auth/login` apply. Scripts should use that endpoint or an API key.
-     */
-    post: operations["start_session"];
-    /**
-     * Sign out (web app)
-     * @description Revoke the browser's login token and clear its cookies. If the token no longer works,
-     *     the cookies are still cleared, so a stale sign-in can always be ended.
-     */
-    delete: operations["end_session"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/google/start": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign in with Google (web app)
+         * @description Start signing in with Google: the browser is sent to Google with a random `state`, a
+         *     `nonce` and a PKCE challenge, which a short-lived signed cookie (`pe_google`) keeps for the
+         *     way back. Open this as a page, not with `fetch`.
+         */
+        get: operations["google_start"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Sign in with Google (web app)
-     * @description Start signing in with Google: the browser is sent to Google with a random `state`, a
-     *     `nonce` and a PKCE challenge, which a short-lived signed cookie (`pe_google`) keeps for the
-     *     way back. Open this as a page, not with `fetch`.
-     */
-    get: operations["google_start"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/google/callback": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Finish signing in with Google
+         * @description Where Google sends the browser back. The code is exchanged for an ID token whose issuer,
+         *     audience, expiry, nonce and verified email are checked. An account with that email signs in;
+         *     with none, one is created only while sign-up is open. The session cookies are then set as
+         *     for `POST /auth/browser-session`. Failures go back to the sign-in page with a reason:
+         *     `cancelled`, `expired`, `unverified`, `no_account`, `busy` or `failed`.
+         */
+        get: operations["google_callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Finish signing in with Google
-     * @description Where Google sends the browser back. The code is exchanged for an ID token whose issuer,
-     *     audience, expiry, nonce and verified email are checked. An account with that email signs in;
-     *     with none, one is created only while sign-up is open. The session cookies are then set as
-     *     for `POST /auth/browser-session`. Failures go back to the sign-in page with a reason:
-     *     `cancelled`, `expired`, `unverified`, `no_account`, `busy` or `failed`.
-     */
-    get: operations["google_callback"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/setup": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check first-run setup
+         * @description True until the first account exists. That account is created without signing in, with
+         *     `POST /auth/register`, and becomes the admin.
+         */
+        get: operations["setup_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Check first-run setup
-     * @description True until the first account exists. That account is created without signing in, with
-     *     `POST /auth/register`, and becomes the admin.
-     */
-    get: operations["setup_status"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/password-reset": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a password reset
+         * @description Email a single-use reset link, valid for 30 minutes, if an account has this address. The
+         *     answer is the same either way, and the email is sent after the response, so neither reveals
+         *     whether the account exists. At most three links per account per hour.
+         */
+        post: operations["request_password_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Ask for a password reset
-     * @description Email a single-use reset link, valid for 30 minutes, if an account has this address. The
-     *     answer is the same either way, and the email is sent after the response, so neither reveals
-     *     whether the account exists. At most three links per account per hour.
-     */
-    post: operations["request_password_reset"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/password-reset/confirm": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with a reset link
+         * @description Choose a new password with the token from the reset link. The link works once. Every login
+         *     token and API key of the account stops working, any lock on it is lifted, and a notice is
+         *     emailed. You are not signed in: log in with the new password.
+         */
+        post: operations["confirm_password_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Set a new password with a reset link
-     * @description Choose a new password with the token from the reset link. The link works once. Every login
-     *     token and API key of the account stops working, any lock on it is lifted, and a notice is
-     *     emailed. You are not signed in: log in with the new password.
-     */
-    post: operations["confirm_password_reset"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/me/avatar": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose your assistant bot
+         * @description Choose the assistant bot the web app shows you: the character, its name, its colours and
+         *     what it wears. Only these choices are stored; the bot is drawn by the web app.
+         */
+        put: operations["set_avatar"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /**
-     * Choose your assistant bot
-     * @description Choose the assistant bot the web app shows you: the character, its name, its colours and
-     *     what it wears. Only these choices are stored; the bot is drawn by the web app.
-     */
-    put: operations["set_avatar"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/password": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your password
+         * @description Change the password of the account you are signed in to. Your other login tokens stop
+         *     working; this one and your API keys keep working. A notice is emailed.
+         */
+        post: operations["change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Change your password
-     * @description Change the password of the account you are signed in to. Your other login tokens stop
-     *     working; this one and your API keys keep working. A notice is emailed.
-     */
-    post: operations["change_password"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/logout": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out
+         * @description Revoke the token this request was sent with (a login token or an API key).
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Log out
-     * @description Revoke the token this request was sent with (a login token or an API key).
-     */
-    post: operations["logout"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/me": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who am I
+         * @description The account behind the token, its role, and when the token expires.
+         */
+        get: operations["whoami"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete your account
+         * @description Delete your account for good, confirmed with your password: your shows, episodes, sources,
+         *     uploads, their stored audio, notes and feeds, your sign-ins and your API keys. This cannot be
+         *     undone. The security log keeps its entries about you, without the link to the account.
+         */
+        delete: operations["delete_account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Who am I
-     * @description The account behind the token, its role, and when the token expires.
-     */
-    get: operations["whoami"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete your account
-     * @description Delete your account for good, confirmed with your password: your shows, episodes, sources,
-     *     uploads, their stored audio, notes and feeds, your sign-ins and your API keys. This cannot be
-     *     undone. The security log keeps its entries about you, without the link to the account.
-     */
-    delete: operations["delete_account"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/users": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List accounts
+         * @description Every account (admins only).
+         */
+        get: operations["list_users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List accounts
-     * @description Every account (admins only).
-     */
-    get: operations["list_users"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/api-keys": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your API keys
+         * @description Your API keys with their names, first characters, expiry, last use and whether they are
+         *     revoked.
+         */
+        get: operations["list_api_keys"];
+        put?: never;
+        /**
+         * Create an API key
+         * @description A key for scripts and other programs, acting as your account. Send it like a login token
+         *     (`Authorization: Bearer <key>`). It lasts six months unless revoked. Store it now: only its
+         *     first characters are kept, so it cannot be shown again.
+         */
+        post: operations["create_api_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List your API keys
-     * @description Your API keys with their names, first characters, expiry, last use and whether they are
-     *     revoked.
-     */
-    get: operations["list_api_keys"];
-    put?: never;
-    /**
-     * Create an API key
-     * @description A key for scripts and other programs, acting as your account. Send it like a login token
-     *     (`Authorization: Bearer <key>`). It lasts six months unless revoked. Store it now: only its
-     *     first characters are kept, so it cannot be shown again.
-     */
-    post: operations["create_api_key"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/api-keys/{token_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/api-keys/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an API key
+         * @description Stop one of your API keys working, at once.
+         */
+        delete: operations["revoke_api_key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Revoke an API key
-     * @description Stop one of your API keys working, at once.
-     */
-    delete: operations["revoke_api_key"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/email": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your email
+         * @description Move your account to a new email address, confirmed with your password. Your sign-ins keep
+         *     working. A notice goes to the old address, so an unexpected change is noticed.
+         */
+        post: operations["change_email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Change your email
-     * @description Move your account to a new email address, confirmed with your password. Your sign-ins keep
-     *     working. A notice goes to the old address, so an unexpected change is noticed.
-     */
-    post: operations["change_email"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/sessions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your sign-ins
+         * @description The login tokens of your account that still work (browsers and devices you signed in on),
+         *     with when each was created and last used. `current` marks the one making this request. API
+         *     keys are listed separately, at `GET /auth/api-keys`.
+         */
+        get: operations["list_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List your sign-ins
-     * @description The login tokens of your account that still work (browsers and devices you signed in on),
-     *     with when each was created and last used. `current` marks the one making this request. API
-     *     keys are listed separately, at `GET /auth/api-keys`.
-     */
-    get: operations["list_sessions"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/sessions/{token_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/sessions/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Sign out a device
+         * @description End one of your sign-ins, for example on a lost device. Use `POST /auth/logout` for this
+         *     one.
+         */
+        delete: operations["revoke_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Sign out a device
-     * @description End one of your sign-ins, for example on a lost device. Use `POST /auth/logout` for this
-     *     one.
-     */
-    delete: operations["revoke_session"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/auth/users/{user_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an account
+         * @description Delete another account for good, with its shows, episodes, uploads and stored files
+         *     (admins only). This cannot be undone; disable the account instead to keep its data.
+         */
+        delete: operations["delete_user"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an account
+         * @description Make another account an admin or a creator, or disable or re-enable it (admins only).
+         *     Disabling ends all of its sign-ins and API keys at once; re-enabling does not bring them
+         *     back. Its shows stay, and are unreachable while it is disabled.
+         */
+        patch: operations["update_user"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Delete an account
-     * @description Delete another account for good, with its shows, episodes, uploads and stored files
-     *     (admins only). This cannot be undone; disable the account instead to keep its data.
-     */
-    delete: operations["delete_user"];
-    options?: never;
-    head?: never;
-    /**
-     * Change an account
-     * @description Make another account an admin or a creator, or disable or re-enable it (admins only).
-     *     Disabling ends all of its sign-ins and API keys at once; re-enabling does not bring them
-     *     back. Its shows stay, and are unreachable while it is disabled.
-     */
-    patch: operations["update_user"];
-    trace?: never;
-  };
-  "/v1/auth/events": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/auth/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the security log
+         * @description Sign-ins, failed and throttled logins, locks, password resets and changes, email changes,
+         *     API keys created and revoked, and account changes, with the address each came from. You see
+         *     your own; an admin sees everyone's, or one account's with `user_id`. Failed logins for emails
+         *     with no account are kept with no account (admins see them in the unfiltered log).
+         */
+        get: operations["list_security_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Read the security log
-     * @description Sign-ins, failed and throttled logins, locks, password resets and changes, email changes,
-     *     API keys created and revoked, and account changes, with the address each came from. You see
-     *     your own; an admin sees everyone's, or one account's with `user_id`. Failed logins for emails
-     *     with no account are kept with no account (admins see them in the unfiltered log).
-     */
-    get: operations["list_security_events"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/audio.wav": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/audio.wav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an episode's audio
+         * @description The finished episode audio, the same file the RSS feed points to.
+         *
+         *     Supports HTTP range requests, so it plays and seeks in a browser `<audio>` element and in
+         *     podcast apps. The AI-generated disclosure is the first thing spoken. Available once the
+         *     assemble stage has run; 404 before then.
+         */
+        get: operations["get_episode_audio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        /**
+         * Check an episode's audio
+         * @description Headers only (size, ranges, disposition), without the body.
+         */
+        head: operations["head_episode_audio"];
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get an episode's audio
-     * @description The finished episode audio, the same file the RSS feed points to.
-     *
-     *     Supports HTTP range requests, so it plays and seeks in a browser `<audio>` element and in
-     *     podcast apps. The AI-generated disclosure is the first thing spoken. Available once the
-     *     assemble stage has run; 404 before then.
-     */
-    get: operations["get_episode_audio"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    /**
-     * Check an episode's audio
-     * @description Headers only (size, ranges, disposition), without the body.
-     */
-    head: operations["head_episode_audio"];
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/notes.md": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/notes.md": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an episode's show notes
+         * @description Markdown show notes: the AI-generated disclosure first, then chapters with their start times,
+         *     each claim with its citation numbers, the numbered sources, the source attribution, and how the
+         *     episode was made (models, prompts, voices, seed). Available once the episode is published.
+         */
+        get: operations["get_episode_notes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get an episode's show notes
-     * @description Markdown show notes: the AI-generated disclosure first, then chapters with their start times,
-     *     each claim with its citation numbers, the numbered sources, the source attribution, and how the
-     *     episode was made (models, prompts, voices, seed). Available once the episode is published.
-     */
-    get: operations["get_episode_notes"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/shows/{show_id}/uploads/{upload_id}/file": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows/{show_id}/uploads/{upload_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download an uploaded file
+         * @description The uploaded PDF, as it was uploaded. Show-note citations of uploaded sources link here,
+         *     with `#page=N` so a PDF viewer opens at the cited page.
+         */
+        get: operations["download_upload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Download an uploaded file
-     * @description The uploaded PDF, as it was uploaded. Show-note citations of uploaded sources link here,
-     *     with `#page=N` so a PDF viewer opens at the cited page.
-     */
-    get: operations["download_upload"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/feeds/{show_id}/rss.xml": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/feeds/{show_id}/rss.xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a show's RSS feed
+         * @description The show's podcast feed, for podcast apps. Each item's enclosure is the episode's
+         *     audio, its description the show notes; titles are labelled `[AI-generated]`. Rewritten
+         *     by the publish stage each time an episode is published.
+         */
+        get: operations["get_show_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get a show's RSS feed
-     * @description The show's podcast feed, for podcast apps. Each item's enclosure is the episode's
-     *     audio, its description the show notes; titles are labelled `[AI-generated]`. Rewritten
-     *     by the publish stage each time an episode is published.
-     */
-    get: operations["get_show_feed"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/shows": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List shows
+         * @description A page of your shows, newest first.
+         */
+        get: operations["list_shows"];
+        put?: never;
+        /**
+         * Create a show
+         * @description Create a show, owned by you: its topic, style, hosts and the web pages its episodes are
+         *     built from. Only you can see or change it.
+         */
+        post: operations["create_show"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List shows
-     * @description A page of your shows, newest first.
-     */
-    get: operations["list_shows"];
-    put?: never;
-    /**
-     * Create a show
-     * @description Create a show, owned by you: its topic, style, hosts and the web pages its episodes are
-     *     built from. Only you can see or change it.
-     */
-    post: operations["create_show"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/shows/{show_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows/{show_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a show
+         * @description One of your shows' settings. Another user's show is reported as not found.
+         */
+        get: operations["get_show"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a show
+         * @description Delete a show and, by cascade, its source items, episodes and claims. Files already in object
+         *     storage (audio, notes, feed) are not removed.
+         */
+        delete: operations["delete_show"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a show
+         * @description Change only the fields sent; omitted or null fields are kept. Applies to episodes started
+         *     afterwards.
+         */
+        patch: operations["update_show"];
+        trace?: never;
     };
-    /**
-     * Get a show
-     * @description One of your shows' settings. Another user's show is reported as not found.
-     */
-    get: operations["get_show"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete a show
-     * @description Delete a show and, by cascade, its source items, episodes and claims. Files already in object
-     *     storage (audio, notes, feed) are not removed.
-     */
-    delete: operations["delete_show"];
-    options?: never;
-    head?: never;
-    /**
-     * Update a show
-     * @description Change only the fields sent; omitted or null fields are kept. Applies to episodes started
-     *     afterwards.
-     */
-    patch: operations["update_show"];
-    trace?: never;
-  };
-  "/v1/shows/{show_id}/episodes": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows/{show_id}/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a show's episodes
+         * @description A page of the show's episodes, newest first, each with its status and links.
+         */
+        get: operations["list_episodes"];
+        put?: never;
+        /**
+         * Start an episode
+         * @description Create an episode and start generating it in the background. Returns at once, with the
+         *     episode `queued`; its status shows progress.
+         *
+         *     For a show that already has a published episode, this is a refresh: the sources are read
+         *     again (searches run again), only segments whose sources changed are re-scripted and
+         *     re-voiced, and if no source changed the episode ends as `unchanged`. Send
+         *     `{"rebuild": true}` to regenerate every segment instead, changed or not.
+         */
+        post: operations["start_episode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List a show's episodes
-     * @description A page of the show's episodes, newest first, each with its status and links.
-     */
-    get: operations["list_episodes"];
-    put?: never;
-    /**
-     * Start an episode
-     * @description Create an episode and start generating it in the background. Returns at once, with the
-     *     episode `queued`; its status shows progress.
-     *
-     *     For a show that already has a published episode, this is a refresh: the sources are read
-     *     again (searches run again), only segments whose sources changed are re-scripted and
-     *     re-voiced, and if no source changed the episode ends as `unchanged`. Send
-     *     `{"rebuild": true}` to regenerate every segment instead, changed or not.
-     */
-    post: operations["start_episode"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List episodes across shows
+         * @description Episodes of every show, newest first. With `status=needs_review` this is the review
+         *     queue: episodes the fact-check held back, or paused for approval before voicing.
+         */
+        get: operations["list_all_episodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List episodes across shows
-     * @description Episodes of every show, newest first. With `status=needs_review` this is the review
-     *     queue: episodes the fact-check held back, or paused for approval before voicing.
-     */
-    get: operations["list_all_episodes"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an episode
+         * @description The episode's status, current stage and any error, with links to its audio, show notes,
+         *     script, stage runs and feed. The audio and notes links are null until they exist.
+         */
+        get: operations["get_episode"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an episode
+         * @description Delete an episode, its script, claims and run records, and its audio and show notes. If it
+         *     was published, the show's feed is rewritten without it.
+         */
+        delete: operations["delete_episode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get an episode
-     * @description The episode's status, current stage and any error, with links to its audio, show notes,
-     *     script, stage runs and feed. The audio and notes links are null until they exist.
-     */
-    get: operations["get_episode"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete an episode
-     * @description Delete an episode, its script, claims and run records, and its audio and show notes. If it
-     *     was published, the show's feed is rewritten without it.
-     */
-    delete: operations["delete_episode"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/events": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Follow an episode's progress
+         * @description Watch an episode being made, live: an event whenever its status or stage changes, until
+         *     nothing is running (published, held for review, unchanged, cancelled or failed). Browsers
+         *     connect with `EventSource`, which sends the sign-in cookie and reconnects by itself.
+         */
+        get: operations["follow_episode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Follow an episode's progress
-     * @description Watch an episode being made, live: an event whenever its status or stage changes, until
-     *     nothing is running (published, held for review, unchanged, cancelled or failed). Browsers
-     *     connect with `EventSource`, which sends the sign-in cookie and reconnects by itself.
-     */
-    get: operations["follow_episode"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/script": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/script": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an episode's script
+         * @description The script by segment. Each factual claim lists the passages it cites and the
+         *     fact-check verdict, so it can be reviewed before or after voicing. Empty until the
+         *     script stage has run.
+         */
+        get: operations["get_episode_script"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit an episode's script
+         * @description Replace the lines of one or more segments of an episode that is waiting for review.
+         *
+         *     A line with `chunk_ids` is a claim citing those passages (they must come from the show's
+         *     sources); a line without is framing. The script is fact-checked again. If it passes it goes
+         *     on to voicing (or waits for approval, if the show reviews before voicing); if it fails it
+         *     comes back for review. An edited script is never rewritten automatically.
+         */
+        patch: operations["edit_episode_script"];
+        trace?: never;
     };
-    /**
-     * Get an episode's script
-     * @description The script by segment. Each factual claim lists the passages it cites and the
-     *     fact-check verdict, so it can be reviewed before or after voicing. Empty until the
-     *     script stage has run.
-     */
-    get: operations["get_episode_script"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Edit an episode's script
-     * @description Replace the lines of one or more segments of an episode that is waiting for review.
-     *
-     *     A line with `chunk_ids` is a claim citing those passages (they must come from the show's
-     *     sources); a line without is framing. The script is fact-checked again. If it passes it goes
-     *     on to voicing (or waits for approval, if the show reviews before voicing); if it fails it
-     *     comes back for review. An edited script is never rewritten automatically.
-     */
-    patch: operations["edit_episode_script"];
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/approve": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve an episode for voicing
+         * @description Release an episode that is waiting for review to voicing, with its script as it is. This
+         *     includes a script the fact-check held back for unsupported claims: the reviewer decides, and
+         *     the verdicts stay on record.
+         */
+        post: operations["approve_episode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Approve an episode for voicing
-     * @description Release an episode that is waiting for review to voicing, with its script as it is. This
-     *     includes a script the fact-check held back for unsupported claims: the reviewer decides, and
-     *     the verdicts stay on record.
-     */
-    post: operations["approve_episode"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/retry": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/remix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remix a published episode's audio
+         * @description Mix a published episode again from the lines already voiced, with the show's current
+         *     voice effects and music, then publish it again in place. Nothing is voiced again, so it uses
+         *     no voice quota. The published audio is replaced.
+         */
+        post: operations["remix_episode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Retry a failed episode
-     * @description Run a failed or cancelled episode again from the stage where it stopped, keeping what the
-     *     earlier stages produced.
-     */
-    post: operations["retry_episode"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/cancel": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed episode
+         * @description Run a failed or cancelled episode again from the stage where it stopped, keeping what the
+         *     earlier stages produced.
+         */
+        post: operations["retry_episode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Cancel an episode
-     * @description Stop an episode that is queued, being generated or waiting for review. A stage that is
-     *     already running finishes, but no further stage runs. It can be resumed with a retry.
-     */
-    post: operations["cancel_episode"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/runs": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an episode
+         * @description Stop an episode that is queued, being generated or waiting for review. A stage that is
+         *     already running finishes, but no further stage runs. It can be resumed with a retry.
+         */
+        post: operations["cancel_episode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List an episode's stage runs
-     * @description How long each stage took and which model, prompt version and seed it used, so a run can be
-     *     timed, costed and repeated. Rewrites and retries add runs.
-     */
-    get: operations["list_episode_runs"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/episodes/{episode_id}/claims": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an episode's stage runs
+         * @description How long each stage took and which model, prompt version and seed it used, so a run can be
+         *     timed, costed and repeated. Rewrites and retries add runs.
+         */
+        get: operations["list_episode_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List an episode's claims
-     * @description Every factual claim in the script with the passages it cites and the fact-check's verdict
-     *     and reason: the material for auditing an episode's accuracy.
-     */
-    get: operations["list_episode_claims"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/shows/{show_id}/sources": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/episodes/{episode_id}/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an episode's claims
+         * @description Every factual claim in the script with the passages it cites and the fact-check's verdict
+         *     and reason: the material for auditing an episode's accuracy.
+         */
+        get: operations["list_episode_claims"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List a show's sources
-     * @description The sections the pipeline read from the show's pages, feeds and uploads, as last ingested:
-     *     each one's heading, link, reliability tier, size and content hash. A section whose hash changes
-     *     is what a refresh regenerates. Empty until the show's first episode has been ingested.
-     */
-    get: operations["list_show_sources"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/shows/{show_id}/uploads": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows/{show_id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a show's sources
+         * @description The sections the pipeline read from the show's pages, feeds and uploads, as last ingested:
+         *     each one's heading, link, reliability tier, size and content hash. A section whose hash changes
+         *     is what a refresh regenerates. Empty until the show's first episode has been ingested.
+         */
+        get: operations["list_show_sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List a show's uploads
-     * @description The files uploaded as sources for the show, newest first.
-     */
-    get: operations["list_uploads"];
-    put?: never;
-    /**
-     * Upload a PDF source
-     * @description Add a PDF to the show's sources. Its text is read at the show's next episode: each heading
-     *     starts a citable section (or each page, if the PDF has no headings), and citations in the show
-     *     notes link to the page they come from. Uploads are private to the API.
-     */
-    post: operations["upload_source"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/shows/{show_id}/uploads/{upload_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows/{show_id}/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a show's uploads
+         * @description The files uploaded as sources for the show, newest first.
+         */
+        get: operations["list_uploads"];
+        put?: never;
+        /**
+         * Upload a PDF source
+         * @description Add a PDF to the show's sources. Its text is read at the show's next episode: each heading
+         *     starts a citable section (or each page, if the PDF has no headings), and citations in the show
+         *     notes link to the page they come from. Uploads are private to the API.
+         */
+        post: operations["upload_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get an upload
-     * @description One upload's name, size and download link.
-     */
-    get: operations["get_upload"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete an upload
-     * @description Remove the upload and its file. Its sections leave the show's sources at the next episode,
-     *     which regenerates the segments that used them.
-     */
-    delete: operations["delete_upload"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/voices/consent": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/shows/{show_id}/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an upload
+         * @description One upload's name, size and download link.
+         */
+        get: operations["get_upload"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an upload
+         * @description Remove the upload and its file. Its sections leave the show's sources at the next episode,
+         *     which regenerates the segments that used them.
+         */
+        delete: operations["delete_upload"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Read the consent form
-     * @description The consent form a speaker must read and agree to before their voice is recorded or
-     *     uploaded. Its version and full text (`statement`) are stored with every voice signed on it;
-     *     voices signed on an earlier version keep the text they agreed to.
-     */
-    get: operations["consent_form"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/voices/consent.pdf": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/voices/consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the consent form
+         * @description The consent form a speaker must read and agree to before their voice is recorded or
+         *     uploaded. Its version and full text (`statement`) are stored with every voice signed on it;
+         *     voices signed on an earlier version keep the text they agreed to.
+         */
+        get: operations["consent_form"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Download the consent form as a PDF
-     * @description The same consent form as a PDF, to read, keep or print. For someone else's voice, a
-     *     printed copy signed by the speaker can be kept as their written permission.
-     */
-    get: operations["consent_form_pdf"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/voices": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/voices/consent.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the consent form as a PDF
+         * @description The same consent form as a PDF, to read, keep or print. For someone else's voice, a
+         *     printed copy signed by the speaker can be kept as their written permission.
+         */
+        get: operations["consent_form_pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List your voices
-     * @description The voices you registered, newest first, each with its consent record.
-     */
-    get: operations["list_voices"];
-    put?: never;
-    /**
-     * Register a voice
-     * @description Register a recording of a voice for the Chatterbox backend to clone, with the consent form
-     *     its speaker completed. Refused unless every consent statement is agreed to and signed (by the
-     *     speaker, for their own voice; or with a note of where their written permission is kept).
-     */
-    post: operations["register_voice"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/voices/{voice_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/voices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your voices
+         * @description The voices you registered, newest first, each with its consent record.
+         */
+        get: operations["list_voices"];
+        put?: never;
+        /**
+         * Register a voice
+         * @description Register a recording of a voice for the Chatterbox backend to clone, with the consent form
+         *     its speaker completed. Refused unless every consent statement is agreed to and signed (by the
+         *     speaker, for their own voice; or with a note of where their written permission is kept).
+         */
+        post: operations["register_voice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get a voice
-     * @description One of your voices, with its consent record.
-     */
-    get: operations["get_voice"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete a voice (withdraw consent)
-     * @description Withdraw a voice: the recording and its record are deleted, and no host of your shows uses
-     *     it any more. Episodes already published keep their audio.
-     */
-    delete: operations["delete_voice"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/voices/{voice_id}/audio.wav": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/voices/{voice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a voice
+         * @description One of your voices, with its consent record.
+         */
+        get: operations["get_voice"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a voice (withdraw consent)
+         * @description Withdraw a voice: the recording and its record are deleted, and no host of your shows uses
+         *     it any more. Episodes already published keep their audio.
+         */
+        delete: operations["delete_voice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Play a voice's recording
-     * @description The recording itself, for its owner only (never public).
-     */
-    get: operations["voice_audio"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/assistant/ask": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/voices/{voice_id}/audio.wav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Play a voice's recording
+         * @description The recording itself, for its owner only (never public).
+         */
+        get: operations["voice_audio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Ask the companion bot
-     * @description Ask about the app or the episode on screen. With the LLM on, Gemini answers from your
-     *     episode's own data (its status, error, segments and the claims the fact-check cut); otherwise,
-     *     or if the model is unavailable, the built-in help does. Suggested actions are only offered as
-     *     buttons; nothing runs by itself. Limited per person per hour
-     *     (`ASSISTANT_QUESTIONS_PER_HOUR`).
-     */
-    post: operations["ask"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/v1/usage": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/speech/engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the voice engine can say
+         * @description Which voices can speak on this server: recorded voices need the Chatterbox engine; the
+         *     engine's own voices always work. With Gemini, each clip spends the shared daily budget.
+         */
+        get: operations["speech_engine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Today's Gemini usage
-     * @description How much of today's Gemini budget is spent. The free tier caps requests per model per day,
-     *     resetting at midnight Pacific time; `LLM_REQUESTS_PER_DAY` and `TTS_REQUESTS_PER_DAY` set the
-     *     caps here. The budget is shared by every account and the bot, so this is the same for all.
-     */
-    get: operations["usage_today"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/v1/speech": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your recent clips
+         * @description Your most recent type-to-speech clips, newest first.
+         */
+        get: operations["list_clips"];
+        put?: never;
+        /**
+         * Voice a line
+         * @description Queue a line to be voiced in a recorded voice or one of the engine's own, with voice
+         *     effects. Poll `GET /speech/{clip_id}` until it is `done`, then play `audio`.
+         */
+        post: operations["create_clip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/speech/{clip_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a clip
+         * @description One of your clips, with its status.
+         */
+        get: operations["get_clip"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a clip
+         * @description Delete a clip and its audio.
+         */
+        delete: operations["delete_clip"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/speech/{clip_id}/audio.wav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Play or download a clip
+         * @description The clip's audio (24 kHz mono WAV), for its owner only.
+         */
+        get: operations["clip_audio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the music library
+         * @description Every track a show can use: the built-in ones (made in the app, free to use) and the
+         *     ones you uploaded.
+         */
+        get: operations["list_music"];
+        put?: never;
+        /**
+         * Upload a track
+         * @description Add a track to your library, for your shows' intros, outros, stings and beds. You must
+         *     confirm you have the right to use it.
+         */
+        post: operations["upload_music"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/music/{track_id}/audio.wav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Play a track
+         * @description A track's audio (24 kHz mono WAV): a built-in one, or one of yours.
+         */
+        get: operations["music_audio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/music/{track_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a track you uploaded
+         * @description Delete one of your tracks. Shows that used it go back to the default for that slot;
+         *     episodes already made keep their audio.
+         */
+        delete: operations["delete_music"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assistant/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the companion bot
+         * @description Ask about the app or the episode on screen. With the LLM on, Gemini answers from your
+         *     episode's own data (its status, error, segments and the claims the fact-check cut); otherwise,
+         *     or if the model is unavailable, the built-in help does. Suggested actions are only offered as
+         *     buttons; nothing runs by itself. Limited per person per hour
+         *     (`ASSISTANT_QUESTIONS_PER_HOUR`).
+         */
+        post: operations["ask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Today's Gemini usage
+         * @description How much of today's Gemini budget is spent. The free tier caps requests per model per day,
+         *     resetting at midnight Pacific time; `LLM_REQUESTS_PER_DAY` and `TTS_REQUESTS_PER_DAY` set the
+         *     caps here. The budget is shared by every account and the bot, so this is the same for all.
+         */
+        get: operations["usage_today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** Accepted */
-    Accepted: {
-      /**
-       * Detail
-       * @description What happens next
-       */
-      detail: string;
-    };
-    /** AccountDelete */
-    AccountDelete: {
-      /**
-       * Password
-       * @description Your password, to confirm
-       */
-      password: string;
-    };
-    /**
-     * Answer
-     * @description The assistant's reply.
-     */
-    Answer: {
-      /**
-       * Answer
-       * @description The reply, in plain text
-       */
-      answer: string;
-      /**
-       * Actions
-       * @description Suggested next steps the page can offer as buttons (never run by themselves)
-       */
-      actions: (
-        | "open_script"
-        | "open_factcheck"
-        | "open_listen"
-        | "approve"
-        | "retry"
-        | "cancel"
-        | "generate_episode"
-        | "new_show"
-        | "add_voice"
-        | "open_voices"
-        | "open_companion"
-        | "start_tour"
-      )[];
-      /**
-       * Source
-       * @description `gemini`: written by the model from your episode's data; `help`: the built-in help, used when the model is off or unavailable
-       * @enum {string}
-       */
-      source: "gemini" | "help";
-      /**
-       * Remaining
-       * @description Questions left this hour
-       */
-      remaining: number;
-    };
-    /**
-     * ApiCatalog
-     * @description An RFC 9727 API catalog: a Linkset (RFC 9264) listing this publisher's APIs.
-     */
-    ApiCatalog: {
-      /**
-       * Linkset
-       * @description The catalog and each API's links
-       */
-      linkset: components["schemas"]["LinkContext"][];
-    };
-    /** ApiInfo */
-    ApiInfo: {
-      /**
-       * Title
-       * @description The API's name
-       */
-      title: string;
-      /**
-       * Version
-       * @description The API's version
-       */
-      version: string;
-      /**
-       * Description
-       * @description What the API does
-       */
-      description: string;
-      /**
-       * Links
-       * @description Related documents by link relation (RFC 8631 and JSON Home's own)
-       */
-      links: {
-        [key: string]: string;
-      };
-      auth: components["schemas"]["Auth"];
-      health: components["schemas"]["HealthLinks"];
-      /**
-       * Conventions
-       * @description Rules that apply to every endpoint
-       */
-      conventions: {
-        [key: string]: string;
-      };
-    };
-    /** ApiKeyCreate */
-    ApiKeyCreate: {
-      /**
-       * Name
-       * @description What the key is for
-       * @example CI pipeline
-       */
-      name: string;
-    };
-    /** ApiKeyCreated */
-    ApiKeyCreated: {
-      /**
-       * Token Id
-       * Format: uuid
-       * @description The key's id
-       */
-      token_id: string;
-      /**
-       * Name
-       * @description What the key is for
-       */
-      name: string;
-      /**
-       * Prefix
-       * @description The key's first characters, to recognise it
-       * @example pek_3Fq9
-       */
-      prefix: string;
-      /**
-       * Created At
-       * Format: date-time
-       * @description When it was created
-       */
-      created_at: string;
-      /**
-       * Expires At
-       * Format: date-time
-       * @description When it stops working
-       */
-      expires_at: string;
-      /**
-       * Last Used At
-       * @description When it was last used; null if never
-       */
-      last_used_at: string | null;
-      /**
-       * Revoked At
-       * @description When it was revoked; null if it is active
-       */
-      revoked_at: string | null;
-      /**
-       * Key
-       * @description The key; shown only now, never again. Send it as a bearer token
-       */
-      key: string;
-    };
-    /**
-     * ApiKeyRead
-     * @description An API key, without the key itself (which is stored only as a hash).
-     */
-    ApiKeyRead: {
-      /**
-       * Token Id
-       * Format: uuid
-       * @description The key's id
-       */
-      token_id: string;
-      /**
-       * Name
-       * @description What the key is for
-       */
-      name: string;
-      /**
-       * Prefix
-       * @description The key's first characters, to recognise it
-       * @example pek_3Fq9
-       */
-      prefix: string;
-      /**
-       * Created At
-       * Format: date-time
-       * @description When it was created
-       */
-      created_at: string;
-      /**
-       * Expires At
-       * Format: date-time
-       * @description When it stops working
-       */
-      expires_at: string;
-      /**
-       * Last Used At
-       * @description When it was last used; null if never
-       */
-      last_used_at: string | null;
-      /**
-       * Revoked At
-       * @description When it was revoked; null if it is active
-       */
-      revoked_at: string | null;
-    };
-    /** Auth */
-    Auth: {
-      /**
-       * Required
-       * @description Whether any request needs credentials
-       */
-      required: boolean;
-      /**
-       * Schemes
-       * @description Authentication schemes the API accepts
-       */
-      schemes: components["schemas"]["AuthScheme"][];
-      /**
-       * Login
-       * @description Where to obtain credentials; null when there is none
-       */
-      login: string | null;
-      /**
-       * Api Keys
-       * @description Where to create API keys
-       */
-      api_keys?: string | null;
-      /**
-       * Token Lifetime Days
-       * @description How long a login token or API key works after it is issued
-       */
-      token_lifetime_days?: number | null;
-      /**
-       * Note
-       * @description What a client should know
-       */
-      note: string;
-    };
-    /** AuthScheme */
-    AuthScheme: {
-      /**
-       * Scheme
-       * @description An HTTP authentication scheme name
-       * @example Bearer
-       */
-      scheme: string;
-      /**
-       * Realms
-       * @description Protection spaces it applies to
-       * @default []
-       */
-      realms: string[];
-    };
-    /**
-     * Avatar
-     * @description The assistant bot a person chose: which character, what it is called and how it looks.
-     *
-     *     Every part has a default, so a bot saved by an older version of the app still loads.
-     */
-    Avatar: {
-      /**
-       * Character
-       * @description `toy`: the build-your-own bot; `pod`: the floating podcast bot; `rex`: the full-body robot with moves
-       * @default toy
-       * @enum {string}
-       */
-      character: "toy" | "pod" | "rex";
-      /**
-       * Name
-       * @description What the bot is called
-       * @default Scout
-       */
-      name: string;
-      /**
-       * Color
-       * @description Body colour: a preset or #rrggbb
-       * @default pearl
-       */
-      color:
-        | ("pearl" | "peach" | "mint" | "sky" | "lilac" | "lemon" | "graphite")
-        | string;
-      /**
-       * Accent
-       * @description Trim and outfit colour, #rrggbb
-       * @default #c2410c
-       */
-      accent: string;
-      /**
-       * Glow
-       * @description Colour of its eyes and lights: a preset or #rrggbb
-       * @default amber
-       */
-      glow: ("amber" | "gold" | "cyan" | "lime" | "pink" | "violet") | string;
-      /**
-       * Finish
-       * @description What its shell is made of
-       * @default glossy
-       * @enum {string}
-       */
-      finish: "matte" | "glossy" | "metallic" | "pearlescent";
-      /**
-       * Body
-       * @description Body shape (toy only)
-       * @default round
-       * @enum {string}
-       */
-      body: "round" | "capsule" | "boxy" | "tall";
-      /**
-       * Head
-       * @description Head shape (toy only)
-       * @default sphere
-       * @enum {string}
-       */
-      head: "sphere" | "cube" | "dome" | "screen";
-      /**
-       * Eyes
-       * @description Eye style (toy only)
-       * @default dots
-       * @enum {string}
-       */
-      eyes: "dots" | "visor" | "pixel" | "sleepy" | "star";
-      /**
-       * Mouth
-       * @description Mouth style (toy only)
-       * @default smile
-       * @enum {string}
-       */
-      mouth: "smile" | "open" | "line" | "none";
-      /**
-       * Hat
-       * @description What it wears on its head
-       * @default antenna
-       * @enum {string}
-       */
-      hat:
-        "none" | "antenna" | "headphones" | "cap" | "beanie" | "crown" | "halo";
-      /**
-       * Neck
-       * @description What it wears at its neck
-       * @default none
-       * @enum {string}
-       */
-      neck: "none" | "bowtie" | "scarf" | "medal";
-      /**
-       * Extra
-       * @description One more thing it carries or wears
-       * @default none
-       * @enum {string}
-       */
-      extra: "none" | "glasses" | "mic" | "ears";
-      /**
-       * Personality
-       * @description How it moves and how it talks
-       * @default cheerful
-       * @enum {string}
-       */
-      personality: "cheerful" | "calm" | "witty" | "formal";
-      /** @description How it speaks */
-      voice?: components["schemas"]["BotVoice"];
-    };
-    /** Body_register_voice */
-    Body_register_voice: {
-      /**
-       * Audio
-       * @description 24 kHz mono 16-bit WAV, 5 to 90 seconds
-       */
-      audio: string;
-      /**
-       * Speaker
-       * @description Whose voice it is
-       */
-      speaker: string;
-      /**
-       * Signature
-       * @description Full name typed as a signature
-       */
-      signature: string;
-      /**
-       * Relationship
-       * @description `self` (your own voice) or `permission` (someone else's, with consent)
-       * @enum {string}
-       */
-      relationship: "self" | "permission";
-      /**
-       * Agree Clone
-       * @description Agrees to the voice being cloned
-       */
-      agree_clone: boolean;
-      /**
-       * Agree Ai Label
-       * @description Agrees episodes are labelled AI-generated
-       */
-      agree_ai_label: boolean;
-      /**
-       * Agree Withdraw
-       * @description Understands consent is withdrawn by deleting
-       */
-      agree_withdraw: boolean;
-      /**
-       * License
-       * @description Terms the recording may be used under
-       * @default Used only to voice this account's podcasts in Podcast Engine
-       */
-      license: string;
-      /**
-       * Name
-       * @description A label for the voice
-       * @default
-       */
-      name: string;
-      /**
-       * Permission Record
-       * @description Where the speaker's written permission is kept
-       * @default
-       */
-      permission_record: string;
-      /**
-       * Source
-       * @description `recorded` or `uploaded`
-       * @default recorded
-       * @enum {string}
-       */
-      source: "recorded" | "uploaded";
-    };
-    /** Body_upload_source */
-    Body_upload_source: {
-      /**
-       * File
-       * @description A PDF; the limit is 25 MB unless configured
-       */
-      file: string;
-    };
-    /**
-     * BotVoice
-     * @description How the bot reads its lines aloud, when the person turns speech on.
-     */
-    BotVoice: {
-      /**
-       * Engine
-       * @description `browser`: the device's own speech, free; `gemini`: Gemini TTS (uses quota)
-       * @default browser
-       * @enum {string}
-       */
-      engine: "browser" | "gemini";
-      /**
-       * Name
-       * @description Voice name; empty picks the default for the engine
-       * @default
-       */
-      name: string;
-      /**
-       * Rate
-       * @description Speaking speed, 1 is normal
-       * @default 1
-       */
-      rate: number;
-      /**
-       * Pitch
-       * @description Pitch, 1 is normal
-       * @default 1
-       */
-      pitch: number;
-    };
-    /**
-     * ClaimDetail
-     * @description A claim in the episode's script, with where it is and how the fact-check judged it.
-     */
-    ClaimDetail: {
-      /**
-       * Claim Id
-       * Format: uuid
-       * @description The claim's id
-       */
-      claim_id: string;
-      /**
-       * Segment
-       * @description Position of the segment it is in, from 1
-       */
-      segment: number;
-      /**
-       * Text
-       * @description The claim as spoken
-       */
-      text: string;
-      /**
-       * Chunk Ids
-       * @description Passages cited as support; empty means uncited
-       */
-      chunk_ids: string[];
-      /**
-       * Supported
-       * @description The verdict; null until judged
-       */
-      supported: boolean | null;
-      /**
-       * Reason
-       * @description The judge's reason
-       * @example word overlap 100%
-       */
-      reason: string | null;
-    };
-    /**
-     * ClaimRead
-     * @description A factual statement in the script and the evidence for it.
-     */
-    ClaimRead: {
-      /**
-       * Text
-       * @description The claim as spoken
-       */
-      text: string;
-      /**
-       * Chunk Ids
-       * @description Passages cited as support; empty means uncited
-       */
-      chunk_ids: string[];
-      /**
-       * Supported
-       * @description The fact-check verdict; null until the gate has judged it
-       */
-      supported?: boolean | null;
-      /**
-       * Reason
-       * @description The judge's reason
-       * @example word overlap 100%
-       */
-      reason?: string | null;
-    };
-    /**
-     * ConsentDocument
-     * @description The consent form a speaker reads in full and agrees to before a voice is recorded.
-     */
-    ConsentDocument: {
-      /**
-       * Version
-       * @description Which wording this is; stored with every voice signed on it
-       */
-      version: string;
-      /**
-       * Title
-       * @description The form's title
-       */
-      title: string;
-      /**
-       * Sections
-       * @description The form, section by section
-       */
-      sections: components["schemas"]["ConsentSection"][];
-      /**
-       * Statement
-       * @description The full text as one string: what a signed voice stores
-       */
-      statement: string;
-      /**
-       * Pdf
-       * @description Where to download the same form as a PDF
-       */
-      pdf: string;
-    };
-    /** ConsentSection */
-    ConsentSection: {
-      /**
-       * Heading
-       * @description The section's heading
-       */
-      heading: string;
-      /**
-       * Paragraphs
-       * @description The section's text, one paragraph per item
-       */
-      paragraphs: string[];
-    };
-    /**
-     * CurrentUser
-     * @description Who is making the request, and with which token.
-     */
-    CurrentUser: {
-      /**
-       * User Id
-       * Format: uuid
-       * @description The user's id
-       */
-      user_id: string;
-      /**
-       * Email
-       * @description Email address
-       */
-      email: string;
-      /**
-       * Role
-       * @description The user's role
-       * @enum {string}
-       */
-      role: "admin" | "creator";
-      /**
-       * Token Id
-       * Format: uuid
-       * @description The token this request used
-       */
-      token_id: string;
-      /**
-       * Token Kind
-       * @description `session` (from login) or `api_key`
-       * @enum {string}
-       */
-      token_kind: "session" | "api_key";
-      /**
-       * Expires At
-       * Format: date-time
-       * @description When that token stops working
-       */
-      expires_at: string;
-      /** @description Their chosen assistant bot; null until they choose one */
-      avatar?: components["schemas"]["Avatar"] | null;
-    };
-    /**
-     * Delivery
-     * @description How a line is said. The script writer picks one per line; the voice reads it that way
-     *     (Chatterbox through its expressiveness and pace, Gemini as a speaking style).
-     * @enum {string}
-     */
-    Delivery:
-      | "neutral"
-      | "warm"
-      | "curious"
-      | "excited"
-      | "thoughtful"
-      | "amused"
-      | "serious";
-    /** EmailChange */
-    EmailChange: {
-      /**
-       * Password
-       * @description Your password, to confirm
-       */
-      password: string;
-      /**
-       * New Email
-       * @description Email address, used to log in
-       * @example ada@example.org
-       */
-      new_email: string;
-    };
-    /**
-     * EpisodeLinks
-     * @description Where to fetch what the episode produced, relative to the API's base URL.
-     *
-     *     ``audio`` and ``notes`` are null until the pipeline has produced them.
-     */
-    EpisodeLinks: {
-      /**
-       * Self
-       * @description This episode
-       * @example /v1/episodes/3fa85f64-5717-4562-b3fc-2c963f66afa6
-       */
-      self: string;
-      /**
-       * Script
-       * @description Script with citations and fact-check verdicts
-       */
-      script: string;
-      /**
-       * Runs
-       * @description Per-stage run records
-       */
-      runs: string;
-      /**
-       * Audio
-       * @description The episode audio (WAV), once assembled
-       */
-      audio: string | null;
-      /**
-       * Notes
-       * @description Show notes (Markdown), once published
-       */
-      notes: string | null;
-      /**
-       * Feed
-       * @description The show's RSS feed
-       */
-      feed: string;
-    };
-    /**
-     * EpisodeRead
-     * @description An episode and its progress through the pipeline.
-     */
-    EpisodeRead: {
-      /**
-       * Episode Id
-       * Format: uuid
-       * @description The episode's id
-       */
-      episode_id: string;
-      /**
-       * Show Id
-       * Format: uuid
-       * @description The show it belongs to
-       */
-      show_id: string;
-      /** @description `queued` → `processing` → `published`. Or `needs_review` (the fact-check gate held it), `unchanged` (a refresh found no changed source) or `failed`; `error` says why. */
-      status: components["schemas"]["EpisodeStatus"];
-      /**
-       * Stage
-       * @description The stage running, or the last one that ran
-       * @example voice
-       */
-      stage?: string | null;
-      /**
-       * Error
-       * @description Why it failed, was held for review, or was not regenerated
-       */
-      error?: string | null;
-      /**
-       * Revision
-       * @description 1 for a show's first episode, +1 per refresh
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Rewrite Count
-       * @description Times the fact-check gate sent the script back
-       */
-      rewrite_count: number;
-      /**
-       * Rebuild
-       * @description A refresh that regenerates every segment, even if no source changed
-       * @default false
-       */
-      rebuild: boolean;
-      /**
-       * Created At
-       * Format: date-time
-       * @description When the episode was started
-       */
-      created_at: string;
-      /**
-       * Published At
-       * @description When it was published; null until then
-       */
-      published_at: string | null;
-      /**
-       * Approved At
-       * @description When a reviewer released it to voicing; null if never
-       */
-      approved_at?: string | null;
-      /**
-       * Voice Provider
-       * @description Which text-to-speech voiced it, for example `gemini-tts`; `placeholder-tones` means test tones, not speech. Null until it is voiced
-       * @example gemini-tts
-       */
-      voice_provider?: string | null;
-      /** @description Where to fetch what the episode produced */
-      readonly links: components["schemas"]["EpisodeLinks"];
-    };
-    /**
-     * EpisodeScript
-     * @description The script with each claim's citations and verdict, for review.
-     */
-    EpisodeScript: {
-      /**
-       * Episode Id
-       * Format: uuid
-       * @description The episode's id
-       */
-      episode_id: string;
-      /**
-       * Segments
-       * @description Segments in order; empty until scripted
-       */
-      segments: components["schemas"]["SegmentScript"][];
-      /**
-       * Fact Check
-       * @description The gate's judge, each pass (claims, unsupported, support rate, next stage) and the flagged claims
-       */
-      fact_check?: {
-        [key: string]: unknown;
-      } | null;
-    };
-    /**
-     * EpisodeStart
-     * @description How to make the episode. Optional: with no body, a refresh redoes only what changed.
-     * @example {
-     *       "rebuild": true
-     *     }
-     */
-    EpisodeStart: {
-      /**
-       * Rebuild
-       * @description For a show with a published episode: regenerate every segment from the sources as they are now, even if none changed, instead of only the segments whose sources changed. Uses more of the day's Gemini requests
-       * @default false
-       */
-      rebuild: boolean;
-    };
-    /**
-     * EpisodeStatus
-     * @description Lifecycle of an episode; the pipeline stages and the API both read and write it.
-     * @enum {string}
-     */
-    EpisodeStatus:
-      | "queued"
-      | "processing"
-      | "needs_review"
-      | "published"
-      | "unchanged"
-      | "cancelled"
-      | "failed";
-    /**
-     * ErrorDetail
-     * @description The body of every error response.
-     */
-    ErrorDetail: {
-      /**
-       * Detail
-       * @description What went wrong
-       * @example episode 3fa8... not found
-       */
-      detail: string;
-    };
-    /**
-     * ExpertiseLevel
-     * @enum {string}
-     */
-    ExpertiseLevel: "beginner" | "intermediate" | "expert";
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components["schemas"]["ValidationError"][];
-    };
-    /** Health */
-    Health: {
-      /**
-       * Status
-       * @description Always `ok` when the process is serving
-       * @example ok
-       */
-      status: string;
-      /**
-       * Version
-       * @description API version
-       * @example 0.1.0
-       */
-      version: string;
-    };
-    /** HealthLinks */
-    HealthLinks: {
-      /**
-       * Live
-       * @description Liveness: the process is serving
-       */
-      live: string;
-      /**
-       * Ready
-       * @description Readiness: database, queue and storage answer
-       */
-      ready: string;
-    };
-    /**
-     * Hints
-     * @description How a resource can be used, as JSON Home resource hints.
-     */
-    Hints: {
-      /**
-       * Allow
-       * @description HTTP methods it supports
-       * @example [
-       *       "GET",
-       *       "PATCH"
-       *     ]
-       */
-      allow: string[];
-      /**
-       * Formats
-       * @description Media types it returns
-       * @example {
-       *       "application/json": {}
-       *     }
-       */
-      formats: {
-        [key: string]: {
-          [key: string]: unknown;
+    schemas: {
+        /** Accepted */
+        Accepted: {
+            /**
+             * Detail
+             * @description What happens next
+             */
+            detail: string;
         };
-      };
-      /**
-       * Acceptpost
-       * @description Media types it accepts with POST
-       */
-      acceptPost?: string[] | null;
-      /**
-       * Acceptpatch
-       * @description Media types it accepts with PATCH
-       */
-      acceptPatch?: string[] | null;
-      /**
-       * Acceptranges
-       * @description Range units it accepts (byte ranges)
-       */
-      acceptRanges?: string[] | null;
-      /**
-       * Docs
-       * @description Human-readable documentation for it
-       */
-      docs: string;
-      /**
-       * Authschemes
-       * @description Authentication it requires; empty means none
-       */
-      authSchemes: components["schemas"]["AuthScheme"][];
-      /**
-       * Status
-       * @description `deprecated` if it is going away
-       */
-      status?: string | null;
+        /** AccountDelete */
+        AccountDelete: {
+            /**
+             * Password
+             * @description Your password, to confirm
+             */
+            password: string;
+        };
+        /**
+         * Answer
+         * @description The assistant's reply.
+         */
+        Answer: {
+            /**
+             * Answer
+             * @description The reply, in plain text
+             */
+            answer: string;
+            /**
+             * Actions
+             * @description Suggested next steps the page can offer as buttons (never run by themselves)
+             */
+            actions: ("open_script" | "open_factcheck" | "open_listen" | "approve" | "retry" | "cancel" | "generate_episode" | "new_show" | "add_voice" | "open_voices" | "open_companion" | "start_tour")[];
+            /**
+             * Source
+             * @description `gemini`: written by the model from your episode's data; `help`: the built-in help, used when the model is off or unavailable
+             * @enum {string}
+             */
+            source: "gemini" | "help";
+            /**
+             * Remaining
+             * @description Questions left this hour
+             */
+            remaining: number;
+        };
+        /**
+         * ApiCatalog
+         * @description An RFC 9727 API catalog: a Linkset (RFC 9264) listing this publisher's APIs.
+         */
+        ApiCatalog: {
+            /**
+             * Linkset
+             * @description The catalog and each API's links
+             */
+            linkset: components["schemas"]["LinkContext"][];
+        };
+        /** ApiInfo */
+        ApiInfo: {
+            /**
+             * Title
+             * @description The API's name
+             */
+            title: string;
+            /**
+             * Version
+             * @description The API's version
+             */
+            version: string;
+            /**
+             * Description
+             * @description What the API does
+             */
+            description: string;
+            /**
+             * Links
+             * @description Related documents by link relation (RFC 8631 and JSON Home's own)
+             */
+            links: {
+                [key: string]: string;
+            };
+            auth: components["schemas"]["Auth"];
+            health: components["schemas"]["HealthLinks"];
+            /**
+             * Conventions
+             * @description Rules that apply to every endpoint
+             */
+            conventions: {
+                [key: string]: string;
+            };
+        };
+        /** ApiKeyCreate */
+        ApiKeyCreate: {
+            /**
+             * Name
+             * @description What the key is for
+             * @example CI pipeline
+             */
+            name: string;
+        };
+        /** ApiKeyCreated */
+        ApiKeyCreated: {
+            /**
+             * Token Id
+             * Format: uuid
+             * @description The key's id
+             */
+            token_id: string;
+            /**
+             * Name
+             * @description What the key is for
+             */
+            name: string;
+            /**
+             * Prefix
+             * @description The key's first characters, to recognise it
+             * @example pek_3Fq9
+             */
+            prefix: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When it was created
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description When it stops working
+             */
+            expires_at: string;
+            /**
+             * Last Used At
+             * @description When it was last used; null if never
+             */
+            last_used_at: string | null;
+            /**
+             * Revoked At
+             * @description When it was revoked; null if it is active
+             */
+            revoked_at: string | null;
+            /**
+             * Key
+             * @description The key; shown only now, never again. Send it as a bearer token
+             */
+            key: string;
+        };
+        /**
+         * ApiKeyRead
+         * @description An API key, without the key itself (which is stored only as a hash).
+         */
+        ApiKeyRead: {
+            /**
+             * Token Id
+             * Format: uuid
+             * @description The key's id
+             */
+            token_id: string;
+            /**
+             * Name
+             * @description What the key is for
+             */
+            name: string;
+            /**
+             * Prefix
+             * @description The key's first characters, to recognise it
+             * @example pek_3Fq9
+             */
+            prefix: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When it was created
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description When it stops working
+             */
+            expires_at: string;
+            /**
+             * Last Used At
+             * @description When it was last used; null if never
+             */
+            last_used_at: string | null;
+            /**
+             * Revoked At
+             * @description When it was revoked; null if it is active
+             */
+            revoked_at: string | null;
+        };
+        /** Auth */
+        Auth: {
+            /**
+             * Required
+             * @description Whether any request needs credentials
+             */
+            required: boolean;
+            /**
+             * Schemes
+             * @description Authentication schemes the API accepts
+             */
+            schemes: components["schemas"]["AuthScheme"][];
+            /**
+             * Login
+             * @description Where to obtain credentials; null when there is none
+             */
+            login: string | null;
+            /**
+             * Api Keys
+             * @description Where to create API keys
+             */
+            api_keys?: string | null;
+            /**
+             * Token Lifetime Days
+             * @description How long a login token or API key works after it is issued
+             */
+            token_lifetime_days?: number | null;
+            /**
+             * Note
+             * @description What a client should know
+             */
+            note: string;
+        };
+        /** AuthScheme */
+        AuthScheme: {
+            /**
+             * Scheme
+             * @description An HTTP authentication scheme name
+             * @example Bearer
+             */
+            scheme: string;
+            /**
+             * Realms
+             * @description Protection spaces it applies to
+             * @default []
+             */
+            realms: string[];
+        };
+        /**
+         * Avatar
+         * @description The assistant bot a person chose: which character, what it is called and how it looks.
+         *
+         *     Every part has a default, so a bot saved by an older version of the app still loads.
+         */
+        Avatar: {
+            /**
+             * Character
+             * @description `toy`: the build-your-own bot; `pod`: the floating podcast bot; `rex`: the full-body robot with moves
+             * @default toy
+             * @enum {string}
+             */
+            character: "toy" | "pod" | "rex";
+            /**
+             * Name
+             * @description What the bot is called
+             * @default James
+             */
+            name: string;
+            /**
+             * Color
+             * @description Body colour: a preset or #rrggbb
+             * @default pearl
+             */
+            color: ("pearl" | "peach" | "mint" | "sky" | "lilac" | "lemon" | "graphite") | string;
+            /**
+             * Accent
+             * @description Trim and outfit colour, #rrggbb
+             * @default #c2410c
+             */
+            accent: string;
+            /**
+             * Glow
+             * @description Colour of its eyes and lights: a preset or #rrggbb
+             * @default amber
+             */
+            glow: ("amber" | "gold" | "cyan" | "lime" | "pink" | "violet") | string;
+            /**
+             * Finish
+             * @description What its shell is made of
+             * @default glossy
+             * @enum {string}
+             */
+            finish: "matte" | "glossy" | "metallic" | "pearlescent";
+            /**
+             * Body
+             * @description Body shape (toy only)
+             * @default round
+             * @enum {string}
+             */
+            body: "round" | "capsule" | "boxy" | "tall";
+            /**
+             * Head
+             * @description Head shape (toy only)
+             * @default sphere
+             * @enum {string}
+             */
+            head: "sphere" | "cube" | "dome" | "screen";
+            /**
+             * Eyes
+             * @description Eye style (toy only)
+             * @default dots
+             * @enum {string}
+             */
+            eyes: "dots" | "visor" | "pixel" | "sleepy" | "star";
+            /**
+             * Mouth
+             * @description Mouth style (toy only)
+             * @default smile
+             * @enum {string}
+             */
+            mouth: "smile" | "open" | "line" | "none";
+            /**
+             * Hat
+             * @description What it wears on its head
+             * @default antenna
+             * @enum {string}
+             */
+            hat: "none" | "antenna" | "headphones" | "cap" | "beanie" | "crown" | "halo";
+            /**
+             * Neck
+             * @description What it wears at its neck
+             * @default none
+             * @enum {string}
+             */
+            neck: "none" | "bowtie" | "scarf" | "medal";
+            /**
+             * Extra
+             * @description One more thing it carries or wears
+             * @default none
+             * @enum {string}
+             */
+            extra: "none" | "glasses" | "mic" | "ears";
+            /**
+             * Personality
+             * @description How it moves and how it talks
+             * @default cheerful
+             * @enum {string}
+             */
+            personality: "cheerful" | "calm" | "witty" | "formal";
+            /** @description How it speaks */
+            voice?: components["schemas"]["BotVoice"];
+        };
+        /** Body_register_voice */
+        Body_register_voice: {
+            /**
+             * Audio
+             * @description 24 kHz mono 16-bit WAV, 5 to 90 seconds
+             */
+            audio: string;
+            /**
+             * Speaker
+             * @description Whose voice it is
+             */
+            speaker: string;
+            /**
+             * Signature
+             * @description Full name typed as a signature
+             */
+            signature: string;
+            /**
+             * Relationship
+             * @description `self` (your own voice) or `permission` (someone else's, with consent)
+             * @enum {string}
+             */
+            relationship: "self" | "permission";
+            /**
+             * Agree Clone
+             * @description Agrees to the voice being cloned
+             */
+            agree_clone: boolean;
+            /**
+             * Agree Ai Label
+             * @description Agrees episodes are labelled AI-generated
+             */
+            agree_ai_label: boolean;
+            /**
+             * Agree Withdraw
+             * @description Understands consent is withdrawn by deleting
+             */
+            agree_withdraw: boolean;
+            /**
+             * License
+             * @description Terms the recording may be used under
+             * @default Used only to voice this account's podcasts in Oasis
+             */
+            license: string;
+            /**
+             * Name
+             * @description A label for the voice
+             * @default
+             */
+            name: string;
+            /**
+             * Permission Record
+             * @description Where the speaker's written permission is kept
+             * @default
+             */
+            permission_record: string;
+            /**
+             * Source
+             * @description `recorded` or `uploaded`
+             * @default recorded
+             * @enum {string}
+             */
+            source: "recorded" | "uploaded";
+        };
+        /** Body_upload_music */
+        Body_upload_music: {
+            /**
+             * Audio
+             * @description 24 kHz mono 16-bit WAV, 1 s to 6 minutes
+             */
+            audio: string;
+            /**
+             * Name
+             * @description A name for the track
+             */
+            name: string;
+            /**
+             * Rights
+             * @description You own this music or have a licence to use it in your podcast
+             */
+            rights: boolean;
+            /**
+             * Role
+             * @description bed, intro, outro, sting or any
+             * @default any
+             * @enum {string}
+             */
+            role: "bed" | "intro" | "outro" | "sting" | "any";
+            /**
+             * Credit
+             * @description Credit line for the show notes, if the licence asks for one
+             * @default
+             */
+            credit: string;
+        };
+        /** Body_upload_source */
+        Body_upload_source: {
+            /**
+             * File
+             * @description A PDF; the limit is 25 MB unless configured
+             */
+            file: string;
+        };
+        /**
+         * BotVoice
+         * @description How the bot reads its lines aloud, when the person turns speech on.
+         */
+        BotVoice: {
+            /**
+             * Engine
+             * @description `browser`: the device's own speech, free; `gemini`: Gemini TTS (uses quota)
+             * @default browser
+             * @enum {string}
+             */
+            engine: "browser" | "gemini";
+            /**
+             * Name
+             * @description Voice name; empty picks the default for the engine
+             * @default
+             */
+            name: string;
+            /**
+             * Rate
+             * @description Speaking speed, 1 is normal
+             * @default 1
+             */
+            rate: number;
+            /**
+             * Pitch
+             * @description Pitch, 1 is normal
+             * @default 1
+             */
+            pitch: number;
+        };
+        /**
+         * ClaimDetail
+         * @description A claim in the episode's script, with where it is and how the fact-check judged it.
+         */
+        ClaimDetail: {
+            /**
+             * Claim Id
+             * Format: uuid
+             * @description The claim's id
+             */
+            claim_id: string;
+            /**
+             * Segment
+             * @description Position of the segment it is in, from 1
+             */
+            segment: number;
+            /**
+             * Text
+             * @description The claim as spoken
+             */
+            text: string;
+            /**
+             * Chunk Ids
+             * @description Passages cited as support; empty means uncited
+             */
+            chunk_ids: string[];
+            /**
+             * Supported
+             * @description The verdict; null until judged
+             */
+            supported: boolean | null;
+            /**
+             * Reason
+             * @description The judge's reason
+             * @example word overlap 100%
+             */
+            reason: string | null;
+        };
+        /**
+         * ClaimRead
+         * @description A factual statement in the script and the evidence for it.
+         */
+        ClaimRead: {
+            /**
+             * Text
+             * @description The claim as spoken
+             */
+            text: string;
+            /**
+             * Chunk Ids
+             * @description Passages cited as support; empty means uncited
+             */
+            chunk_ids: string[];
+            /**
+             * Supported
+             * @description The fact-check verdict; null until the gate has judged it
+             */
+            supported?: boolean | null;
+            /**
+             * Reason
+             * @description The judge's reason
+             * @example word overlap 100%
+             */
+            reason?: string | null;
+        };
+        /**
+         * ConsentDocument
+         * @description The consent form a speaker reads in full and agrees to before a voice is recorded.
+         */
+        ConsentDocument: {
+            /**
+             * Version
+             * @description Which wording this is; stored with every voice signed on it
+             */
+            version: string;
+            /**
+             * Title
+             * @description The form's title
+             */
+            title: string;
+            /**
+             * Sections
+             * @description The form, section by section
+             */
+            sections: components["schemas"]["ConsentSection"][];
+            /**
+             * Statement
+             * @description The full text as one string: what a signed voice stores
+             */
+            statement: string;
+            /**
+             * Pdf
+             * @description Where to download the same form as a PDF
+             */
+            pdf: string;
+        };
+        /** ConsentSection */
+        ConsentSection: {
+            /**
+             * Heading
+             * @description The section's heading
+             */
+            heading: string;
+            /**
+             * Paragraphs
+             * @description The section's text, one paragraph per item
+             */
+            paragraphs: string[];
+        };
+        /**
+         * CurrentUser
+         * @description Who is making the request, and with which token.
+         */
+        CurrentUser: {
+            /**
+             * User Id
+             * Format: uuid
+             * @description The user's id
+             */
+            user_id: string;
+            /**
+             * Email
+             * @description Email address
+             */
+            email: string;
+            /**
+             * Role
+             * @description The user's role
+             * @enum {string}
+             */
+            role: "admin" | "creator";
+            /**
+             * Token Id
+             * Format: uuid
+             * @description The token this request used
+             */
+            token_id: string;
+            /**
+             * Token Kind
+             * @description `session` (from login) or `api_key`
+             * @enum {string}
+             */
+            token_kind: "session" | "api_key";
+            /**
+             * Expires At
+             * Format: date-time
+             * @description When that token stops working
+             */
+            expires_at: string;
+            /** @description Their chosen assistant bot; null until they choose one */
+            avatar?: components["schemas"]["Avatar"] | null;
+        };
+        /**
+         * Delivery
+         * @description How a line is said. The script writer picks one per line; the voice reads it that way
+         *     (Chatterbox through its expressiveness and pace, Gemini as a speaking style).
+         * @enum {string}
+         */
+        Delivery: "neutral" | "warm" | "curious" | "excited" | "thoughtful" | "amused" | "serious";
+        /** EmailChange */
+        EmailChange: {
+            /**
+             * Password
+             * @description Your password, to confirm
+             */
+            password: string;
+            /**
+             * New Email
+             * @description Email address, used to log in
+             * @example ada@example.org
+             */
+            new_email: string;
+        };
+        /**
+         * EngineVoice
+         * @description The voice engine's own voice for a host: a Gemini prebuilt voice, or Chatterbox's default.
+         */
+        EngineVoice: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "engine";
+            /**
+             * Host
+             * @description Whose engine voice: Alex, Sam, Jordan or Riley
+             * @enum {string}
+             */
+            host: "Alex" | "Sam" | "Jordan" | "Riley";
+        };
+        /** EngineVoiceOption */
+        EngineVoiceOption: {
+            /**
+             * Host
+             * @description Use as EngineVoice.host
+             * @enum {string}
+             */
+            host: "Alex" | "Sam" | "Jordan" | "Riley";
+            /**
+             * Label
+             * @description What to call it in a picker
+             */
+            label: string;
+        };
+        /**
+         * EpisodeLinks
+         * @description Where to fetch what the episode produced, relative to the API's base URL.
+         *
+         *     ``audio`` and ``notes`` are null until the pipeline has produced them.
+         */
+        EpisodeLinks: {
+            /**
+             * Self
+             * @description This episode
+             * @example /v1/episodes/3fa85f64-5717-4562-b3fc-2c963f66afa6
+             */
+            self: string;
+            /**
+             * Script
+             * @description Script with citations and fact-check verdicts
+             */
+            script: string;
+            /**
+             * Runs
+             * @description Per-stage run records
+             */
+            runs: string;
+            /**
+             * Audio
+             * @description The episode audio (WAV), once assembled
+             */
+            audio: string | null;
+            /**
+             * Notes
+             * @description Show notes (Markdown), once published
+             */
+            notes: string | null;
+            /**
+             * Feed
+             * @description The show's RSS feed
+             */
+            feed: string;
+        };
+        /**
+         * EpisodeRead
+         * @description An episode and its progress through the pipeline.
+         */
+        EpisodeRead: {
+            /**
+             * Episode Id
+             * Format: uuid
+             * @description The episode's id
+             */
+            episode_id: string;
+            /**
+             * Show Id
+             * Format: uuid
+             * @description The show it belongs to
+             */
+            show_id: string;
+            /** @description `queued` → `processing` → `published`. Or `needs_review` (the fact-check gate held it), `unchanged` (a refresh found no changed source) or `failed`; `error` says why. */
+            status: components["schemas"]["EpisodeStatus"];
+            /**
+             * Stage
+             * @description The stage running, or the last one that ran
+             * @example voice
+             */
+            stage?: string | null;
+            /**
+             * Error
+             * @description Why it failed, was held for review, or was not regenerated
+             */
+            error?: string | null;
+            /**
+             * Revision
+             * @description 1 for a show's first episode, +1 per refresh
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Rewrite Count
+             * @description Times the fact-check gate sent the script back
+             */
+            rewrite_count: number;
+            /**
+             * Rebuild
+             * @description A refresh that regenerates every segment, even if no source changed
+             * @default false
+             */
+            rebuild: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When the episode was started
+             */
+            created_at: string;
+            /**
+             * Published At
+             * @description When it was published; null until then
+             */
+            published_at: string | null;
+            /**
+             * Approved At
+             * @description When a reviewer released it to voicing; null if never
+             */
+            approved_at?: string | null;
+            /**
+             * Voice Provider
+             * @description Which text-to-speech voiced it, for example `gemini-tts`; `placeholder-tones` means test tones, not speech. Null until it is voiced
+             * @example gemini-tts
+             */
+            voice_provider?: string | null;
+            /** @description Where to fetch what the episode produced */
+            readonly links: components["schemas"]["EpisodeLinks"];
+        };
+        /**
+         * EpisodeScript
+         * @description The script with each claim's citations and verdict, for review.
+         */
+        EpisodeScript: {
+            /**
+             * Episode Id
+             * Format: uuid
+             * @description The episode's id
+             */
+            episode_id: string;
+            /**
+             * Segments
+             * @description Segments in order; empty until scripted
+             */
+            segments: components["schemas"]["SegmentScript"][];
+            /**
+             * Fact Check
+             * @description The gate's judge, each pass (claims, unsupported, support rate, next stage) and the flagged claims
+             */
+            fact_check?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * EpisodeStart
+         * @description How to make the episode. Optional: with no body, a refresh redoes only what changed.
+         * @example {
+         *       "rebuild": true
+         *     }
+         */
+        EpisodeStart: {
+            /**
+             * Rebuild
+             * @description For a show with a published episode: regenerate every segment from the sources as they are now, even if none changed, instead of only the segments whose sources changed. Uses more of the day's Gemini requests
+             * @default false
+             */
+            rebuild: boolean;
+        };
+        /**
+         * EpisodeStatus
+         * @description Lifecycle of an episode; the pipeline stages and the API both read and write it.
+         * @enum {string}
+         */
+        EpisodeStatus: "queued" | "processing" | "needs_review" | "published" | "unchanged" | "cancelled" | "failed";
+        /**
+         * ErrorDetail
+         * @description The body of every error response.
+         */
+        ErrorDetail: {
+            /**
+             * Detail
+             * @description What went wrong
+             * @example episode 3fa8... not found
+             */
+            detail: string;
+        };
+        /**
+         * ExpertiseLevel
+         * @enum {string}
+         */
+        ExpertiseLevel: "beginner" | "intermediate" | "expert";
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Health */
+        Health: {
+            /**
+             * Status
+             * @description Always `ok` when the process is serving
+             * @example ok
+             */
+            status: string;
+            /**
+             * Version
+             * @description API version
+             * @example 0.1.0
+             */
+            version: string;
+        };
+        /** HealthLinks */
+        HealthLinks: {
+            /**
+             * Live
+             * @description Liveness: the process is serving
+             */
+            live: string;
+            /**
+             * Ready
+             * @description Readiness: database, queue and storage answer
+             */
+            ready: string;
+        };
+        /**
+         * Hints
+         * @description How a resource can be used, as JSON Home resource hints.
+         */
+        Hints: {
+            /**
+             * Allow
+             * @description HTTP methods it supports
+             * @example [
+             *       "GET",
+             *       "PATCH"
+             *     ]
+             */
+            allow: string[];
+            /**
+             * Formats
+             * @description Media types it returns
+             * @example {
+             *       "application/json": {}
+             *     }
+             */
+            formats: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /**
+             * Acceptpost
+             * @description Media types it accepts with POST
+             */
+            acceptPost?: string[] | null;
+            /**
+             * Acceptpatch
+             * @description Media types it accepts with PATCH
+             */
+            acceptPatch?: string[] | null;
+            /**
+             * Acceptranges
+             * @description Range units it accepts (byte ranges)
+             */
+            acceptRanges?: string[] | null;
+            /**
+             * Docs
+             * @description Human-readable documentation for it
+             */
+            docs: string;
+            /**
+             * Authschemes
+             * @description Authentication it requires; empty means none
+             */
+            authSchemes: components["schemas"]["AuthScheme"][];
+            /**
+             * Status
+             * @description `deprecated` if it is going away
+             */
+            status?: string | null;
+        };
+        /**
+         * HomeDocument
+         * @description The API's home document: what it offers and how to use it, in one request.
+         */
+        HomeDocument: {
+            api: components["schemas"]["ApiInfo"];
+            /**
+             * Resources
+             * @description Every resource, keyed by link relation
+             */
+            resources: {
+                [key: string]: components["schemas"]["Resource"];
+            };
+        };
+        /**
+         * LineEdit
+         * @description One line of a replacement segment.
+         */
+        LineEdit: {
+            /**
+             * Speaker
+             * @description One of the show's hosts
+             * @example Sam
+             */
+            speaker: string;
+            /**
+             * Text
+             * @description What is said
+             */
+            text: string;
+            /**
+             * Chunk Ids
+             * @description Passages that support the line, which makes it a claim. Null for framing or reactions; an empty list is a claim with no citation, which the fact-check rejects
+             */
+            chunk_ids?: string[] | null;
+            /**
+             * @description How the line is said; the voice reads it that way
+             * @default neutral
+             */
+            delivery: components["schemas"]["Delivery"];
+        };
+        /**
+         * LineRead
+         * @description One spoken line.
+         */
+        LineRead: {
+            /**
+             * Speaker
+             * @description The host who says it
+             * @example Alex
+             */
+            speaker: string;
+            /**
+             * Text
+             * @description What is said
+             */
+            text: string;
+            /**
+             * Claims
+             * @description Claims in this line; empty for framing
+             * @default []
+             */
+            claims: components["schemas"]["ClaimRead"][];
+            /**
+             * @description How the line is said; the voice reads it that way
+             * @default neutral
+             */
+            delivery: components["schemas"]["Delivery"];
+        };
+        /**
+         * LinkContext
+         * @description One Linkset entry: a context (``anchor``) and its links by relation.
+         */
+        LinkContext: {
+            /**
+             * Anchor
+             * @description The resource these links are about
+             */
+            anchor: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LoginRequest */
+        LoginRequest: {
+            /**
+             * Email
+             * @description Email address, used to log in
+             * @example ada@example.org
+             */
+            email: string;
+            /**
+             * Password
+             * @description The account's password
+             */
+            password: string;
+        };
+        /**
+         * ModelUsage
+         * @description One Gemini model's requests today.
+         */
+        ModelUsage: {
+            /**
+             * Model
+             * @description The Gemini model
+             * @example gemini-3.8-flash
+             */
+            model: string;
+            /**
+             * Kind
+             * @description `text`: plans, scripts, fact-checks and the bot; `voice`: speech
+             * @enum {string}
+             */
+            kind: "text" | "voice";
+            /**
+             * Used
+             * @description Requests sent today (Pacific time)
+             */
+            used: number;
+            /**
+             * Limit
+             * @description Today's cap (LLM_/TTS_REQUESTS_PER_DAY); null: none
+             */
+            limit: number | null;
+            /**
+             * Left
+             * @description Requests left today; null when there is no cap
+             */
+            left: number | null;
+        };
+        /**
+         * MusicTrackRead
+         * @description A track for a show's intro, outro, sting or bed.
+         */
+        MusicTrackRead: {
+            /**
+             * Track Id
+             * @description `builtin:...` for a built-in track, else the upload's id
+             */
+            track_id: string;
+            /**
+             * Name
+             * @description The track's name
+             */
+            name: string;
+            /**
+             * Role
+             * @description What it is made for: bed, intro, outro, sting or any
+             * @enum {string}
+             */
+            role: "bed" | "intro" | "outro" | "sting" | "any";
+            /**
+             * Builtin
+             * @description Made in the app (no licence needed) or uploaded by you
+             */
+            builtin: boolean;
+            /**
+             * Description
+             * @description What it sounds like (built-in tracks)
+             * @default
+             */
+            description: string;
+            /**
+             * Credit
+             * @description Credit line added to the show notes of episodes using it
+             * @default
+             */
+            credit: string;
+            /**
+             * Duration Seconds
+             * @description Length
+             */
+            duration_seconds: number;
+            /**
+             * Created At
+             * @description When it was uploaded
+             */
+            created_at?: string | null;
+            /**
+             * Audio
+             * @description Where to play it
+             */
+            readonly audio: string;
+        };
+        /**
+         * Operation
+         * @description One operation on the resource (an addition to JSON Home).
+         */
+        Operation: {
+            /**
+             * Method
+             * @description HTTP method
+             * @example GET
+             */
+            method: string;
+            /**
+             * Summary
+             * @description What it does
+             * @example Get an episode's audio
+             */
+            summary: string;
+            /**
+             * Operationid
+             * @description Its id in the OpenAPI description
+             */
+            operationId: string;
+            /**
+             * Paginated
+             * @description Returns a page (`limit`, `offset`, `next`)
+             */
+            paginated: boolean;
+            /**
+             * Filters
+             * @description Query parameters other than paging
+             */
+            filters: string[];
+            /**
+             * Authenticated
+             * @description Accepts or needs a bearer token
+             */
+            authenticated: boolean;
+            /**
+             * Success
+             * @description Success status codes
+             * @example [
+             *       200
+             *     ]
+             */
+            success: number[];
+            /**
+             * Errors
+             * @description Error status codes it documents
+             * @example [
+             *       404
+             *     ]
+             */
+            errors: number[];
+            /**
+             * Docs
+             * @description This operation in the interactive documentation
+             */
+            docs: string;
+        };
+        /** Page[ApiKeyRead] */
+        Page_ApiKeyRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["ApiKeyRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[ClaimDetail] */
+        Page_ClaimDetail_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["ClaimDetail"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[EpisodeRead] */
+        Page_EpisodeRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["EpisodeRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[SecurityEventRead] */
+        Page_SecurityEventRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["SecurityEventRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[SessionRead] */
+        Page_SessionRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["SessionRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[ShowRead] */
+        Page_ShowRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["ShowRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[SourceRead] */
+        Page_SourceRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["SourceRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[StageRunRead] */
+        Page_StageRunRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["StageRunRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[UploadRead] */
+        Page_UploadRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["UploadRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[UserRead] */
+        Page_UserRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["UserRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** Page[VoiceRead] */
+        Page_VoiceRead_: {
+            /**
+             * Items
+             * @description The results on this page
+             */
+            items: components["schemas"]["VoiceRead"][];
+            /**
+             * Total
+             * @description Results across all pages
+             * @example 42
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Most results per page, as requested
+             * @example 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Results skipped before this page
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Next
+             * @description Path and query of the next page; null on the last page
+             * @example /shows?limit=20&offset=20
+             */
+            next: string | null;
+        };
+        /** PasswordChange */
+        PasswordChange: {
+            /**
+             * Current Password
+             * @description Your password now
+             */
+            current_password: string;
+            /**
+             * New Password
+             * @description At least 12 characters; a passphrase is best
+             * @example correct horse battery staple
+             */
+            new_password: string;
+        };
+        /** PasswordResetConfirm */
+        PasswordResetConfirm: {
+            /**
+             * Token
+             * @description The token from the reset link
+             */
+            token: string;
+            /**
+             * New Password
+             * @description At least 12 characters; a passphrase is best
+             * @example correct horse battery staple
+             */
+            new_password: string;
+        };
+        /** PasswordResetRequest */
+        PasswordResetRequest: {
+            /**
+             * Email
+             * @description Email address, used to log in
+             * @example ada@example.org
+             */
+            email: string;
+        };
+        /**
+         * Question
+         * @description A question for the assistant, with where it was asked.
+         */
+        Question: {
+            /**
+             * Question
+             * @description What the person asked
+             */
+            question: string;
+            /**
+             * Page
+             * @description The page it was asked on
+             * @default other
+             * @enum {string}
+             */
+            page: "shows" | "show" | "new_show" | "episode" | "voices" | "new_voice" | "companion" | "welcome" | "other";
+            /**
+             * Episode Id
+             * @description The episode on screen, if any; it must be yours
+             */
+            episode_id?: string | null;
+            /**
+             * Show Id
+             * @description The show on screen, if any; it must be yours
+             */
+            show_id?: string | null;
+        };
+        /** Readiness */
+        Readiness: {
+            /**
+             * Status
+             * @description `ready` only if every check passed
+             * @enum {string}
+             */
+            status: "ready" | "not ready";
+            /**
+             * Checks
+             * @description Each dependency and `ok`, or what went wrong
+             * @example {
+             *       "database": "ok",
+             *       "queue": "ok",
+             *       "storage": "ok"
+             *     }
+             */
+            checks: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * RecordedVoice
+         * @description One of your registered (recorded) voices. Needs the Chatterbox voice engine.
+         */
+        RecordedVoice: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "recorded";
+            /**
+             * Voice Id
+             * Format: uuid
+             * @description The voice's id (see /voices)
+             */
+            voice_id: string;
+        };
+        /** RegisterRequest */
+        RegisterRequest: {
+            /**
+             * Email
+             * @description Email address, used to log in
+             * @example ada@example.org
+             */
+            email: string;
+            /**
+             * Password
+             * @description At least 12 characters; a passphrase is best
+             * @example correct horse battery staple
+             */
+            password: string;
+            /**
+             * Role
+             * @description Ignored for the first user, who is always `admin`
+             * @default creator
+             * @enum {string}
+             */
+            role: "admin" | "creator";
+        };
+        /**
+         * ReliabilityTier
+         * @enum {string}
+         */
+        ReliabilityTier: "primary" | "established" | "unverified";
+        /**
+         * Resource
+         * @description A JSON Home resource object: where it is and how to use it.
+         */
+        Resource: {
+            /**
+             * Title
+             * @description What the resource is
+             * @example Episode audio
+             */
+            title: string;
+            /**
+             * Href
+             * @description Its URI, when it has no variables
+             */
+            href?: string | null;
+            /**
+             * Hreftemplate
+             * @description Its URI template (RFC 6570), when it has variables
+             * @example /v1/episodes/{episode_id}/audio.wav
+             */
+            hrefTemplate?: string | null;
+            /**
+             * Hrefvars
+             * @description Each template variable and what it means
+             */
+            hrefVars?: {
+                [key: string]: string;
+            } | null;
+            hints: components["schemas"]["Hints"];
+            /**
+             * Operations
+             * @description Its operations (an addition to JSON Home)
+             */
+            operations: components["schemas"]["Operation"][];
+        };
+        /**
+         * ScriptEdit
+         * @description Replacement lines for one or more segments. Segments not listed stay as they are.
+         * @example {
+         *       "segments": [
+         *         {
+         *           "lines": [
+         *             {
+         *               "speaker": "Alex",
+         *               "text": "Next up: column storage."
+         *             },
+         *             {
+         *               "chunk_ids": [
+         *                 "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+         *               ],
+         *               "speaker": "Sam",
+         *               "text": "ClickHouse stores each column separately."
+         *             }
+         *           ],
+         *           "position": 2
+         *         }
+         *       ]
+         *     }
+         */
+        ScriptEdit: {
+            /**
+             * Segments
+             * @description Segments to replace
+             */
+            segments: components["schemas"]["SegmentEdit"][];
+        };
+        /**
+         * SecurityEventRead
+         * @description One entry in the security log.
+         */
+        SecurityEventRead: {
+            /**
+             * Event Id
+             * Format: uuid
+             * @description The entry's id
+             */
+            event_id: string;
+            /**
+             * User Id
+             * @description The account it concerns; null if unknown or deleted
+             */
+            user_id: string | null;
+            /**
+             * Event
+             * @description What happened
+             * @example login_failed
+             */
+            event: string;
+            /**
+             * Address
+             * @description The client address it came from
+             */
+            address: string;
+            /**
+             * Detail
+             * @description Extra facts, never secrets
+             */
+            detail: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             * @description When
+             */
+            created_at: string;
+        };
+        /**
+         * SegmentEdit
+         * @description The new lines for one segment; they replace all of its current lines.
+         */
+        SegmentEdit: {
+            /**
+             * Position
+             * @description Which segment, from 1
+             */
+            position: number;
+            /**
+             * Lines
+             * @description The segment's lines
+             */
+            lines: components["schemas"]["LineEdit"][];
+        };
+        /**
+         * SegmentScript
+         * @description One segment of the outline and its lines.
+         */
+        SegmentScript: {
+            /**
+             * Position
+             * @description Order in the episode, from 1
+             */
+            position: number;
+            /**
+             * Title
+             * @description Segment heading, also the chapter title
+             */
+            title: string;
+            /**
+             * Source Item Ids
+             * @description The source sections this segment draws on
+             */
+            source_item_ids: string[];
+            /**
+             * Lines
+             * @description The dialogue, in order
+             */
+            lines: components["schemas"]["LineRead"][];
+        };
+        /**
+         * SessionRead
+         * @description A login token (a signed-in browser or device), without the token itself.
+         */
+        SessionRead: {
+            /**
+             * Token Id
+             * Format: uuid
+             * @description The sign-in's id
+             */
+            token_id: string;
+            /**
+             * Prefix
+             * @description The token's first characters
+             */
+            prefix: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When you signed in
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description When it stops working
+             */
+            expires_at: string;
+            /**
+             * Last Used At
+             * @description When it was last used
+             */
+            last_used_at: string | null;
+            /**
+             * Current
+             * @description True for the sign-in making this request
+             * @default false
+             */
+            current: boolean;
+        };
+        /**
+         * SetupStatus
+         * @description Whether accounts can be created without signing in: the first one, or anyone's own.
+         */
+        SetupStatus: {
+            /**
+             * First Account Open
+             * @description True until the first account exists; that account becomes the admin
+             */
+            first_account_open: boolean;
+            /**
+             * Signup Open
+             * @description True when anyone may create their own account (always a `creator`)
+             * @default false
+             */
+            signup_open: boolean;
+            /**
+             * Google Sign In
+             * @description True when people can sign in with Google (`GET /auth/google/start`)
+             * @default false
+             */
+            google_sign_in: boolean;
+        };
+        /**
+         * ShowCreate
+         * @description What a creator supplies to set up a show.
+         * @example {
+         *       "attribution": "Source material: ClickHouse Documentation, CC BY-NC-SA 4.0.",
+         *       "expertise": "beginner",
+         *       "host_count": 2,
+         *       "language": "en",
+         *       "max_segments": 6,
+         *       "ranking_profile": "explainer",
+         *       "review_before_voice": false,
+         *       "search_queries": [
+         *         "ClickHouse column-oriented database"
+         *       ],
+         *       "sources": [
+         *         "https://clickhouse.com/docs/get-started/about/intro"
+         *       ],
+         *       "target_minutes": 7,
+         *       "tone": "casual",
+         *       "topic": "What ClickHouse is and why it is fast for analytics",
+         *       "topic_keywords": "ClickHouse column-oriented database OLAP analytics queries"
+         *     }
+         */
+        ShowCreate: {
+            /**
+             * Topic
+             * @description What the show is about; spoken in the opening and matched against passages
+             * @example What ClickHouse is and why it is fast for analytics
+             */
+            topic: string;
+            /**
+             * @description Speaking style of the hosts
+             * @default neutral
+             */
+            tone: components["schemas"]["Tone"];
+            /**
+             * Target Minutes
+             * @description Target episode length in minutes
+             * @default 7
+             */
+            target_minutes: number;
+            /**
+             * Host Count
+             * @description Number of hosts, each with a distinct voice
+             * @default 2
+             */
+            host_count: number;
+            /**
+             * Language
+             * @description BCP 47 language tag
+             * @default en
+             * @example en
+             * @example fr-CA
+             */
+            language: string;
+            /**
+             * @description How much the audience already knows
+             * @default intermediate
+             */
+            expertise: components["schemas"]["ExpertiseLevel"];
+            /**
+             * Sources
+             * @description Web pages to build episodes from; each page section becomes a citable source
+             * @default []
+             * @example [
+             *       "https://clickhouse.com/docs/get-started/about/intro"
+             *     ]
+             */
+            sources: string[];
+            /**
+             * Search Queries
+             * @description Searches run each time an episode is made; the top results are read like the show's own pages, so a refresh picks up new results (FR2). Up to 3
+             * @default []
+             * @example [
+             *       "ClickHouse column-oriented database"
+             *     ]
+             */
+            search_queries: string[];
+            /**
+             * Topic Keywords
+             * @description Words that describe the topic, used with it to match passages
+             * @default
+             * @example ClickHouse column-oriented database OLAP analytics queries
+             */
+            topic_keywords: string;
+            /**
+             * Attribution
+             * @description Credit and licence line printed in the show notes
+             * @default
+             * @example Source material: ClickHouse Documentation, CC BY-NC-SA 4.0.
+             */
+            attribution: string;
+            /**
+             * Max Segments
+             * @description At most this many segments per episode
+             * @default 6
+             */
+            max_segments: number;
+            /**
+             * Ranking Profile
+             * @description `daily` favours fresh sources; `explainer` favours authoritative ones
+             * @default explainer
+             * @enum {string}
+             */
+            ranking_profile: "daily" | "explainer";
+            /**
+             * Review Before Voice
+             * @description Pause each episode after the fact-check until a person approves it, so nothing is voiced unreviewed
+             * @default false
+             */
+            review_before_voice: boolean;
+            /**
+             * Host Voices
+             * @description A registered voice (see /voices) for each host who should speak with it, by host name: Alex, Sam, Jordan, Riley. Used by the Chatterbox voice backend; other hosts, and other backends, keep their own voices
+             * @default {}
+             * @example {
+             *       "Alex": "6f1c2e8a-0d5b-4f7e-9a3c-2b8d1e4f5a6b"
+             *     }
+             */
+            host_voices: {
+                [key: string]: string;
+            };
+            /**
+             * Host Effects
+             * @description Voice effects per host name (Alex, Sam, Jordan, Riley), applied when an episode is assembled: `deepen` (0-100, up to 5 semitones lower), `warmth` (0-100) and `broadcast` (compression, presence and de-essing, a radio voice)
+             * @example {
+             *       "Alex": {
+             *         "broadcast": true,
+             *         "deepen": 40,
+             *         "warmth": 20
+             *       }
+             *     }
+             */
+            host_effects?: {
+                [key: string]: components["schemas"]["VoiceEffects"];
+            };
+            /** @description Intro, outro, sting and bed: built-in tracks (GET /v1/music) or ones you uploaded. Empty slots keep the default chime, and no bed */
+            music?: components["schemas"]["ShowMusic"];
+        };
+        /**
+         * ShowMusic
+         * @description A show's music. An empty slot keeps the default chime (intro, outro, sting) or no bed.
+         */
+        ShowMusic: {
+            /**
+             * Intro
+             * @description Plays before the first line (up to 10 s)
+             */
+            intro?: string | null;
+            /**
+             * Outro
+             * @description Plays after the last line (up to 15 s)
+             */
+            outro?: string | null;
+            /**
+             * Sting
+             * @description Plays between segments (up to 4 s)
+             */
+            sting?: string | null;
+            /**
+             * Bed
+             * @description Loops quietly under the whole conversation
+             */
+            bed?: string | null;
+            /**
+             * Bed Level Db
+             * @description How far the bed sits below the voices while they talk, in dB
+             * @default -22
+             */
+            bed_level_db: number;
+        };
+        /**
+         * ShowRead
+         * @description A show as stored.
+         */
+        ShowRead: {
+            /**
+             * Show Id
+             * Format: uuid
+             * @description The show's id
+             */
+            show_id: string;
+            /**
+             * Topic
+             * @description What the show is about
+             */
+            topic: string;
+            /** @description Speaking style of the hosts */
+            tone: components["schemas"]["Tone"];
+            /**
+             * Target Minutes
+             * @description Target episode length in minutes
+             */
+            target_minutes: number;
+            /**
+             * Host Count
+             * @description Number of hosts
+             */
+            host_count: number;
+            /**
+             * Language
+             * @description BCP 47 language tag
+             */
+            language: string;
+            /** @description How much the audience already knows */
+            expertise: components["schemas"]["ExpertiseLevel"];
+            /**
+             * Sources
+             * @description Source page URLs
+             */
+            sources: string[];
+            /**
+             * Search Queries
+             * @description Searches whose top results are read as sources
+             */
+            search_queries?: string[];
+            /**
+             * Topic Keywords
+             * @description Words matched with the topic
+             * @default
+             */
+            topic_keywords: string;
+            /**
+             * Attribution
+             * @description Credit and licence line for the show notes
+             * @default
+             */
+            attribution: string;
+            /**
+             * Max Segments
+             * @description At most this many segments per episode
+             * @default 6
+             */
+            max_segments: number;
+            /**
+             * Ranking Profile
+             * @description `daily` or `explainer`
+             * @default explainer
+             */
+            ranking_profile: string;
+            /**
+             * Review Before Voice
+             * @description Episodes pause for approval before voicing
+             * @default false
+             */
+            review_before_voice: boolean;
+            /**
+             * Host Voices
+             * @description Registered voice per host name, for Chatterbox
+             */
+            host_voices?: {
+                [key: string]: string;
+            };
+            /**
+             * Host Effects
+             * @description Voice effects per host name
+             */
+            host_effects?: {
+                [key: string]: components["schemas"]["VoiceEffects"];
+            };
+            /** @description Intro, outro, sting and bed */
+            music?: components["schemas"]["ShowMusic"];
+            /**
+             * Created At
+             * Format: date-time
+             * @description When the show was created
+             */
+            created_at: string;
+        };
+        /**
+         * ShowUpdate
+         * @description Partial update: omitted or null fields are left unchanged.
+         * @example {
+         *       "max_segments": 4,
+         *       "tone": "formal"
+         *     }
+         */
+        ShowUpdate: {
+            /** Topic */
+            topic?: string | null;
+            tone?: components["schemas"]["Tone"] | null;
+            /** Target Minutes */
+            target_minutes?: number | null;
+            /** Host Count */
+            host_count?: number | null;
+            /** Language */
+            language?: string | null;
+            expertise?: components["schemas"]["ExpertiseLevel"] | null;
+            /** Sources */
+            sources?: string[] | null;
+            /** Search Queries */
+            search_queries?: string[] | null;
+            /** Topic Keywords */
+            topic_keywords?: string | null;
+            /** Attribution */
+            attribution?: string | null;
+            /** Max Segments */
+            max_segments?: number | null;
+            /** Ranking Profile */
+            ranking_profile?: ("daily" | "explainer") | null;
+            /** Review Before Voice */
+            review_before_voice?: boolean | null;
+            /** Host Voices */
+            host_voices?: {
+                [key: string]: string;
+            } | null;
+            /** Host Effects */
+            host_effects?: {
+                [key: string]: components["schemas"]["VoiceEffects"];
+            } | null;
+            music?: components["schemas"]["ShowMusic"] | null;
+        };
+        /**
+         * SourceRead
+         * @description One section of a source, as last ingested: the unit that is cited and change-detected.
+         */
+        SourceRead: {
+            /**
+             * Item Id
+             * Format: uuid
+             * @description The section's id; claims cite its passages
+             */
+            item_id: string;
+            /**
+             * Url
+             * @description Where it comes from, with the section's anchor
+             * @example https://clickhouse.com/docs/get-started/about/intro#sql-support
+             */
+            url: string;
+            /**
+             * Title
+             * @description The section's heading
+             * @example SQL support
+             */
+            title: string;
+            /**
+             * Position
+             * @description Order across the show's sources, from 0
+             */
+            position: number;
+            /** @description Reliability tier, used in ranking */
+            reliability: components["schemas"]["ReliabilityTier"];
+            /**
+             * Content Hash
+             * @description Hash of the text; a change marks the section changed
+             */
+            content_hash: string;
+            /**
+             * Words
+             * @description Length of the section's text in words
+             */
+            words: number;
+            /**
+             * Chunks
+             * @description Passages it was split into for retrieval
+             */
+            chunks: number;
+            /**
+             * Published At
+             * @description The source's own date, if it gives one
+             */
+            published_at: string | null;
+            /**
+             * Fetched At
+             * Format: date-time
+             * @description When it was last fetched
+             */
+            fetched_at: string;
+        };
+        /**
+         * SpeechClipRead
+         * @description A type-to-speech clip: queued, being voiced, done (with its audio) or failed (with why).
+         */
+        SpeechClipRead: {
+            /**
+             * Clip Id
+             * Format: uuid
+             * @description The clip's id
+             */
+            clip_id: string;
+            /** Voice */
+            voice: components["schemas"]["RecordedVoice"] | components["schemas"]["EngineVoice"];
+            /**
+             * Text
+             * @description What it says
+             */
+            text: string;
+            /**
+             * Delivery
+             * @description How it is said
+             */
+            delivery: string;
+            /** @description The voice effects applied */
+            effects: components["schemas"]["VoiceEffects"];
+            /**
+             * Status
+             * @description queued, working, done or failed
+             * @enum {string}
+             */
+            status: "queued" | "working" | "done" | "failed";
+            /**
+             * Duration S
+             * @description Length, once done
+             */
+            duration_s?: number | null;
+            /**
+             * Error
+             * @description Why it failed
+             */
+            error?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When it was asked for
+             */
+            created_at: string;
+            /**
+             * Finished At
+             * @description When it was done or failed
+             */
+            finished_at?: string | null;
+            /**
+             * Audio
+             * @description Where to play or download it, once done
+             */
+            readonly audio: string | null;
+        };
+        /**
+         * SpeechCreate
+         * @description A line to voice.
+         * @example {
+         *       "delivery": "warm",
+         *       "effects": {
+         *         "broadcast": true,
+         *         "deepen": 40,
+         *         "warmth": 20
+         *       },
+         *       "text": "Welcome back to the show. Today we are talking about tides.",
+         *       "voice": {
+         *         "host": "Alex",
+         *         "kind": "engine"
+         *       }
+         *     }
+         */
+        SpeechCreate: {
+            /**
+             * Text
+             * @description What to say (up to 600 characters)
+             */
+            text: string;
+            /** Voice */
+            voice: components["schemas"]["RecordedVoice"] | components["schemas"]["EngineVoice"];
+            /**
+             * @description How it is said
+             * @default neutral
+             */
+            delivery: components["schemas"]["Delivery"];
+            /** @description Voice effects */
+            effects?: components["schemas"]["VoiceEffects"];
+        };
+        /**
+         * SpeechEngine
+         * @description What this server's voice engine can say, and today's budget for it.
+         */
+        SpeechEngine: {
+            /**
+             * Backend
+             * @description The voice engine: chatterbox, gemini, say or placeholder
+             */
+            backend: string;
+            /**
+             * Recorded Voices
+             * @description Whether recorded voices can speak here
+             */
+            recorded_voices: boolean;
+            /**
+             * Engine Voices
+             * @description The engine's own voices
+             */
+            engine_voices: components["schemas"]["EngineVoiceOption"][];
+            /**
+             * Uses Quota
+             * @description Whether each clip spends the daily Gemini TTS budget
+             */
+            uses_quota: boolean;
+            /**
+             * Clips Left Today
+             * @description Clips the shared Gemini budget still allows today (Gemini only)
+             */
+            clips_left_today?: number | null;
+            /**
+             * Max Characters
+             * @description Longest text accepted
+             * @default 600
+             */
+            max_characters: number;
+            /**
+             * Deliveries
+             * @description Delivery styles
+             */
+            deliveries: string[];
+            /**
+             * Presets
+             * @description Named effect settings
+             */
+            presets: {
+                [key: string]: components["schemas"]["VoiceEffects"];
+            };
+        };
+        /**
+         * StageRunRead
+         * @description One completed stage run, for transparency and reproducibility.
+         */
+        StageRunRead: {
+            /**
+             * Stage
+             * @description Pipeline stage
+             * @example script
+             */
+            stage: string;
+            /**
+             * Seconds
+             * @description How long it took
+             */
+            seconds: number | null;
+            /**
+             * Model
+             * @description Model or backend used
+             * @example gemini:gemini-3.8-flash
+             */
+            model: string | null;
+            /**
+             * Prompt Version
+             * @description Prompt file used, if any
+             * @example script.v2
+             */
+            prompt_version: string | null;
+            /**
+             * Seed
+             * @description Random seed, so the run can be repeated
+             */
+            seed: number | null;
+            /**
+             * Started At
+             * Format: date-time
+             * @description When the record was written
+             */
+            started_at: string;
+        };
+        /**
+         * TokenResponse
+         * @description A login token. Send it as `Authorization: Bearer <access_token>`.
+         */
+        TokenResponse: {
+            /**
+             * Access Token
+             * @description The token; shown only now, never again
+             */
+            access_token: string;
+            /**
+             * Token Type
+             * @description How to send it
+             * @default bearer
+             * @constant
+             */
+            token_type: "bearer";
+            /**
+             * Token Id
+             * Format: uuid
+             * @description Its id, to recognise or revoke it
+             */
+            token_id: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description When it stops working (six months from now)
+             */
+            expires_at: string;
+        };
+        /**
+         * Tone
+         * @enum {string}
+         */
+        Tone: "casual" | "neutral" | "formal";
+        /**
+         * UploadRead
+         * @description An uploaded source file. Its text is read when the show's next episode is ingested.
+         */
+        UploadRead: {
+            /**
+             * Upload Id
+             * Format: uuid
+             * @description The upload's id
+             */
+            upload_id: string;
+            /**
+             * Show Id
+             * Format: uuid
+             * @description The show it belongs to
+             */
+            show_id: string;
+            /**
+             * Filename
+             * @description The name it was uploaded with
+             * @example whitepaper.pdf
+             */
+            filename: string;
+            /**
+             * Content Type
+             * @description Media type
+             * @example application/pdf
+             */
+            content_type: string;
+            /**
+             * Size Bytes
+             * @description File size
+             */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When it was uploaded
+             */
+            created_at: string;
+            /**
+             * File
+             * @description Where to download the file
+             */
+            readonly file: string;
+        };
+        /**
+         * UsageRead
+         * @description What today's Gemini budget allows, shared by every account on this server.
+         */
+        UsageRead: {
+            /**
+             * Day
+             * @description Today's date in Pacific time, when Gemini's quota resets
+             */
+            day: string;
+            /**
+             * Resets In Seconds
+             * @description Seconds until the quota resets (midnight Pacific)
+             */
+            resets_in_seconds: number;
+            /**
+             * Writer
+             * @description Who writes scripts: Gemini, or the offline extractive writer
+             * @enum {string}
+             */
+            writer: "gemini" | "offline";
+            /**
+             * Voice Engine
+             * @description What voices episodes: `gemini`, `chatterbox` (cloned voices, no quota), `say` or `placeholder`
+             * @example chatterbox
+             */
+            voice_engine: string;
+            /**
+             * Models
+             * @description The Gemini models in use and their budgets
+             */
+            models: components["schemas"]["ModelUsage"][];
+        };
+        /** UserRead */
+        UserRead: {
+            /**
+             * User Id
+             * Format: uuid
+             * @description The user's id
+             */
+            user_id: string;
+            /**
+             * Email
+             * @description Email address
+             */
+            email: string;
+            /**
+             * Role
+             * @description `admin` can add users; `creator` makes shows
+             * @enum {string}
+             */
+            role: "admin" | "creator";
+            /**
+             * Disabled
+             * @description A disabled user cannot log in or use a token
+             */
+            disabled: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             * @description When the account was created
+             */
+            created_at: string;
+        };
+        /**
+         * UserUpdate
+         * @description What an admin may change about an account. Omitted fields stay as they are.
+         */
+        UserUpdate: {
+            /**
+             * Role
+             * @description `admin` or `creator`
+             */
+            role?: ("admin" | "creator") | null;
+            /**
+             * Disabled
+             * @description A disabled account cannot sign in; its tokens stop working
+             */
+            disabled?: boolean | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /**
+         * VoiceConsent
+         * @description What the speaker agreed to, as signed.
+         */
+        VoiceConsent: {
+            /**
+             * Version
+             * @description Which wording of the consent form was signed
+             */
+            version: string;
+            /**
+             * Statement
+             * @description The exact text agreed to
+             */
+            statement: string;
+            /**
+             * Relationship
+             * @description `self`: the speaker signed for their own voice; `permission`: the account holder holds the speaker's written permission
+             * @enum {string}
+             */
+            relationship: "self" | "permission";
+            /**
+             * Signed By
+             * @description The full name typed as a signature
+             */
+            signed_by: string;
+            /**
+             * Permission Record
+             * @description Where the speaker's written permission is kept (permission only)
+             * @default
+             */
+            permission_record: string;
+            /**
+             * Agreed At
+             * Format: date-time
+             * @description When the form was signed
+             */
+            agreed_at: string;
+        };
+        /**
+         * VoiceEffects
+         * @description How one host's voice is processed. All off by default. Frozen, so equal settings compare
+         *     (and hash) equal: a clip shared by two hosts is processed only if theirs are the same.
+         */
+        VoiceEffects: {
+            /**
+             * Deepen
+             * @description 0 = natural, 100 = 5 semitones lower
+             * @default 0
+             */
+            deepen: number;
+            /**
+             * Warmth
+             * @description 0 = natural, 100 = fullest low end
+             * @default 0
+             */
+            warmth: number;
+            /**
+             * Broadcast
+             * @description High-pass, compression, presence and de-ess
+             * @default false
+             */
+            broadcast: boolean;
+        };
+        /**
+         * VoiceRead
+         * @description A registered voice. Only its owner sees it, and only the Chatterbox backend can clone it.
+         */
+        VoiceRead: {
+            /**
+             * Voice Id
+             * Format: uuid
+             * @description The voice's id
+             */
+            voice_id: string;
+            /**
+             * Name
+             * @description A label for the voice
+             * @example My voice
+             */
+            name: string;
+            /**
+             * Speaker
+             * @description Whose voice it is
+             */
+            speaker: string;
+            /**
+             * License
+             * @description The terms the recording may be used under
+             */
+            license: string;
+            /**
+             * Source
+             * @description Recorded in the browser, or an uploaded file
+             * @enum {string}
+             */
+            source: "recorded" | "uploaded";
+            /**
+             * Duration Seconds
+             * @description Length of the recording
+             */
+            duration_seconds: number;
+            /** @description The consent record */
+            consent: components["schemas"]["VoiceConsent"];
+            /**
+             * Created At
+             * Format: date-time
+             * @description When it was registered
+             */
+            created_at: string;
+            /**
+             * Audio
+             * @description Where to play the recording (its owner only)
+             */
+            readonly audio: string;
+        };
     };
-    /**
-     * HomeDocument
-     * @description The API's home document: what it offers and how to use it, in one request.
-     */
-    HomeDocument: {
-      api: components["schemas"]["ApiInfo"];
-      /**
-       * Resources
-       * @description Every resource, keyed by link relation
-       */
-      resources: {
-        [key: string]: components["schemas"]["Resource"];
-      };
-    };
-    /**
-     * LineEdit
-     * @description One line of a replacement segment.
-     */
-    LineEdit: {
-      /**
-       * Speaker
-       * @description One of the show's hosts
-       * @example Sam
-       */
-      speaker: string;
-      /**
-       * Text
-       * @description What is said
-       */
-      text: string;
-      /**
-       * Chunk Ids
-       * @description Passages that support the line, which makes it a claim. Null for framing or reactions; an empty list is a claim with no citation, which the fact-check rejects
-       */
-      chunk_ids?: string[] | null;
-      /**
-       * @description How the line is said; the voice reads it that way
-       * @default neutral
-       */
-      delivery: components["schemas"]["Delivery"];
-    };
-    /**
-     * LineRead
-     * @description One spoken line.
-     */
-    LineRead: {
-      /**
-       * Speaker
-       * @description The host who says it
-       * @example Alex
-       */
-      speaker: string;
-      /**
-       * Text
-       * @description What is said
-       */
-      text: string;
-      /**
-       * Claims
-       * @description Claims in this line; empty for framing
-       * @default []
-       */
-      claims: components["schemas"]["ClaimRead"][];
-      /**
-       * @description How the line is said; the voice reads it that way
-       * @default neutral
-       */
-      delivery: components["schemas"]["Delivery"];
-    };
-    /**
-     * LinkContext
-     * @description One Linkset entry: a context (``anchor``) and its links by relation.
-     */
-    LinkContext: {
-      /**
-       * Anchor
-       * @description The resource these links are about
-       */
-      anchor: string;
-    } & {
-      [key: string]: unknown;
-    };
-    /** LoginRequest */
-    LoginRequest: {
-      /**
-       * Email
-       * @description Email address, used to log in
-       * @example ada@example.org
-       */
-      email: string;
-      /**
-       * Password
-       * @description The account's password
-       */
-      password: string;
-    };
-    /**
-     * ModelUsage
-     * @description One Gemini model's requests today.
-     */
-    ModelUsage: {
-      /**
-       * Model
-       * @description The Gemini model
-       * @example gemini-3.8-flash
-       */
-      model: string;
-      /**
-       * Kind
-       * @description `text`: plans, scripts, fact-checks and the bot; `voice`: speech
-       * @enum {string}
-       */
-      kind: "text" | "voice";
-      /**
-       * Used
-       * @description Requests sent today (Pacific time)
-       */
-      used: number;
-      /**
-       * Limit
-       * @description Today's cap (LLM_/TTS_REQUESTS_PER_DAY); null: none
-       */
-      limit: number | null;
-      /**
-       * Left
-       * @description Requests left today; null when there is no cap
-       */
-      left: number | null;
-    };
-    /**
-     * Operation
-     * @description One operation on the resource (an addition to JSON Home).
-     */
-    Operation: {
-      /**
-       * Method
-       * @description HTTP method
-       * @example GET
-       */
-      method: string;
-      /**
-       * Summary
-       * @description What it does
-       * @example Get an episode's audio
-       */
-      summary: string;
-      /**
-       * Operationid
-       * @description Its id in the OpenAPI description
-       */
-      operationId: string;
-      /**
-       * Paginated
-       * @description Returns a page (`limit`, `offset`, `next`)
-       */
-      paginated: boolean;
-      /**
-       * Filters
-       * @description Query parameters other than paging
-       */
-      filters: string[];
-      /**
-       * Authenticated
-       * @description Accepts or needs a bearer token
-       */
-      authenticated: boolean;
-      /**
-       * Success
-       * @description Success status codes
-       * @example [
-       *       200
-       *     ]
-       */
-      success: number[];
-      /**
-       * Errors
-       * @description Error status codes it documents
-       * @example [
-       *       404
-       *     ]
-       */
-      errors: number[];
-      /**
-       * Docs
-       * @description This operation in the interactive documentation
-       */
-      docs: string;
-    };
-    /** Page[ApiKeyRead] */
-    Page_ApiKeyRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["ApiKeyRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[ClaimDetail] */
-    Page_ClaimDetail_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["ClaimDetail"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[EpisodeRead] */
-    Page_EpisodeRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["EpisodeRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[SecurityEventRead] */
-    Page_SecurityEventRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["SecurityEventRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[SessionRead] */
-    Page_SessionRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["SessionRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[ShowRead] */
-    Page_ShowRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["ShowRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[SourceRead] */
-    Page_SourceRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["SourceRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[StageRunRead] */
-    Page_StageRunRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["StageRunRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[UploadRead] */
-    Page_UploadRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["UploadRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[UserRead] */
-    Page_UserRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["UserRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** Page[VoiceRead] */
-    Page_VoiceRead_: {
-      /**
-       * Items
-       * @description The results on this page
-       */
-      items: components["schemas"]["VoiceRead"][];
-      /**
-       * Total
-       * @description Results across all pages
-       * @example 42
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Most results per page, as requested
-       * @example 20
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Results skipped before this page
-       * @example 0
-       */
-      offset: number;
-      /**
-       * Next
-       * @description Path and query of the next page; null on the last page
-       * @example /shows?limit=20&offset=20
-       */
-      next: string | null;
-    };
-    /** PasswordChange */
-    PasswordChange: {
-      /**
-       * Current Password
-       * @description Your password now
-       */
-      current_password: string;
-      /**
-       * New Password
-       * @description At least 12 characters; a passphrase is best
-       * @example correct horse battery staple
-       */
-      new_password: string;
-    };
-    /** PasswordResetConfirm */
-    PasswordResetConfirm: {
-      /**
-       * Token
-       * @description The token from the reset link
-       */
-      token: string;
-      /**
-       * New Password
-       * @description At least 12 characters; a passphrase is best
-       * @example correct horse battery staple
-       */
-      new_password: string;
-    };
-    /** PasswordResetRequest */
-    PasswordResetRequest: {
-      /**
-       * Email
-       * @description Email address, used to log in
-       * @example ada@example.org
-       */
-      email: string;
-    };
-    /**
-     * Question
-     * @description A question for the assistant, with where it was asked.
-     */
-    Question: {
-      /**
-       * Question
-       * @description What the person asked
-       */
-      question: string;
-      /**
-       * Page
-       * @description The page it was asked on
-       * @default other
-       * @enum {string}
-       */
-      page:
-        | "shows"
-        | "show"
-        | "new_show"
-        | "episode"
-        | "voices"
-        | "new_voice"
-        | "companion"
-        | "welcome"
-        | "other";
-      /**
-       * Episode Id
-       * @description The episode on screen, if any; it must be yours
-       */
-      episode_id?: string | null;
-      /**
-       * Show Id
-       * @description The show on screen, if any; it must be yours
-       */
-      show_id?: string | null;
-    };
-    /** Readiness */
-    Readiness: {
-      /**
-       * Status
-       * @description `ready` only if every check passed
-       * @enum {string}
-       */
-      status: "ready" | "not ready";
-      /**
-       * Checks
-       * @description Each dependency and `ok`, or what went wrong
-       * @example {
-       *       "database": "ok",
-       *       "queue": "ok",
-       *       "storage": "ok"
-       *     }
-       */
-      checks: {
-        [key: string]: string;
-      };
-    };
-    /** RegisterRequest */
-    RegisterRequest: {
-      /**
-       * Email
-       * @description Email address, used to log in
-       * @example ada@example.org
-       */
-      email: string;
-      /**
-       * Password
-       * @description At least 12 characters; a passphrase is best
-       * @example correct horse battery staple
-       */
-      password: string;
-      /**
-       * Role
-       * @description Ignored for the first user, who is always `admin`
-       * @default creator
-       * @enum {string}
-       */
-      role: "admin" | "creator";
-    };
-    /**
-     * ReliabilityTier
-     * @enum {string}
-     */
-    ReliabilityTier: "primary" | "established" | "unverified";
-    /**
-     * Resource
-     * @description A JSON Home resource object: where it is and how to use it.
-     */
-    Resource: {
-      /**
-       * Title
-       * @description What the resource is
-       * @example Episode audio
-       */
-      title: string;
-      /**
-       * Href
-       * @description Its URI, when it has no variables
-       */
-      href?: string | null;
-      /**
-       * Hreftemplate
-       * @description Its URI template (RFC 6570), when it has variables
-       * @example /v1/episodes/{episode_id}/audio.wav
-       */
-      hrefTemplate?: string | null;
-      /**
-       * Hrefvars
-       * @description Each template variable and what it means
-       */
-      hrefVars?: {
-        [key: string]: string;
-      } | null;
-      hints: components["schemas"]["Hints"];
-      /**
-       * Operations
-       * @description Its operations (an addition to JSON Home)
-       */
-      operations: components["schemas"]["Operation"][];
-    };
-    /**
-     * ScriptEdit
-     * @description Replacement lines for one or more segments. Segments not listed stay as they are.
-     * @example {
-     *       "segments": [
-     *         {
-     *           "lines": [
-     *             {
-     *               "speaker": "Alex",
-     *               "text": "Next up: column storage."
-     *             },
-     *             {
-     *               "chunk_ids": [
-     *                 "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-     *               ],
-     *               "speaker": "Sam",
-     *               "text": "ClickHouse stores each column separately."
-     *             }
-     *           ],
-     *           "position": 2
-     *         }
-     *       ]
-     *     }
-     */
-    ScriptEdit: {
-      /**
-       * Segments
-       * @description Segments to replace
-       */
-      segments: components["schemas"]["SegmentEdit"][];
-    };
-    /**
-     * SecurityEventRead
-     * @description One entry in the security log.
-     */
-    SecurityEventRead: {
-      /**
-       * Event Id
-       * Format: uuid
-       * @description The entry's id
-       */
-      event_id: string;
-      /**
-       * User Id
-       * @description The account it concerns; null if unknown or deleted
-       */
-      user_id: string | null;
-      /**
-       * Event
-       * @description What happened
-       * @example login_failed
-       */
-      event: string;
-      /**
-       * Address
-       * @description The client address it came from
-       */
-      address: string;
-      /**
-       * Detail
-       * @description Extra facts, never secrets
-       */
-      detail: {
-        [key: string]: unknown;
-      };
-      /**
-       * Created At
-       * Format: date-time
-       * @description When
-       */
-      created_at: string;
-    };
-    /**
-     * SegmentEdit
-     * @description The new lines for one segment; they replace all of its current lines.
-     */
-    SegmentEdit: {
-      /**
-       * Position
-       * @description Which segment, from 1
-       */
-      position: number;
-      /**
-       * Lines
-       * @description The segment's lines
-       */
-      lines: components["schemas"]["LineEdit"][];
-    };
-    /**
-     * SegmentScript
-     * @description One segment of the outline and its lines.
-     */
-    SegmentScript: {
-      /**
-       * Position
-       * @description Order in the episode, from 1
-       */
-      position: number;
-      /**
-       * Title
-       * @description Segment heading, also the chapter title
-       */
-      title: string;
-      /**
-       * Source Item Ids
-       * @description The source sections this segment draws on
-       */
-      source_item_ids: string[];
-      /**
-       * Lines
-       * @description The dialogue, in order
-       */
-      lines: components["schemas"]["LineRead"][];
-    };
-    /**
-     * SessionRead
-     * @description A login token (a signed-in browser or device), without the token itself.
-     */
-    SessionRead: {
-      /**
-       * Token Id
-       * Format: uuid
-       * @description The sign-in's id
-       */
-      token_id: string;
-      /**
-       * Prefix
-       * @description The token's first characters
-       */
-      prefix: string;
-      /**
-       * Created At
-       * Format: date-time
-       * @description When you signed in
-       */
-      created_at: string;
-      /**
-       * Expires At
-       * Format: date-time
-       * @description When it stops working
-       */
-      expires_at: string;
-      /**
-       * Last Used At
-       * @description When it was last used
-       */
-      last_used_at: string | null;
-      /**
-       * Current
-       * @description True for the sign-in making this request
-       * @default false
-       */
-      current: boolean;
-    };
-    /**
-     * SetupStatus
-     * @description Whether accounts can be created without signing in: the first one, or anyone's own.
-     */
-    SetupStatus: {
-      /**
-       * First Account Open
-       * @description True until the first account exists; that account becomes the admin
-       */
-      first_account_open: boolean;
-      /**
-       * Signup Open
-       * @description True when anyone may create their own account (always a `creator`)
-       * @default false
-       */
-      signup_open: boolean;
-      /**
-       * Google Sign In
-       * @description True when people can sign in with Google (`GET /auth/google/start`)
-       * @default false
-       */
-      google_sign_in: boolean;
-    };
-    /**
-     * ShowCreate
-     * @description What a creator supplies to set up a show.
-     * @example {
-     *       "attribution": "Source material: ClickHouse Documentation, CC BY-NC-SA 4.0.",
-     *       "expertise": "beginner",
-     *       "host_count": 2,
-     *       "language": "en",
-     *       "max_segments": 6,
-     *       "ranking_profile": "explainer",
-     *       "review_before_voice": false,
-     *       "search_queries": [
-     *         "ClickHouse column-oriented database"
-     *       ],
-     *       "sources": [
-     *         "https://clickhouse.com/docs/get-started/about/intro"
-     *       ],
-     *       "target_minutes": 7,
-     *       "tone": "casual",
-     *       "topic": "What ClickHouse is and why it is fast for analytics",
-     *       "topic_keywords": "ClickHouse column-oriented database OLAP analytics queries"
-     *     }
-     */
-    ShowCreate: {
-      /**
-       * Topic
-       * @description What the show is about; spoken in the opening and matched against passages
-       * @example What ClickHouse is and why it is fast for analytics
-       */
-      topic: string;
-      /**
-       * @description Speaking style of the hosts
-       * @default neutral
-       */
-      tone: components["schemas"]["Tone"];
-      /**
-       * Target Minutes
-       * @description Target episode length in minutes
-       * @default 7
-       */
-      target_minutes: number;
-      /**
-       * Host Count
-       * @description Number of hosts, each with a distinct voice
-       * @default 2
-       */
-      host_count: number;
-      /**
-       * Language
-       * @description BCP 47 language tag
-       * @default en
-       * @example en
-       * @example fr-CA
-       */
-      language: string;
-      /**
-       * @description How much the audience already knows
-       * @default intermediate
-       */
-      expertise: components["schemas"]["ExpertiseLevel"];
-      /**
-       * Sources
-       * @description Web pages to build episodes from; each page section becomes a citable source
-       * @default []
-       * @example [
-       *       "https://clickhouse.com/docs/get-started/about/intro"
-       *     ]
-       */
-      sources: string[];
-      /**
-       * Search Queries
-       * @description Searches run each time an episode is made; the top results are read like the show's own pages, so a refresh picks up new results (FR2). Up to 3
-       * @default []
-       * @example [
-       *       "ClickHouse column-oriented database"
-       *     ]
-       */
-      search_queries: string[];
-      /**
-       * Topic Keywords
-       * @description Words that describe the topic, used with it to match passages
-       * @default
-       * @example ClickHouse column-oriented database OLAP analytics queries
-       */
-      topic_keywords: string;
-      /**
-       * Attribution
-       * @description Credit and licence line printed in the show notes
-       * @default
-       * @example Source material: ClickHouse Documentation, CC BY-NC-SA 4.0.
-       */
-      attribution: string;
-      /**
-       * Max Segments
-       * @description At most this many segments per episode
-       * @default 6
-       */
-      max_segments: number;
-      /**
-       * Ranking Profile
-       * @description `daily` favours fresh sources; `explainer` favours authoritative ones
-       * @default explainer
-       * @enum {string}
-       */
-      ranking_profile: "daily" | "explainer";
-      /**
-       * Review Before Voice
-       * @description Pause each episode after the fact-check until a person approves it, so nothing is voiced unreviewed
-       * @default false
-       */
-      review_before_voice: boolean;
-      /**
-       * Host Voices
-       * @description A registered voice (see /voices) for each host who should speak with it, by host name: Alex, Sam, Jordan, Riley. Used by the Chatterbox voice backend; other hosts, and other backends, keep their own voices
-       * @default {}
-       * @example {
-       *       "Alex": "6f1c2e8a-0d5b-4f7e-9a3c-2b8d1e4f5a6b"
-       *     }
-       */
-      host_voices: {
-        [key: string]: string;
-      };
-    };
-    /**
-     * ShowRead
-     * @description A show as stored.
-     */
-    ShowRead: {
-      /**
-       * Show Id
-       * Format: uuid
-       * @description The show's id
-       */
-      show_id: string;
-      /**
-       * Topic
-       * @description What the show is about
-       */
-      topic: string;
-      /** @description Speaking style of the hosts */
-      tone: components["schemas"]["Tone"];
-      /**
-       * Target Minutes
-       * @description Target episode length in minutes
-       */
-      target_minutes: number;
-      /**
-       * Host Count
-       * @description Number of hosts
-       */
-      host_count: number;
-      /**
-       * Language
-       * @description BCP 47 language tag
-       */
-      language: string;
-      /** @description How much the audience already knows */
-      expertise: components["schemas"]["ExpertiseLevel"];
-      /**
-       * Sources
-       * @description Source page URLs
-       */
-      sources: string[];
-      /**
-       * Search Queries
-       * @description Searches whose top results are read as sources
-       */
-      search_queries?: string[];
-      /**
-       * Topic Keywords
-       * @description Words matched with the topic
-       * @default
-       */
-      topic_keywords: string;
-      /**
-       * Attribution
-       * @description Credit and licence line for the show notes
-       * @default
-       */
-      attribution: string;
-      /**
-       * Max Segments
-       * @description At most this many segments per episode
-       * @default 6
-       */
-      max_segments: number;
-      /**
-       * Ranking Profile
-       * @description `daily` or `explainer`
-       * @default explainer
-       */
-      ranking_profile: string;
-      /**
-       * Review Before Voice
-       * @description Episodes pause for approval before voicing
-       * @default false
-       */
-      review_before_voice: boolean;
-      /**
-       * Host Voices
-       * @description Registered voice per host name, for Chatterbox
-       */
-      host_voices?: {
-        [key: string]: string;
-      };
-      /**
-       * Created At
-       * Format: date-time
-       * @description When the show was created
-       */
-      created_at: string;
-    };
-    /**
-     * ShowUpdate
-     * @description Partial update: omitted or null fields are left unchanged.
-     * @example {
-     *       "max_segments": 4,
-     *       "tone": "formal"
-     *     }
-     */
-    ShowUpdate: {
-      /** Topic */
-      topic?: string | null;
-      tone?: components["schemas"]["Tone"] | null;
-      /** Target Minutes */
-      target_minutes?: number | null;
-      /** Host Count */
-      host_count?: number | null;
-      /** Language */
-      language?: string | null;
-      expertise?: components["schemas"]["ExpertiseLevel"] | null;
-      /** Sources */
-      sources?: string[] | null;
-      /** Search Queries */
-      search_queries?: string[] | null;
-      /** Topic Keywords */
-      topic_keywords?: string | null;
-      /** Attribution */
-      attribution?: string | null;
-      /** Max Segments */
-      max_segments?: number | null;
-      /** Ranking Profile */
-      ranking_profile?: ("daily" | "explainer") | null;
-      /** Review Before Voice */
-      review_before_voice?: boolean | null;
-      /** Host Voices */
-      host_voices?: {
-        [key: string]: string;
-      } | null;
-    };
-    /**
-     * SourceRead
-     * @description One section of a source, as last ingested: the unit that is cited and change-detected.
-     */
-    SourceRead: {
-      /**
-       * Item Id
-       * Format: uuid
-       * @description The section's id; claims cite its passages
-       */
-      item_id: string;
-      /**
-       * Url
-       * @description Where it comes from, with the section's anchor
-       * @example https://clickhouse.com/docs/get-started/about/intro#sql-support
-       */
-      url: string;
-      /**
-       * Title
-       * @description The section's heading
-       * @example SQL support
-       */
-      title: string;
-      /**
-       * Position
-       * @description Order across the show's sources, from 0
-       */
-      position: number;
-      /** @description Reliability tier, used in ranking */
-      reliability: components["schemas"]["ReliabilityTier"];
-      /**
-       * Content Hash
-       * @description Hash of the text; a change marks the section changed
-       */
-      content_hash: string;
-      /**
-       * Words
-       * @description Length of the section's text in words
-       */
-      words: number;
-      /**
-       * Chunks
-       * @description Passages it was split into for retrieval
-       */
-      chunks: number;
-      /**
-       * Published At
-       * @description The source's own date, if it gives one
-       */
-      published_at: string | null;
-      /**
-       * Fetched At
-       * Format: date-time
-       * @description When it was last fetched
-       */
-      fetched_at: string;
-    };
-    /**
-     * StageRunRead
-     * @description One completed stage run, for transparency and reproducibility.
-     */
-    StageRunRead: {
-      /**
-       * Stage
-       * @description Pipeline stage
-       * @example script
-       */
-      stage: string;
-      /**
-       * Seconds
-       * @description How long it took
-       */
-      seconds: number | null;
-      /**
-       * Model
-       * @description Model or backend used
-       * @example gemini:gemini-3.8-flash
-       */
-      model: string | null;
-      /**
-       * Prompt Version
-       * @description Prompt file used, if any
-       * @example script.v2
-       */
-      prompt_version: string | null;
-      /**
-       * Seed
-       * @description Random seed, so the run can be repeated
-       */
-      seed: number | null;
-      /**
-       * Started At
-       * Format: date-time
-       * @description When the record was written
-       */
-      started_at: string;
-    };
-    /**
-     * TokenResponse
-     * @description A login token. Send it as `Authorization: Bearer <access_token>`.
-     */
-    TokenResponse: {
-      /**
-       * Access Token
-       * @description The token; shown only now, never again
-       */
-      access_token: string;
-      /**
-       * Token Type
-       * @description How to send it
-       * @default bearer
-       * @constant
-       */
-      token_type: "bearer";
-      /**
-       * Token Id
-       * Format: uuid
-       * @description Its id, to recognise or revoke it
-       */
-      token_id: string;
-      /**
-       * Expires At
-       * Format: date-time
-       * @description When it stops working (six months from now)
-       */
-      expires_at: string;
-    };
-    /**
-     * Tone
-     * @enum {string}
-     */
-    Tone: "casual" | "neutral" | "formal";
-    /**
-     * UploadRead
-     * @description An uploaded source file. Its text is read when the show's next episode is ingested.
-     */
-    UploadRead: {
-      /**
-       * Upload Id
-       * Format: uuid
-       * @description The upload's id
-       */
-      upload_id: string;
-      /**
-       * Show Id
-       * Format: uuid
-       * @description The show it belongs to
-       */
-      show_id: string;
-      /**
-       * Filename
-       * @description The name it was uploaded with
-       * @example whitepaper.pdf
-       */
-      filename: string;
-      /**
-       * Content Type
-       * @description Media type
-       * @example application/pdf
-       */
-      content_type: string;
-      /**
-       * Size Bytes
-       * @description File size
-       */
-      size_bytes: number;
-      /**
-       * Created At
-       * Format: date-time
-       * @description When it was uploaded
-       */
-      created_at: string;
-      /**
-       * File
-       * @description Where to download the file
-       */
-      readonly file: string;
-    };
-    /**
-     * UsageRead
-     * @description What today's Gemini budget allows, shared by every account on this server.
-     */
-    UsageRead: {
-      /**
-       * Day
-       * @description Today's date in Pacific time, when Gemini's quota resets
-       */
-      day: string;
-      /**
-       * Resets In Seconds
-       * @description Seconds until the quota resets (midnight Pacific)
-       */
-      resets_in_seconds: number;
-      /**
-       * Writer
-       * @description Who writes scripts: Gemini, or the offline extractive writer
-       * @enum {string}
-       */
-      writer: "gemini" | "offline";
-      /**
-       * Voice Engine
-       * @description What voices episodes: `gemini`, `chatterbox` (cloned voices, no quota), `say` or `placeholder`
-       * @example chatterbox
-       */
-      voice_engine: string;
-      /**
-       * Models
-       * @description The Gemini models in use and their budgets
-       */
-      models: components["schemas"]["ModelUsage"][];
-    };
-    /** UserRead */
-    UserRead: {
-      /**
-       * User Id
-       * Format: uuid
-       * @description The user's id
-       */
-      user_id: string;
-      /**
-       * Email
-       * @description Email address
-       */
-      email: string;
-      /**
-       * Role
-       * @description `admin` can add users; `creator` makes shows
-       * @enum {string}
-       */
-      role: "admin" | "creator";
-      /**
-       * Disabled
-       * @description A disabled user cannot log in or use a token
-       */
-      disabled: boolean;
-      /**
-       * Created At
-       * Format: date-time
-       * @description When the account was created
-       */
-      created_at: string;
-    };
-    /**
-     * UserUpdate
-     * @description What an admin may change about an account. Omitted fields stay as they are.
-     */
-    UserUpdate: {
-      /**
-       * Role
-       * @description `admin` or `creator`
-       */
-      role?: ("admin" | "creator") | null;
-      /**
-       * Disabled
-       * @description A disabled account cannot sign in; its tokens stop working
-       */
-      disabled?: boolean | null;
-    };
-    /** ValidationError */
-    ValidationError: {
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
-    };
-    /**
-     * VoiceConsent
-     * @description What the speaker agreed to, as signed.
-     */
-    VoiceConsent: {
-      /**
-       * Version
-       * @description Which wording of the consent form was signed
-       */
-      version: string;
-      /**
-       * Statement
-       * @description The exact text agreed to
-       */
-      statement: string;
-      /**
-       * Relationship
-       * @description `self`: the speaker signed for their own voice; `permission`: the account holder holds the speaker's written permission
-       * @enum {string}
-       */
-      relationship: "self" | "permission";
-      /**
-       * Signed By
-       * @description The full name typed as a signature
-       */
-      signed_by: string;
-      /**
-       * Permission Record
-       * @description Where the speaker's written permission is kept (permission only)
-       * @default
-       */
-      permission_record: string;
-      /**
-       * Agreed At
-       * Format: date-time
-       * @description When the form was signed
-       */
-      agreed_at: string;
-    };
-    /**
-     * VoiceRead
-     * @description A registered voice. Only its owner sees it, and only the Chatterbox backend can clone it.
-     */
-    VoiceRead: {
-      /**
-       * Voice Id
-       * Format: uuid
-       * @description The voice's id
-       */
-      voice_id: string;
-      /**
-       * Name
-       * @description A label for the voice
-       * @example My voice
-       */
-      name: string;
-      /**
-       * Speaker
-       * @description Whose voice it is
-       */
-      speaker: string;
-      /**
-       * License
-       * @description The terms the recording may be used under
-       */
-      license: string;
-      /**
-       * Source
-       * @description Recorded in the browser, or an uploaded file
-       * @enum {string}
-       */
-      source: "recorded" | "uploaded";
-      /**
-       * Duration Seconds
-       * @description Length of the recording
-       */
-      duration_seconds: number;
-      /** @description The consent record */
-      consent: components["schemas"]["VoiceConsent"];
-      /**
-       * Created At
-       * Format: date-time
-       * @description When it was registered
-       */
-      created_at: string;
-      /**
-       * Audio
-       * @description Where to play the recording (its owner only)
-       */
-      readonly audio: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  home: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Every resource with how to use it, plus authentication and health */
-      200: {
-        headers: {
-          /** @description The API catalog, description, documentation and status (RFC 8631) */
-          Link?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HomeDocument"];
-          "application/json-home": components["schemas"]["HomeDocument"];
-        };
-      };
-    };
-  };
-  api_catalog: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A Linkset listing this API and its description, documentation and status */
-      200: {
-        headers: {
-          /** @description The API catalog, description, documentation and status (RFC 8631) */
-          Link?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiCatalog"];
-          'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"': components["schemas"]["ApiCatalog"];
-        };
-      };
-    };
-  };
-  api_catalog_head: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The catalog exists */
-      200: {
-        headers: {
-          /** @description The API catalog, description, documentation and status (RFC 8631) */
-          Link?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  health: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The process is up */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Health"];
-        };
-      };
-    };
-  };
-  ready: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Every dependency answered */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Readiness"];
-        };
-      };
-      /** @description A dependency did not answer; `checks` says which */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Readiness"];
-        };
-      };
-    };
-  };
-  register: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RegisterRequest"];
-      };
-    };
-    responses: {
-      /** @description The new account */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UserRead"];
-        };
-      };
-      /** @description Accounts exist, sign-up is closed and no admin token was sent */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The token is not an admin's */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description An account with this email already exists */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Too many sign-ups from this address; wait and try again */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginRequest"];
-      };
-    };
-    responses: {
-      /** @description A login token, valid for six months */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TokenResponse"];
-        };
-      };
-      /** @description Wrong email or password (also while the account is temporarily locked) */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Too many failed attempts from this address; see `Retry-After` */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  start_session: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginRequest"];
-      };
-    };
-    responses: {
-      /** @description The account; the login token is set as a cookie, not returned */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CurrentUser"];
-        };
-      };
-      /** @description Wrong email or password (also while the account is temporarily locked) */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Too many failed attempts from this address; see `Retry-After` */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  end_session: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description The value of the `pe_csrf` cookie */
-        "X-CSRF-Token"?: string | null;
-      };
-      path?: never;
-      cookie?: {
-        /** @description The session cookie */
-        pe_session?: string | null;
-      };
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Signed out; both cookies are cleared */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The CSRF token is missing or wrong */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  google_start: {
-    parameters: {
-      query?: {
-        /** @description Where to go after signing in: a path on this site */
-        next?: string | null;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A redirect to Google's account chooser */
-      302: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Google sign-in is not configured on this server */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  google_callback: {
-    parameters: {
-      query?: {
-        /** @description The authorization code from Google */
-        code?: string | null;
-        /** @description The `state` sent to Google */
-        state?: string | null;
-        /** @description Set by Google when sign-in was cancelled or failed */
-        error?: string | null;
-      };
-      header?: never;
-      path?: never;
-      cookie?: {
-        /** @description The signed sign-in cookie */
-        pe_google?: string | null;
-      };
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A redirect into the app, or to `/login?google=<reason>` on failure */
-      303: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Google sign-in is not configured on this server */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  setup_status: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Whether the first account can still be created */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SetupStatus"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  request_password_reset: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PasswordResetRequest"];
-      };
-    };
-    responses: {
-      /** @description The same answer whether or not the account exists */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Accepted"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Too many attempts from this address; see `Retry-After` */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  confirm_password_reset: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PasswordResetConfirm"];
-      };
-    };
-    responses: {
-      /** @description The password is changed; sign in with it */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The link is invalid, used or expired, or the password is too short */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Too many attempts from this address; see `Retry-After` */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  set_avatar: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Avatar"];
-      };
-    };
-    responses: {
-      /** @description You, with the bot you chose */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CurrentUser"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description A choice outside the allowed options */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  change_password: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PasswordChange"];
-      };
-    };
-    responses: {
-      /** @description Changed */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The current password is wrong */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The token used for this request no longer works */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  whoami: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The account and the token this request used */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CurrentUser"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  delete_account: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AccountDelete"];
-      };
-    };
-    responses: {
-      /** @description The account and everything in it are gone */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The password is wrong */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description You are the last admin and other accounts exist; make another admin first */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_users: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of accounts, oldest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_UserRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Only an admin can list accounts */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_api_keys: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of keys, newest first, without the keys themselves */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_ApiKeyRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  create_api_key: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ApiKeyCreate"];
-      };
-    };
-    responses: {
-      /** @description The new key, shown only in this response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiKeyCreated"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  revoke_api_key: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The key's id */
-        token_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Revoked */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description No active key of yours with this id */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  change_email: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["EmailChange"];
-      };
-    };
-    responses: {
-      /** @description Changed; sign in with the new email from now on */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The password is wrong */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Another account uses this email */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_sessions: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of active sign-ins, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_SessionRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  revoke_session: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The sign-in's id */
-        token_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description That sign-in no longer works */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description No active sign-in of yours with this id */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  delete_user: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The account's id */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The account and everything in it are gone */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Only an admin can delete accounts */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description No account with this id */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Use `DELETE /auth/me` for your own account */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  update_user: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The account's id */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UserUpdate"];
-      };
-    };
-    responses: {
-      /** @description The account as it is now */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UserRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Only an admin can change accounts */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description No account with this id */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Admins cannot change their own account this way */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_security_events: {
-    parameters: {
-      query?: {
-        /** @description Only this account's events (admins; others always see their own) */
-        user_id?: string | null;
-        /** @description Only this kind of event */
-        event?:
-          | (
-              | "user_registered"
-              | "login_succeeded"
-              | "login_failed"
-              | "account_locked"
-              | "login_throttled"
-              | "logout"
-              | "session_revoked"
-              | "password_reset_requested"
-              | "password_reset_completed"
-              | "password_changed"
-              | "email_changed"
-              | "api_key_created"
-              | "api_key_revoked"
-              | "user_updated"
-              | "user_deleted"
-              | "account_deleted"
-            )
-          | null;
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of security events, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_SecurityEventRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Only an admin can read other accounts' events */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  get_episode_audio: {
-    parameters: {
-      query?: {
-        /** @description `true` to save as a file (`Content-Disposition: attachment`) */
-        download?: boolean;
-      };
-      header?: {
-        /** @description Optional byte range, e.g. `bytes=0-` or `bytes=1000000-1999999`. Browsers and podcast apps send it to seek and resume. */
-        Range?: string | null;
-      };
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The whole episode: 24 kHz mono 16-bit WAV */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "audio/wav": string;
-        };
-      };
-      /** @description The requested byte range (`Content-Range` says which) */
-      206: {
-        headers: {
-          /** @description `bytes first-last/size` */
-          "Content-Range"?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          "audio/wav": string;
-        };
-      };
-      /** @description Episode not found, or its audio is not assembled yet */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The range is outside the file; `Content-Range: bytes *\/size` gives the size */
-      416: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  head_episode_audio: {
-    parameters: {
-      query?: {
-        /** @description `true` to save as a file (`Content-Disposition: attachment`) */
-        download?: boolean;
-      };
-      header?: {
-        /** @description Optional byte range, e.g. `bytes=0-` or `bytes=1000000-1999999`. Browsers and podcast apps send it to seek and resume. */
-        Range?: string | null;
-      };
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The audio exists */
-      200: {
-        headers: {
-          /** @description Always `bytes`: ranges are supported */
-          "Accept-Ranges"?: string;
-          /** @description `inline` to play, or `attachment` with `?download=true`; filename `episode-<id>.wav` */
-          "Content-Disposition"?: string;
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Not available */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_episode_notes: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Show notes in Markdown */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "text/markdown; charset=utf-8": string;
-        };
-      };
-      /** @description Episode not found, or not published yet */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  download_upload: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-        /** @description The upload's id */
-        upload_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The PDF */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/pdf": string;
-        };
-      };
-      /** @description Show or upload not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_show_feed: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description RSS 2.0 with iTunes tags, one item per published episode */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/rss+xml": string;
-        };
-      };
-      /** @description No episode of this show has been published yet */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  list_shows: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of shows, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_ShowRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  create_show: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ShowCreate"];
-      };
-    };
-    responses: {
-      /** @description The created show */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ShowRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  get_show: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The show */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ShowRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  delete_show: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Deleted */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  update_show: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ShowUpdate"];
-      };
-    };
-    responses: {
-      /** @description The show after the change */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ShowRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_episodes: {
-    parameters: {
-      query?: {
-        /** @description Only episodes with this status */
-        status?: components["schemas"]["EpisodeStatus"] | null;
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of episodes, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_EpisodeRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  start_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["EpisodeStart"] | null;
-      };
-    };
-    responses: {
-      /** @description The new episode, `queued`; poll it for progress */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Job queue unavailable; the episode is marked `failed` */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_all_episodes: {
-    parameters: {
-      query?: {
-        /** @description Only episodes with this status */
-        status?: components["schemas"]["EpisodeStatus"] | null;
-        /** @description Only episodes of this show */
-        show_id?: string | null;
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of episodes, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_EpisodeRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  get_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The episode, its progress, and links to what it produced */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  delete_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Deleted */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The episode is running; cancel it first */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  follow_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Server-sent events. `episode` carries the status, stage, step (of 8), error and rewrite count, sent whenever they change. `gone` means the episode was deleted. Comment lines keep the connection alive. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "text/event-stream": string;
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  get_episode_script: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Segments and lines, with each claim's citations and verdict */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeScript"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  edit_episode_script: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ScriptEdit"];
-      };
-    };
-    responses: {
-      /** @description The episode, queued for the fact-check again */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The episode is not waiting for review */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description An unknown segment, speaker or passage */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Job queue unavailable; the edit is saved and the episode stays in review */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  approve_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The episode, queued for voicing */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The episode is not waiting for review */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Job queue unavailable; the episode stays in review */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  retry_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The episode, queued at the stage it stopped at */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The episode has not failed or been cancelled */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Job queue unavailable */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  cancel_episode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The episode, `cancelled` */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["EpisodeRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The episode has already finished */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_episode_runs: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of stage runs, oldest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_StageRunRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_episode_claims: {
-    parameters: {
-      query?: {
-        /** @description `false` for the claims the fact-check rejected, `true` for the rest */
-        supported?: boolean | null;
-        /** @description Only claims in this segment */
-        segment?: number | null;
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path: {
-        /** @description The episode's id */
-        episode_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of claims, in script order */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_ClaimDetail_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Episode not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_show_sources: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of source sections, in source order */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_SourceRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_uploads: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of uploads, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_UploadRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  upload_source: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["Body_upload_source"];
-      };
-    };
-    responses: {
-      /** @description The stored upload */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UploadRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The file is larger than the limit */
-      413: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Not a PDF */
-      415: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  get_upload: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-        /** @description The upload's id */
-        upload_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The upload */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UploadRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show or upload not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  delete_upload: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The show's id */
-        show_id: string;
-        /** @description The upload's id */
-        upload_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Deleted */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Show or upload not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  consent_form: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The consent form, section by section, and where to get it as a PDF */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ConsentDocument"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  consent_form_pdf: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The consent form */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/pdf": string;
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  list_voices: {
-    parameters: {
-      query?: {
-        /** @description Most results to return */
-        limit?: number;
-        /** @description Results to skip, for paging */
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description A page of voices, newest first */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Page_VoiceRead_"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  register_voice: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["Body_register_voice"];
-      };
-    };
-    responses: {
-      /** @description The registered voice, with its consent record */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VoiceRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The account already has the most voices allowed */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The recording is larger than the limit */
-      413: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Not a 24 kHz mono 16-bit WAV */
-      415: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The consent form is incomplete, or the recording is too short, long or silent */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  get_voice: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The voice's id */
-        voice_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The voice and its consent record */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VoiceRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Voice not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  delete_voice: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The voice's id */
-        voice_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Voice not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  voice_audio: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description The voice's id */
-        voice_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The recording */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "audio/wav": string;
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Voice not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  ask: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Question"];
-      };
-    };
-    responses: {
-      /** @description The answer, suggested next steps, and questions left this hour */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Answer"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The episode or show is not yours, or does not exist */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description The question is empty or too long */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Too many questions this hour */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
-  usage_today: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Requests used and left today, per Gemini model in use */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["UsageRead"];
-        };
-      };
-      /** @description Missing, invalid, expired or revoked token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-      /** @description Login is not configured */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorDetail"];
-        };
-      };
-    };
-  };
+    home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every resource with how to use it, plus authentication and health */
+            200: {
+                headers: {
+                    /** @description The API catalog, description, documentation and status (RFC 8631) */
+                    Link?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeDocument"];
+                    "application/json-home": components["schemas"]["HomeDocument"];
+                };
+            };
+        };
+    };
+    api_catalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A Linkset listing this API and its description, documentation and status */
+            200: {
+                headers: {
+                    /** @description The API catalog, description, documentation and status (RFC 8631) */
+                    Link?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiCatalog"];
+                    "application/linkset+json; profile=\"https://www.rfc-editor.org/info/rfc9727\"": components["schemas"]["ApiCatalog"];
+                };
+            };
+        };
+    };
+    api_catalog_head: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog exists */
+            200: {
+                headers: {
+                    /** @description The API catalog, description, documentation and status (RFC 8631) */
+                    Link?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The process is up */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    ready: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every dependency answered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            /** @description A dependency did not answer; `checks` says which */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description The new account */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Accounts exist, sign-up is closed and no admin token was sent */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The token is not an admin's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description An account with this email already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many sign-ups from this address; wait and try again */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description A login token, valid for six months */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Wrong email or password (also while the account is temporarily locked) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many failed attempts from this address; see `Retry-After` */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    start_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description The account; the login token is set as a cookie, not returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            /** @description Wrong email or password (also while the account is temporarily locked) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many failed attempts from this address; see `Retry-After` */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    end_session: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The value of the `pe_csrf` cookie */
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                /** @description The session cookie */
+                pe_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out; both cookies are cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The CSRF token is missing or wrong */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_start: {
+        parameters: {
+            query?: {
+                /** @description Where to go after signing in: a path on this site */
+                next?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A redirect to Google's account chooser */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Google sign-in is not configured on this server */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_callback: {
+        parameters: {
+            query?: {
+                /** @description The authorization code from Google */
+                code?: string | null;
+                /** @description The `state` sent to Google */
+                state?: string | null;
+                /** @description Set by Google when sign-in was cancelled or failed */
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                /** @description The signed sign-in cookie */
+                pe_google?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A redirect into the app, or to `/login?google=<reason>` on failure */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Google sign-in is not configured on this server */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setup_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whether the first account can still be created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatus"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    request_password_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description The same answer whether or not the account exists */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many attempts from this address; see `Retry-After` */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    confirm_password_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description The password is changed; sign in with it */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link is invalid, used or expired, or the password is too short */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Too many attempts from this address; see `Retry-After` */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    set_avatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Avatar"];
+            };
+        };
+        responses: {
+            /** @description You, with the bot you chose */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description A choice outside the allowed options */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    change_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The current password is wrong */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The token used for this request no longer works */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    whoami: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account and the token this request used */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountDelete"];
+            };
+        };
+        responses: {
+            /** @description The account and everything in it are gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The password is wrong */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description You are the last admin and other accounts exist; make another admin first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_users: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of accounts, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_UserRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Only an admin can list accounts */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_api_keys: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of keys, newest first, without the keys themselves */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ApiKeyRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    create_api_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyCreate"];
+            };
+        };
+        responses: {
+            /** @description The new key, shown only in this response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreated"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    revoke_api_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The key's id */
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description No active key of yours with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    change_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailChange"];
+            };
+        };
+        responses: {
+            /** @description Changed; sign in with the new email from now on */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The password is wrong */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Another account uses this email */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_sessions: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of active sign-ins, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SessionRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    revoke_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The sign-in's id */
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description That sign-in no longer works */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description No active sign-in of yours with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The account's id */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account and everything in it are gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Only an admin can delete accounts */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description No account with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Use `DELETE /auth/me` for your own account */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    update_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The account's id */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description The account as it is now */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Only an admin can change accounts */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description No account with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Admins cannot change their own account this way */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_security_events: {
+        parameters: {
+            query?: {
+                /** @description Only this account's events (admins; others always see their own) */
+                user_id?: string | null;
+                /** @description Only this kind of event */
+                event?: ("user_registered" | "login_succeeded" | "login_failed" | "account_locked" | "login_throttled" | "logout" | "session_revoked" | "password_reset_requested" | "password_reset_completed" | "password_changed" | "email_changed" | "api_key_created" | "api_key_revoked" | "user_updated" | "user_deleted" | "account_deleted") | null;
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of security events, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SecurityEventRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Only an admin can read other accounts' events */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_episode_audio: {
+        parameters: {
+            query?: {
+                /** @description `true` to save as a file (`Content-Disposition: attachment`) */
+                download?: boolean;
+            };
+            header?: {
+                /** @description Optional byte range, e.g. `bytes=0-` or `bytes=1000000-1999999`. Browsers and podcast apps send it to seek and resume. */
+                Range?: string | null;
+            };
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The whole episode: 24 kHz mono 16-bit WAV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": string;
+                };
+            };
+            /** @description The requested byte range (`Content-Range` says which) */
+            206: {
+                headers: {
+                    /** @description `bytes first-last/size` */
+                    "Content-Range"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": string;
+                };
+            };
+            /** @description Episode not found, or its audio is not assembled yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The range is outside the file; `Content-Range: bytes *\/size` gives the size */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    head_episode_audio: {
+        parameters: {
+            query?: {
+                /** @description `true` to save as a file (`Content-Disposition: attachment`) */
+                download?: boolean;
+            };
+            header?: {
+                /** @description Optional byte range, e.g. `bytes=0-` or `bytes=1000000-1999999`. Browsers and podcast apps send it to seek and resume. */
+                Range?: string | null;
+            };
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The audio exists */
+            200: {
+                headers: {
+                    /** @description Always `bytes`: ranges are supported */
+                    "Accept-Ranges"?: string;
+                    /** @description `inline` to play, or `attachment` with `?download=true`; filename `episode-<id>.wav` */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_episode_notes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Show notes in Markdown */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown; charset=utf-8": string;
+                };
+            };
+            /** @description Episode not found, or not published yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+                /** @description The upload's id */
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Show or upload not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_show_feed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description RSS 2.0 with iTunes tags, one item per published episode */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/rss+xml": string;
+                };
+            };
+            /** @description No episode of this show has been published yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_shows: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of shows, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ShowRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    create_show: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShowCreate"];
+            };
+        };
+        responses: {
+            /** @description The created show */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShowRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_show: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The show */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShowRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_show: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    update_show: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShowUpdate"];
+            };
+        };
+        responses: {
+            /** @description The show after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShowRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_episodes: {
+        parameters: {
+            query?: {
+                /** @description Only episodes with this status */
+                status?: components["schemas"]["EpisodeStatus"] | null;
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of episodes, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EpisodeRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    start_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EpisodeStart"] | null;
+            };
+        };
+        responses: {
+            /** @description The new episode, `queued`; poll it for progress */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Job queue unavailable; the episode is marked `failed` */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_all_episodes: {
+        parameters: {
+            query?: {
+                /** @description Only episodes with this status */
+                status?: components["schemas"]["EpisodeStatus"] | null;
+                /** @description Only episodes of this show */
+                show_id?: string | null;
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of episodes, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EpisodeRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episode, its progress, and links to what it produced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode is running; cancel it first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    follow_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-sent events. `episode` carries the status, stage, step (of 8), error and rewrite count, sent whenever they change. `gone` means the episode was deleted. Comment lines keep the connection alive. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_episode_script: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Segments and lines, with each claim's citations and verdict */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeScript"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    edit_episode_script: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptEdit"];
+            };
+        };
+        responses: {
+            /** @description The episode, queued for the fact-check again */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode is not waiting for review */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description An unknown segment, speaker or passage */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Job queue unavailable; the edit is saved and the episode stays in review */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    approve_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episode, queued for voicing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode is not waiting for review */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Job queue unavailable; the episode stays in review */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    remix_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episode, queued for assembly */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode is not published, or has no audio */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Job queue unavailable; the episode stays published as it was */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    retry_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episode, queued at the stage it stopped at */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode has not failed or been cancelled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Job queue unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    cancel_episode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The episode, `cancelled` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode has already finished */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_episode_runs: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of stage runs, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_StageRunRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_episode_claims: {
+        parameters: {
+            query?: {
+                /** @description `false` for the claims the fact-check rejected, `true` for the rest */
+                supported?: boolean | null;
+                /** @description Only claims in this segment */
+                segment?: number | null;
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The episode's id */
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of claims, in script order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ClaimDetail_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Episode not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_show_sources: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of source sections, in source order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SourceRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_uploads: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of uploads, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_UploadRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    upload_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_source"];
+            };
+        };
+        responses: {
+            /** @description The stored upload */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not a PDF */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+                /** @description The upload's id */
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The upload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show or upload not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The show's id */
+                show_id: string;
+                /** @description The upload's id */
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Show or upload not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    consent_form: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The consent form, section by section, and where to get it as a PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentDocument"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    consent_form_pdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The consent form */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_voices: {
+        parameters: {
+            query?: {
+                /** @description Most results to return */
+                limit?: number;
+                /** @description Results to skip, for paging */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of voices, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_VoiceRead_"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    register_voice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_register_voice"];
+            };
+        };
+        responses: {
+            /** @description The registered voice, with its consent record */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The account already has the most voices allowed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The recording is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not a 24 kHz mono 16-bit WAV */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The consent form is incomplete, or the recording is too short, long or silent */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_voice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The voice's id */
+                voice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The voice and its consent record */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Voice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_voice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The voice's id */
+                voice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Voice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    voice_audio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The voice's id */
+                voice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recording */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": string;
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Voice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    speech_engine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The engine, its voices, effect presets and today's budget */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechEngine"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_clips: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your 20 most recent clips, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechClipRead"][];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    create_clip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpeechCreate"];
+            };
+        };
+        responses: {
+            /** @description The clip, queued for the voice worker */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechClipRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The recorded voice is not one of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The hourly clip limit, or today's Gemini voice budget for clips, is used up */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    get_clip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clip's id */
+                clip_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The clip and its status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeechClipRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Clip not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_clip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The clip's id */
+                clip_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Clip not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    clip_audio: {
+        parameters: {
+            query?: {
+                /** @description Save as a file (`attachment`) instead of playing it */
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description The clip's id */
+                clip_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The clip */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": string;
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Clip not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    list_music: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The built-in tracks, then yours, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrackRead"][];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    upload_music: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_music"];
+            };
+        };
+        responses: {
+            /** @description The uploaded track */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrackRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The account already has the most tracks allowed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not a 24 kHz mono 16-bit WAV */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Rights not confirmed, or the track is too short, long or silent */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    music_audio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `builtin:...` or the id of a track you uploaded */
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The track */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": string;
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Track not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    delete_music: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `builtin:...` or the id of a track you uploaded */
+                track_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Track not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Built-in tracks cannot be deleted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    ask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Question"];
+            };
+        };
+        responses: {
+            /** @description The answer, suggested next steps, and questions left this hour */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Answer"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The episode or show is not yours, or does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description The question is empty or too long */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Too many questions this hour */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    usage_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests used and left today, per Gemini model in use */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageRead"];
+                };
+            };
+            /** @description Missing, invalid, expired or revoked token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Login is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
 }

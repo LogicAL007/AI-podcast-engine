@@ -20,6 +20,12 @@ from podcast_engine.common.audio import (
 from podcast_engine.common.context import PipelineContext, get_context
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.queue import Stage
+from podcast_engine.stages.assemble.music import (
+    SPEECH_RMS,
+    add_bed,
+    apply_host_effects,
+    load_show_tracks,
+)
 
 TARGET_LUFS = -16.0
 LOUDNESS_TOLERANCE_LU = 1.0
@@ -48,7 +54,6 @@ def load_asset(assets_dir: Path, name: str, fallback: np.ndarray) -> tuple[np.nd
     return fallback, "synthetic chime"
 
 
-SPEECH_RMS = 0.08  # every clip is brought to this level, so two voices sit at the same loudness
 EDGE_DB = -40.0  # quieter than this, relative to the clip's peak, counts as silence at its edges
 EDGE_PAD_S = 0.04  # kept around the speech after trimming, so words are not clipped
 
@@ -240,16 +245,39 @@ def assemble_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> St
         for line in lines
     ]
     titles = {s.position: s.title for s in ctx.repo.list_segments(episode_id)}
-    intro, intro_source = load_asset(
-        ctx.settings.assets_dir, "intro", chime((523.25, 659.25, 783.99, 1046.5), 2.4)
+    show = ctx.repo.get_show(episode.show_id)
+    clips, effects = apply_host_effects(lines, clips, show.host_effects)
+    uploaded = {t for t in show.music.track_ids() if not t.startswith("builtin:")}
+    tracks = load_show_tracks(show.music, ctx.repo.get_music_tracks(uploaded), ctx.store)
+    # The show's own music first, then a deployment-wide asset, then the synthetic chime.
+    intro, intro_source = (
+        (tracks.intro, f"music:{show.music.intro}")
+        if tracks.intro is not None
+        else load_asset(
+            ctx.settings.assets_dir, "intro", chime((523.25, 659.25, 783.99, 1046.5), 2.4)
+        )
     )
-    outro, outro_source = load_asset(
-        ctx.settings.assets_dir, "outro", chime((1046.5, 783.99, 659.25, 523.25), 2.4)
+    outro, outro_source = (
+        (tracks.outro, f"music:{show.music.outro}")
+        if tracks.outro is not None
+        else load_asset(
+            ctx.settings.assets_dir, "outro", chime((1046.5, 783.99, 659.25, 523.25), 2.4)
+        )
     )
+    # Between segments: the show's sting if it has one, otherwise nothing but the pause around it.
+    # The synthetic two-note chime made the conversation sound like separate clips.
+    transition = tracks.sting if tracks.sting is not None else np.zeros(0, dtype=np.float32)
     combine = mix_natural if ctx.settings.assembly_style == "natural" else mix
-    raw, chapters = combine(
-        lines, clips, titles, intro=intro, outro=outro, transition=chime((880.0, 1174.66), 0.5)
-    )
+    raw, chapters = combine(lines, clips, titles, intro=intro, outro=outro, transition=transition)
+    if tracks.bed is not None:
+        raw = add_bed(
+            raw,
+            tracks.bed,
+            start=len(intro),
+            end=len(raw) - len(outro),
+            level_db=show.music.bed_level_db,
+            seamless=tracks.bed_seamless,
+        )
     final = normalise(raw, TARGET_LUFS)
     after = audio_report(final)
     checks = {
@@ -270,6 +298,9 @@ def assemble_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> St
         "audio_bytes": len(data),
         "intro": intro_source,
         "outro": outro_source,
+        "between_segments": f"music:{show.music.sting}" if tracks.sting is not None else "pause",
+        "effects": effects,
+        "music": {**tracks.report, "credits": tracks.credits},
     }
     ctx.repo.update_episode(episode_id, assembly=assembly, audio_key=key)
     log.info(

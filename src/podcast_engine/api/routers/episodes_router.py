@@ -219,6 +219,24 @@ def approve_episode(
 
 
 @router.post(
+    "/episodes/{episode_id}/remix",
+    response_model=EpisodeRead,
+    summary="Remix a published episode's audio",
+    response_description="The episode, queued for assembly",
+    responses=errors(
+        e404="Episode not found",
+        e409="The episode is not published, or has no audio",
+        e503="Job queue unavailable; the episode stays published as it was",
+    ),
+)
+def remix_episode(episode_id: EpisodeId, me: CurrentUserDep, controller: Controller) -> EpisodeRead:
+    """Mix a published episode again from the lines already voiced, with the show's current
+    voice effects and music, then publish it again in place. Nothing is voiced again, so it uses
+    no voice quota. The published audio is replaced."""
+    return controller.remix(episode_id, me.user_id)
+
+
+@router.post(
     "/episodes/{episode_id}/retry",
     response_model=EpisodeRead,
     summary="Retry a failed episode",

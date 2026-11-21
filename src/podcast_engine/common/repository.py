@@ -17,7 +17,9 @@ from sqlalchemy import Engine, text
 
 from podcast_engine.common.embeddings import to_pgvector
 from podcast_engine.common.models import EpisodeStatus, ExpertiseLevel, ReliabilityTier, Tone
+from podcast_engine.common.music import ShowMusic
 from podcast_engine.common.text import content_hash
+from podcast_engine.common.voice_fx import VoiceEffects
 
 
 class _Record(BaseModel):
@@ -40,6 +42,8 @@ class ShowRecord(_Record):
     ranking_profile: str
     review_before_voice: bool = False
     host_voices: dict[str, str] = {}  # host name -> voice_id of a registered (consented) voice
+    host_effects: dict[str, VoiceEffects] = {}  # host name -> effects applied at assembly
+    music: ShowMusic = ShowMusic()  # intro, outro, sting and bed
 
 
 class EpisodeRecord(_Record):
@@ -73,6 +77,27 @@ class VoiceRecord(_Record):
     consent: dict[str, Any]
     object_key: str
     sha256: str
+
+
+class MusicTrackRecord(_Record):
+    """A track a creator uploaded for their shows' music; its audio is at ``object_key``."""
+
+    track_id: UUID
+    name: str
+    credit: str
+    object_key: str
+
+
+class SpeechClipRecord(_Record):
+    """A type-to-speech request from the voice studio, and once voiced, its clip."""
+
+    clip_id: UUID
+    owner_id: UUID
+    voice: dict[str, Any]
+    text: str
+    delivery: str
+    effects: dict[str, Any]
+    status: str
 
 
 class UploadRecord(_Record):
@@ -208,7 +233,7 @@ class PipelineRepository:
                         "expertise, "
                         "sources, search_queries, topic_keywords, attribution, max_segments, "
                         "ranking_profile, "
-                        "review_before_voice, host_voices "
+                        "review_before_voice, host_voices, host_effects, music "
                         "FROM shows WHERE show_id = :id"
                     ),
                     {"id": show_id},
@@ -306,6 +331,66 @@ class PipelineRepository:
             ).mappings()
             records = [VoiceRecord.model_validate(dict(row)) for row in rows]
         return {str(record.voice_id): record for record in records}
+
+    def get_music_tracks(self, track_ids: Iterable[str]) -> dict[str, MusicTrackRecord]:
+        """Uploaded music tracks by id (as text); ids that no longer exist are left out."""
+        ids = sorted(set(track_ids))
+        if not ids:
+            return {}
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    "SELECT track_id, name, credit, object_key FROM music_tracks"
+                    " WHERE track_id = ANY(CAST(:ids AS uuid[]))"
+                ),
+                {"ids": ids},
+            ).mappings()
+            records = [MusicTrackRecord.model_validate(dict(row)) for row in rows]
+        return {str(record.track_id): record for record in records}
+
+    def get_speech_clip(self, clip_id: UUID) -> SpeechClipRecord | None:
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        "SELECT clip_id, owner_id, voice, text, delivery, effects, status"
+                        " FROM speech_clips WHERE clip_id = :id"
+                    ),
+                    {"id": clip_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        return SpeechClipRecord.model_validate(dict(row)) if row else None
+
+    def finish_speech_clip(
+        self,
+        clip_id: UUID,
+        *,
+        status: str,
+        object_key: str | None = None,
+        duration_s: float | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Record a clip as working, done (with its file) or failed (with the reason)."""
+        finished = status in {"done", "failed"}
+        with self._engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE speech_clips SET status = :status, object_key = :object_key,"
+                    " duration_s = :duration_s, error = :error,"
+                    " finished_at = CASE WHEN :finished THEN now() ELSE NULL END"
+                    " WHERE clip_id = :id"
+                ),
+                {
+                    "id": clip_id,
+                    "status": status,
+                    "object_key": object_key,
+                    "duration_s": duration_s,
+                    "error": error,
+                    "finished": finished,
+                },
+            )
 
     def voice_hashes(self) -> set[str]:
         """The fingerprints of every registered voice: copies of anything else are withdrawn."""

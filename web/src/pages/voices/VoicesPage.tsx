@@ -11,12 +11,10 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { WaveformPlayer } from "../../components/WaveformPlayer";
-import { usePageTitle } from "../../hooks/usePageTitle";
 import { formatDate } from "../format";
 
-/** Your registered voices, each with its consent record; delete one to withdraw it. */
+/** The Voices tab: your recorded voices, each with its consent; delete one to withdraw it. */
 export function VoicesPage() {
-  usePageTitle("Voice studio");
   const voices = useVoices();
   const [params] = useSearchParams();
   const remove = useDeleteVoice();
@@ -27,8 +25,8 @@ export function VoicesPage() {
     key: "voices",
     moment: "voices",
     mode: "greeting",
-    line: "Record a voice, then give it to a host in a show's settings.",
-    hint: "Your hosts can speak with a real person's voice, but only with that person's signed consent. Add a voice here, then pick it under Host voices in a show's settings.",
+    line: "Add a voice, then try it in Type to speech.",
+    hint: "Your hosts can speak with a real person's voice, but only with that person's signed consent.",
     actions: [
       {
         id: "add_voice",
@@ -37,89 +35,64 @@ export function VoicesPage() {
       },
     ],
     questions: ["How long should a recording be?", "Why does it need consent?"],
-    tour: [
-      {
-        target: "voices-add",
-        title: "Add a voice",
-        text: "Sign the consent form, then record or upload 5 to 90 seconds of one person speaking clearly.",
-      },
-      {
-        target: "voices-note",
-        title: "Where it is used",
-        text: "Recorded voices are cloned when the voice step runs on Chatterbox. Episodes say they are AI-generated, and the credits name the speaker.",
-      },
-    ],
   });
 
   return (
-    <>
-      <div className="page-header">
-        <div>
-          <h1>Voice studio</h1>
-          <p className="muted">
-            Recorded voices your hosts can speak with, each kept with its
-            consent.
-          </p>
-        </div>
-        <LinkButton to="/voices/new" data-tour="voices-add">
-          Add a voice
-        </LinkButton>
-      </div>
-      <div className="stack">
-        {params.get("added") === "1" ? (
-          <Alert tone="success">
-            Voice registered. Give it to a host in a show&apos;s settings, under
-            Host voices.
-          </Alert>
-        ) : null}
-        <div data-tour="voices-note">
-          <Alert tone="info">
-            Voices are cloned by the Chatterbox voice engine, when the server
-            uses it. Episodes voiced with a cloned voice are labelled
-            AI-generated, and the credits name the speaker.
-          </Alert>
-        </div>
-        {voices.isPending ? (
-          <Skeleton label="Loading your voices" rows={2} />
-        ) : null}
-        <ErrorAlert error={voices.error} />
-        {voices.data?.total === 0 ? (
-          <EmptyState
-            title="No voices yet"
-            action={<LinkButton to="/voices/new">Record a voice</LinkButton>}
-          >
-            Record or upload 15 to 30 seconds of one person speaking, after they
-            complete the consent form.
-          </EmptyState>
-        ) : null}
+    <div className="stack">
+      {params.get("added") === "1" ? (
+        <Alert tone="success">Voice added. Try it in Type to speech.</Alert>
+      ) : null}
+      {voices.isPending ? (
+        <Skeleton label="Loading your voices" rows={2} />
+      ) : null}
+      <ErrorAlert error={voices.error} />
+      {voices.data?.total === 0 ? (
+        <EmptyState
+          title="No voices yet"
+          action={<LinkButton to="/voices/new">Add voice</LinkButton>}
+        >
+          Record or upload 15 to 30 seconds of one person speaking.
+        </EmptyState>
+      ) : null}
+      <div className="studio-grid">
         {voices.data?.items.map((voice) => (
           <article
             key={voice.voice_id}
-            className="card voice-card stack"
+            className="card stack studio-card"
             aria-labelledby={`voice-${voice.voice_id}`}
           >
             <div className="voice-card-head">
-              <div className="stack" style={{ gap: "var(--space-1)" }}>
-                <h2 id={`voice-${voice.voice_id}`} className="voice-name">
+              <div>
+                <h2
+                  id={`voice-${voice.voice_id}`}
+                  className="studio-card-title"
+                >
                   {voice.name}
                 </h2>
-                <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
-                  {voice.speaker} · {formatTime(voice.duration_seconds)} ·{" "}
-                  {voice.source === "recorded" ? "recorded here" : "uploaded"}
+                <p className="muted studio-meta">
+                  {voice.speaker} · {formatTime(voice.duration_seconds)}
                 </p>
               </div>
-              <Button variant="ghost" onClick={() => setDeleting(voice)}>
-                Delete
-              </Button>
+              <div className="row studio-actions">
+                <LinkButton
+                  variant="secondary"
+                  to={`/voices/speak?voice=${voice.voice_id}`}
+                >
+                  Try it
+                </LinkButton>
+                <Button variant="ghost" onClick={() => setDeleting(voice)}>
+                  Delete
+                </Button>
+              </div>
             </div>
             <WaveformPlayer src={voice.audio} title={voice.name} />
-            <p className="consent-line">
-              <span className="consent-badge">Consent on file</span>{" "}
-              {voice.consent.relationship === "self"
-                ? `Signed by ${voice.consent.signed_by}, their own voice`
-                : `Signed by ${voice.consent.signed_by}, with written permission (${voice.consent.permission_record})`}
-              , {formatDate(voice.consent.agreed_at)} · form{" "}
-              {voice.consent.version}
+            <p className="consent-ok">
+              ✓ Consent on file
+              <span className="muted">
+                {" "}
+                · {voice.consent.signed_by},{" "}
+                {formatDate(voice.consent.agreed_at)}
+              </span>
             </p>
           </article>
         ))}
@@ -139,10 +112,10 @@ export function VoicesPage() {
           })
         }
       >
-        This withdraws consent: the recording is deleted, and hosts that used it
-        go back to their built-in voice. Episodes already published keep their
-        audio.
+        This withdraws consent: the recording and clips made with it are
+        deleted, and hosts that used it go back to their built-in voice.
+        Published episodes keep their audio.
       </ConfirmDialog>
-    </>
+    </div>
   );
 }

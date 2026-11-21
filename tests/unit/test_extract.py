@@ -122,3 +122,12 @@ def test_section_cannot_open_on_a_dangling_sentence_or_a_link() -> None:
 def test_source_tier(url: str, expected: ReliabilityTier) -> None:
     tiers = {"primary": ["arxiv.org"], "established": ["bbc.co.uk"], "default": "unverified"}
     assert source_tier(url, tiers) is expected
+
+
+def test_heading_permalinks_are_not_part_of_the_text() -> None:
+    page = extract_page(
+        "<html><body><main><h2 id='linux'>Linux wheels¶</h2>"
+        "<p>Official wheels may not install on older Linux systems¶. Build from source instead, "
+        "which takes a few minutes on most machines.</p></main></body></html>"
+    )
+    assert all("¶" not in s.heading and "¶" not in s.text for s in page.sections)

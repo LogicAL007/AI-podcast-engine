@@ -102,7 +102,8 @@ def _published(doc: html.HtmlElement, page_html: str) -> datetime | None:
 
 
 def _clean(text: str) -> str:
-    text = text.replace("​", " ").replace("®", "").replace("™", "")
+    # "¶" is the heading permalink Sphinx and MkDocs sites print; it is read aloud otherwise.
+    text = text.replace("​", " ").replace("®", "").replace("™", "").replace("¶", "")
     text = re.sub(r"Direct link to .*$", "", " ".join(text.split()))
     return text.strip()
 

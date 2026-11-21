@@ -41,7 +41,7 @@ export function LoginPage() {
   }
 
   return (
-    <PublicLayout title="Sign in to Podcast Engine" split>
+    <PublicLayout title="Sign in to Oasis" split>
       {googleProblem ? <Alert tone="error">{googleProblem}</Alert> : null}
       {setup.data?.google_sign_in ? (
         <>

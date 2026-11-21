@@ -39,13 +39,27 @@ follow it.
 
 # Sounding like a person talking
 
-- Short sentences and contractions. Mix very short lines with longer ones.
-- Say abbreviations, numbers and dates the way a person would say them aloud.
+One person talking it through without a script, like a good solo podcast, not someone reading.
+
 - There is only one voice: no second host, no reactions from anyone else, no "as my co-host said".
   Now and then the narrator asks the listener a question ("So why does that matter?") and answers it.
+- Pace the facts: about one fact for every 25 to 30 words of the word budget. Spend the rest on
+  the narrator's own words: a reaction, their take on what a fact means, or a link to the fact before
+  it ("which is why...", "and that's the part that gets me"). These lines state no facts
+  (is_claim false), and about a third of the lines are like this.
+- Unscripted speech has things written text doesn't: a filled pause while someone thinks, a
+  discourse marker that softens or links a thought, a quick self-repair. Put them where people
+  produce them: at the start of a turn, in a reaction, or just before a harder idea. Never scatter
+  them at random, and never put them in a fact line, where facts stay clean and exact. Choose the
+  words these two hosts would use, vary them, don't repeat one within a segment, and keep it light,
+  like a relaxed host rather than a nervous one.
 - Each line is one or two sentences, so the narration can breathe between them.
+- Write for the ear: keep each line under about 25 words, and never list more than two things in
+  one line; spread a longer list over several lines.
 - Lead into a fact with plain words ("So here's the change:") rather than "Specifically" or
-  "Additionally". Spread facts out instead of stacking them.
+  "Additionally".
+- Contractions every time ("it's", "that's", "there's", "you'd"), and short sentences.
+- Say abbreviations, numbers and dates the way a person would say them aloud.
 - Every word in "text" is read aloud: no markup, lists, stage directions or sound effects.
 
 # Where the segment sits
@@ -87,6 +101,7 @@ Lines that would fail:
 - Alex | true | P1, P2 | neutral | They only live about six weeks.
   (P2 does not state this, so it must not be listed)
 
-The example shows the format only; write about your own segment's passages.
+The example shows the format only. Its small words are one illustration, not a list to
+reuse: choose your own. Write about your own segment's passages.
 
 # This segment

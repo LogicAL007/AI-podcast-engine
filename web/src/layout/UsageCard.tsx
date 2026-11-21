@@ -40,7 +40,7 @@ export function UsageCard({ collapsed }: { collapsed: boolean }) {
     return (
       <p
         className={low ? "usage-mini usage-low" : "usage-mini"}
-        title={`Today's Podcast Engine budget: ${summary}`}
+        title={`Today's Oasis budget: ${summary}`}
         data-tour="nav-usage"
       >
         {main?.limit != null ? main.left : "∞"}
@@ -54,7 +54,7 @@ export function UsageCard({ collapsed }: { collapsed: boolean }) {
       data-tour="nav-usage"
     >
       <h2 id="usage-title" className="usage-title">
-        Today's Podcast Engine budget
+        Today's Oasis budget
       </h2>
       <p className="usage-main">
         <strong>{summary}</strong>

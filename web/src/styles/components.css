@@ -746,16 +746,11 @@ a.list-item:hover {
     opacity: 0.3;
   }
 }
-.read-aloud,
 .consent-statement {
   padding: var(--space-4);
   border-left: 4px solid var(--color-accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--color-accent-soft);
-}
-.read-aloud-text {
-  font-size: var(--text-lg);
-  line-height: 1.6;
 }
 .consent-label {
   margin-bottom: var(--space-1);
@@ -939,4 +934,371 @@ a.list-item:hover {
 .consent-doc-status {
   margin: 0;
   font-size: var(--text-sm);
+}
+
+/* ---- Voice studio: tabs, type to speech, music, show sound ----------------------------------- */
+.studio-header h1 {
+  margin: 0;
+}
+.studio-tabs .tab {
+  text-decoration: none;
+}
+.studio-tabs .tab[aria-current="page"] {
+  color: var(--color-accent-hover);
+  border-bottom-color: var(--color-accent);
+}
+.studio-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.studio-subhead {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.studio-meta {
+  font-size: var(--text-sm);
+}
+.studio-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+.studio-card {
+  gap: var(--space-4);
+}
+.studio-card-title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.studio-actions {
+  gap: var(--space-1);
+}
+.consent-ok {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-success);
+}
+.consent-ok .muted {
+  font-weight: 400;
+}
+
+/* The effect picker: preset chips (radios) with Adjust underneath. */
+.effect-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.effect-picker legend {
+  margin-bottom: var(--space-2);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--color-text-muted);
+}
+.chip:has(input:checked) {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+.chip:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+.effect-adjust summary {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  width: max-content;
+}
+.effect-sliders {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  align-items: end;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+.effect-sliders .range-field {
+  display: grid;
+  gap: var(--space-1);
+}
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.check-inline input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-accent);
+}
+
+/* Type to speech */
+.speak-layout {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  align-items: stretch;
+}
+.speak-form {
+  gap: var(--space-4);
+}
+.speak-row {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+.speak-submit {
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+}
+.speak-output {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-surface);
+}
+.speak-output-head {
+  align-self: stretch;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.speak-note {
+  min-height: 1.5rem;
+  text-align: center;
+}
+.speak-note p {
+  margin: 0;
+}
+.speak-controls {
+  align-items: center;
+  gap: var(--space-3);
+}
+.speak-use {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.voice-octagon {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.round-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  flex: none;
+}
+.round-button:hover {
+  border-color: var(--color-text-muted);
+}
+.round-button-small {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+.round-button-placeholder {
+  width: 2.25rem;
+}
+
+/* Music */
+.music-layout {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  align-items: start;
+}
+.music-library {
+  padding: 0;
+  overflow: hidden;
+}
+.music-library-head {
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.track-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.track-row {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 6.5rem 3.5rem 4.5rem;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.track-row:last-child {
+  border-bottom: 0;
+}
+.track-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-source {
+  text-align: right;
+}
+.role-chip {
+  justify-self: start;
+  padding: 0 var(--space-2);
+  border-radius: 6px;
+  background: var(--color-surface-strong);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.music-upload {
+  gap: var(--space-4);
+}
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-3);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
+  cursor: pointer;
+}
+.drop-zone.dragging,
+.drop-zone:has(input:focus-visible) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.drop-zone-title {
+  color: var(--color-text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Show sound */
+.sound-show-picker {
+  max-width: 28rem;
+}
+.sound-editor {
+  gap: var(--space-5);
+}
+.carried {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
+}
+.host-card {
+  gap: var(--space-4);
+}
+.host-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.host-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.sound-music {
+  display: grid;
+  gap: var(--space-3);
+}
+.sound-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.25rem;
+  gap: var(--space-3);
+  align-items: end;
+}
+.sound-row .round-button {
+  margin-bottom: 2px;
+}
+.change-list {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-5);
+  color: var(--color-text);
+}
+@media (max-width: 56rem) {
+  .speak-layout,
+  .music-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* New voice › Record: the quick chat that replaced the read-aloud passage. */
+.quick-chat {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--color-accent-soft);
+}
+.quick-chat-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.quick-chat-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.quick-chat-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+.quick-chat-dots span.on {
+  background: var(--color-accent);
+}
+.quick-chat-question {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.quick-chat .btn {
+  justify-self: start;
 }

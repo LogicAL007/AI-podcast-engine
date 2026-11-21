@@ -172,13 +172,90 @@ function Hat({
   }
 }
 
-/** A small flat face of the person's bot, in its colours, for buttons and the header. */
+/** How the face feels: drawn with the eyes and mouth, so it reads at any size. */
+export type FaceMood =
+  | "idle"
+  | "working"
+  | "happy"
+  | "concerned"
+  | "listening"
+  | "speaking"
+  | "sleeping";
+
+/** Eyes for a mood that has its own (happy arcs, closed lines); null keeps the avatar's eyes. */
+function MoodEyes({ mood, glow }: { mood: FaceMood; glow: string }) {
+  if (mood === "happy")
+    return (
+      <g fill="none" stroke={glow} strokeWidth="1.1" strokeLinecap="round">
+        <path d="M8.8 14.2 q1.2 -2 2.4 0" />
+        <path d="M14.8 14.2 q1.2 -2 2.4 0" />
+      </g>
+    );
+  if (mood === "sleeping")
+    return (
+      <g stroke={glow} strokeWidth="1" strokeLinecap="round">
+        <line x1="8.9" y1="13.6" x2="11.1" y2="13.6" />
+        <line x1="14.9" y1="13.6" x2="17.1" y2="13.6" />
+      </g>
+    );
+  return null;
+}
+
+function Mouth({
+  mood,
+  open,
+  glow,
+}: {
+  mood: FaceMood;
+  open: number;
+  glow: string;
+}) {
+  if (open > 0.05)
+    return (
+      <ellipse cx="13" cy="15.9" rx="1.3" ry={0.35 + 0.75 * open} fill={glow} />
+    );
+  if (mood === "happy")
+    return (
+      <path
+        d="M11.6 15.6 q1.4 1.3 2.8 0"
+        fill="none"
+        stroke={glow}
+        strokeWidth="0.8"
+        strokeLinecap="round"
+      />
+    );
+  if (mood === "concerned")
+    return (
+      <path
+        d="M11.8 16.4 q1.2 -0.9 2.4 0"
+        fill="none"
+        stroke={glow}
+        strokeWidth="0.8"
+        strokeLinecap="round"
+      />
+    );
+  if (mood === "listening")
+    return <circle cx="13" cy="16" r="0.55" fill={glow} />;
+  return null;
+}
+
+/** A small flat face of the person's bot, in its colours. With `gaze` (each -1..1) its eyes look
+ * that way, `blink` closes them for a moment, `mood` changes the eyes and mouth, and `mouth`
+ * (0..1) opens it while it talks. */
 export function AvatarFace({
   avatar,
   size = 26,
+  gaze,
+  blink = false,
+  mood = "idle",
+  mouth = 0,
 }: {
   avatar: Avatar;
   size?: number;
+  gaze?: { x: number; y: number };
+  blink?: boolean;
+  mood?: FaceMood;
+  mouth?: number;
 }) {
   const shell = bodyHex(avatar);
   const glow = glowHex(avatar);
@@ -222,7 +299,30 @@ export function AvatarFace({
         rx={avatar.character === "rex" || avatar.head === "screen" ? 2 : 3.5}
         fill={faceHex(avatar)}
       />
-      <Eyes avatar={avatar} glow={glow} />
+      <g
+        transform={`translate(${((gaze?.x ?? 0) * 0.9).toFixed(2)} ${((gaze?.y ?? 0) * 0.6).toFixed(2)})`}
+      >
+        {mood === "concerned" ? (
+          <g stroke={glow} strokeWidth="0.7" strokeLinecap="round">
+            <line x1="8.8" y1="11.3" x2="11" y2="11.9" />
+            <line x1="17.2" y1="11.3" x2="15" y2="11.9" />
+          </g>
+        ) : null}
+        {mood === "happy" || mood === "sleeping" ? (
+          <MoodEyes mood={mood} glow={glow} />
+        ) : (
+          <g
+            transform={
+              blink
+                ? "translate(0 13.5) scale(1 0.12) translate(0 -13.5)"
+                : undefined
+            }
+          >
+            <Eyes avatar={avatar} glow={glow} />
+          </g>
+        )}
+        <Mouth mood={mood} open={mouth} glow={glow} />
+      </g>
       {avatar.extra === "glasses" ? (
         <g fill="none" stroke={DARK} strokeWidth="0.9">
           <circle cx="10" cy="13.5" r="2.6" />

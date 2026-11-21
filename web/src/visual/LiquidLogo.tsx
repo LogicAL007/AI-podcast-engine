@@ -2,8 +2,9 @@ import { LiquidMetal } from "@paper-design/shaders-react";
 import { Suspense, useState } from "react";
 
 import { canUseWebGL, useReducedMotion } from "./motion";
+import { octagonPath } from "./octagon";
 
-/** The brand mark (four waveform bars) as flowing liquid metal, tinted dark orange.
+/** The brand mark (the Oasis octagon) as flowing liquid metal, tinted dark orange.
  * A still orange copy of the mark sits underneath, so there is never a blank square while the
  * shader prepares its image; the metal fades in over it. Falls back to the flat mark without
  * WebGL, and holds still for reduced motion. */
@@ -52,16 +53,15 @@ export function FlatMark({ size = 32 }: { size?: number }) {
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      <svg
-        width={size * 0.56}
-        height={size * 0.56}
-        viewBox="0 0 18 18"
-        fill="currentColor"
-      >
-        <rect x="2" y="6" width="2" height="6" rx="1" />
-        <rect x="6" y="3" width="2" height="12" rx="1" />
-        <rect x="10" y="5" width="2" height="8" rx="1" />
-        <rect x="14" y="7" width="2" height="4" rx="1" />
+      <svg width={size} height={size} viewBox="0 0 32 32">
+        <defs>
+          <linearGradient id="oasis-flat" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#fdba74" />
+            <stop offset="0.5" stopColor="#ea580c" />
+            <stop offset="1" stopColor="#9a3412" />
+          </linearGradient>
+        </defs>
+        <path d={octagonPath(16, 16, 15.6)} fill="url(#oasis-flat)" />
       </svg>
     </span>
   );

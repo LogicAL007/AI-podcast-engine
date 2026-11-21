@@ -20,21 +20,21 @@ function setVisibility(state: DocumentVisibilityState) {
 afterEach(() => {
   setVisibility("visible");
   vi.unstubAllGlobals();
-  document.title = "Podcast Engine";
+  document.title = "Oasis";
 });
 
 describe("done notice", () => {
   it("badges the tab title when a running episode finishes", () => {
-    document.title = "Podcast Engine";
+    document.title = "Oasis";
     const hook = watch("processing");
     hook.rerender({ status: "needs_review" });
-    expect(document.title).toBe("✓ Ready for your review · Podcast Engine");
+    expect(document.title).toBe("✓ Ready for your review · Oasis");
   });
 
   it("does nothing for an episode that was already finished when opened", () => {
-    document.title = "Podcast Engine";
+    document.title = "Oasis";
     watch("published");
-    expect(document.title).toBe("Podcast Engine");
+    expect(document.title).toBe("Oasis");
   });
 
   it("notifies in the background once allowed", () => {

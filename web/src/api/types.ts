@@ -24,6 +24,14 @@ export type StageRunRead = Schemas["StageRunRead"];
 export type SourceRead = Schemas["SourceRead"];
 export type UploadRead = Schemas["UploadRead"];
 export type UsageRead = Schemas["UsageRead"];
+export type VoiceEffects = Schemas["VoiceEffects"];
+export type SpeechClipRead = Schemas["SpeechClipRead"];
+export type SpeechCreate = Schemas["SpeechCreate"];
+export type SpeechEngine = Schemas["SpeechEngine"];
+export type SpeechVoice = SpeechCreate["voice"];
+export type MusicTrackRead = Schemas["MusicTrackRead"];
+export type ShowMusic = Schemas["ShowMusic"];
+export type HostName = Schemas["EngineVoice"]["host"];
 
 /** A page of results, as every list endpoint returns them. */
 export interface Page<T> {

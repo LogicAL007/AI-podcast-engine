@@ -129,7 +129,7 @@ function useEpisodeAssist(
           .then((next) => navigate(`/episodes/${next.episode_id}`)),
       confirm: {
         title: "Refresh this episode?",
-        body: "It reads the sources and runs the searches again, then redoes only what changed. Writing and voicing it can use your Podcast Engine quota. To redo everything, use the Refresh button at the top.",
+        body: "It reads the sources and runs the searches again, then redoes only what changed. Writing and voicing it can use your Oasis quota. To redo everything, use the Refresh button at the top.",
         confirmLabel: "Refresh it",
       },
     });
@@ -167,6 +167,7 @@ function useEpisodeAssist(
     return {
       page: "episode",
       key: episode.episode_id,
+      context: `Episode ${episode.revision}`,
       moment: "episode-other",
       mode: "greeting",
       line: "Nothing changed in the sources, so there was nothing new to make.",
@@ -177,9 +178,34 @@ function useEpisodeAssist(
       showId: episode.show_id,
     };
   }
+  const name = `Episode ${episode.revision}`;
+  const nudge: PageAssist["nudge"] =
+    status === "published"
+      ? {
+          id: `${id}:published`,
+          text: `${name} is ready.`,
+          action: "open_listen",
+          tone: "good",
+        }
+      : status === "needs_review"
+        ? {
+            id: `${id}:review`,
+            text: `${name} is ready for your review.`,
+            action: "open_script",
+          }
+        : status === "failed"
+          ? {
+              id: `${id}:failed:${episode.stage ?? ""}`,
+              text: `${name} stopped.`,
+              action: "retry",
+              tone: "problem",
+            }
+          : undefined;
   return {
     page: "episode",
     key: episode.episode_id,
+    context: name,
+    nudge,
     moment: bot.moment,
     mode: bot.mode,
     line:

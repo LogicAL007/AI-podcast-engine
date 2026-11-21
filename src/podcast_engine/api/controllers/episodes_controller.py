@@ -69,6 +69,9 @@ class EpisodeController:
     def approve(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
         return http_errors(lambda: self._service.approve(episode_id, owner))
 
+    def remix(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        return http_errors(lambda: self._service.remix(episode_id, owner))
+
     def retry(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
         return http_errors(lambda: self._service.retry(episode_id, owner))
 

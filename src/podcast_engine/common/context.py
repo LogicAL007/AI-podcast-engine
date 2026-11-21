@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 HOST_NAMES = ("Alex", "Sam", "Jordan", "Riley")
 
 # Prompt file versions in use (prompts/<name>.v<N>.md), recorded in each episode's manifest.
-PROMPT_VERSIONS = {"outline": 2, "script": 5, "script_narrator": 2, "factcheck": 2}
+PROMPT_VERSIONS = {"outline": 2, "script": 8, "script_narrator": 3, "factcheck": 2}
 
 
 def script_prompt(host_count: int) -> str:

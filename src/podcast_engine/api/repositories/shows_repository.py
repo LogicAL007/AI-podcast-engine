@@ -14,19 +14,19 @@ from podcast_engine.api.models.shows_model import ShowCreate, ShowRead
 _COLUMNS = (
     "show_id, topic, tone, target_minutes, host_count, language, expertise, sources,"
     " search_queries, topic_keywords, attribution, max_segments, ranking_profile,"
-    " review_before_voice, host_voices, created_at"
+    " review_before_voice, host_voices, host_effects, music, created_at"
 )
 _INSERT = (
     "INSERT INTO shows (topic, tone, target_minutes, host_count, language, expertise, sources,"  # noqa: S608
     " search_queries, topic_keywords, attribution, max_segments, ranking_profile,"
-    " review_before_voice, host_voices, owner_id)"
+    " review_before_voice, host_voices, host_effects, music, owner_id)"
     " VALUES (:topic, :tone, :target_minutes, :host_count, :language, :expertise,"
     " CAST(:sources AS jsonb), CAST(:search_queries AS jsonb), :topic_keywords, :attribution,"
     " :max_segments, :ranking_profile, :review_before_voice, CAST(:host_voices AS jsonb),"
-    " :owner_id)"
+    " CAST(:host_effects AS jsonb), CAST(:music AS jsonb), :owner_id)"
     f" RETURNING {_COLUMNS}"
 )
-_JSON_COLUMNS = frozenset({"sources", "search_queries", "host_voices"})
+_JSON_COLUMNS = frozenset({"sources", "search_queries", "host_voices", "host_effects", "music"})
 _UPDATABLE = frozenset(
     {
         "topic",
@@ -43,6 +43,8 @@ _UPDATABLE = frozenset(
         "ranking_profile",
         "review_before_voice",
         "host_voices",
+        "host_effects",
+        "music",
     }
 )
 
@@ -193,4 +195,7 @@ def _to_params(values: Mapping[str, Any]) -> dict[str, Any]:
         params["search_queries"] = json.dumps(list(params["search_queries"]))
     if "host_voices" in params:
         params["host_voices"] = json.dumps({h: str(v) for h, v in params["host_voices"].items()})
+    for column in ("host_effects", "music"):  # already plain JSON (model_dump(mode="json"))
+        if column in params:
+            params[column] = json.dumps(params[column])
     return params

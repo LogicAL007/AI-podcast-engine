@@ -20,12 +20,17 @@ class AssistantUsage(Protocol):
 
 
 class RedisAssistantUsage:
-    def __init__(self, client: Any, clock: Callable[[], float] = time.time) -> None:
+    """``prefix`` keeps separate counts per feature (the assistant's questions, speech clips)."""
+
+    def __init__(
+        self, client: Any, clock: Callable[[], float] = time.time, prefix: str = "assistant"
+    ) -> None:
         self._redis = client
         self._clock = clock
+        self._prefix = prefix
 
     def take(self, user_id: UUID, per_hour: int) -> int | None:
-        key = f"assistant:{user_id}:{int(self._clock() // HOUR_S)}"
+        key = f"{self._prefix}:{user_id}:{int(self._clock() // HOUR_S)}"
         used = int(self._redis.incr(key))
         if used == 1:
             self._redis.expire(key, HOUR_S)

@@ -32,14 +32,9 @@ import {
   type ConsentValues,
 } from "./consent";
 import { ConsentDocument } from "./ConsentDocument";
+import { QuickChat } from "./QuickChat";
 
 const STEPS = ["Consent", "Record or upload", "Review and register"];
-
-/** What to read aloud: about 20 seconds, with a mix of sounds that helps the clone. */
-const PROMPT =
-  "Hello, and welcome to the show. Today we're looking at how the Moon pulls on the oceans to " +
-  "make the tides. Twice a day the water rises and falls, and the timing shifts a little every " +
-  "day. Stay with us: by the end, you'll know exactly why.";
 
 function lengthProblem(seconds: number): string | null {
   if (seconds < MIN_SECONDS)
@@ -363,6 +358,7 @@ function CaptureStep({
   );
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
+  const [round, setRound] = useState(0);
   const recorded =
     recorder.recording ?? (initial?.source === "recorded" ? initial : null);
   const current = mode === "record" ? recorded : uploaded;
@@ -412,12 +408,7 @@ function CaptureStep({
 
       {mode === "record" ? (
         <div className="stack">
-          <div className="read-aloud">
-            <p className="consent-label">
-              Read this aloud, in your natural voice
-            </p>
-            <p className="read-aloud-text">{PROMPT}</p>
-          </div>
+          <QuickChat recording={recorder.state === "recording"} round={round} />
           <div className={`recorder recorder-${recorder.state}`}>
             <LiveWaveform analyser={recorder.analyser} />
             <div className="recorder-controls">
@@ -432,7 +423,10 @@ function CaptureStep({
                     recorder.state === "asking" ||
                     recorder.state === "processing"
                   }
-                  onClick={() => void recorder.start()}
+                  onClick={() => {
+                    if (recorded) setRound((n) => n + 1); // a fresh set of questions
+                    void recorder.start();
+                  }}
                 >
                   {recorded ? "Record again" : "Start recording"}
                 </Button>
@@ -464,7 +458,8 @@ function CaptureStep({
               <strong>Choose an audio file</strong>
               <span className="muted">
                 {" "}
-                · WAV, MP3, M4A or WebM, 5 to 90 seconds, one speaker
+                · WAV, MP3, M4A or WebM, 5 to 90 seconds, one speaker talking
+                naturally, not reading
               </span>
             </span>
           </label>

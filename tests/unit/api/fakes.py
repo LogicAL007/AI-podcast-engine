@@ -57,7 +57,8 @@ class FakeShowRepository:
     def update(self, show_id: UUID, owner_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None:
         if not self.owned(show_id, owner_id):
             return None
-        updated = self.rows[show_id].model_copy(update=dict(changes))
+        # Validated again, like a row read back from the table (changes arrive as plain JSON).
+        updated = ShowRead.model_validate({**self.rows[show_id].model_dump(), **dict(changes)})
         self.rows[show_id] = updated
         return updated
 
@@ -501,3 +502,103 @@ class FakeVoiceRepository:
 
     def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]:
         return self.clips.get(voice_id, []) if self.get(voice_id, owner_id) else []
+
+
+class FakeSpeechRepository:
+    """Type-to-speech clips in memory, scoped by owner like the Postgres repository."""
+
+    def __init__(self) -> None:
+        self.rows: dict[UUID, tuple[UUID, Any, str | None]] = {}  # clip -> (owner, read, key)
+
+    def add(self, owner_id: UUID, values: dict[str, Any]) -> Any:
+        from podcast_engine.api.models.speech_model import SpeechClipRead
+
+        clip = SpeechClipRead.model_validate(
+            {**values, "status": "queued", "created_at": datetime.now(UTC)}
+        )
+        self.rows[clip.clip_id] = (owner_id, clip, None)
+        return clip
+
+    def get(self, clip_id: UUID, owner_id: UUID) -> Any:
+        row = self.rows.get(clip_id)
+        return row[1] if row and row[0] == owner_id else None
+
+    def recent(self, owner_id: UUID, limit: int) -> list[Any]:
+        clips = [c for owner, c, _ in self.rows.values() if owner == owner_id]
+        return sorted(clips, key=lambda c: c.created_at, reverse=True)[:limit]
+
+    def object_key(self, clip_id: UUID, owner_id: UUID) -> str | None:
+        row = self.rows.get(clip_id)
+        return row[2] if row and row[0] == owner_id else None
+
+    def finish(self, clip_id: UUID, key: str) -> None:
+        """What the voice worker does: the clip is done, with its file."""
+        owner, clip, _ = self.rows[clip_id]
+        done = clip.model_copy(update={"status": "done", "duration_s": 1.0})
+        self.rows[clip_id] = (owner, done, key)
+
+    def fail(self, clip_id: UUID, error: str) -> None:
+        owner, clip, key = self.rows[clip_id]
+        if clip.status == "queued":
+            self.rows[clip_id] = (
+                owner,
+                clip.model_copy(update={"status": "failed", "error": error}),
+                key,
+            )
+
+    def delete(self, clip_id: UUID, owner_id: UUID) -> bool:
+        if self.get(clip_id, owner_id) is None:
+            return False
+        del self.rows[clip_id]
+        return True
+
+    def object_keys(self, owner_id: UUID) -> list[str]:
+        return [k for owner, _, k in self.rows.values() if owner == owner_id and k]
+
+
+class FakeMusicRepository:
+    """Uploaded music in memory, scoped by owner like the Postgres repository."""
+
+    def __init__(self, shows: "FakeShowRepository | None" = None) -> None:
+        self.rows: dict[str, tuple[UUID, Any]] = {}
+        self._shows = shows
+
+    def add(self, owner_id: UUID, values: dict[str, Any]) -> Any:
+        from podcast_engine.api.models.music_model import MusicTrackRead
+
+        track = MusicTrackRead.model_validate(
+            {**values, "track_id": str(values["track_id"]), "builtin": False,
+             "created_at": datetime.now(UTC)}
+        )  # fmt: skip
+        self.rows[track.track_id] = (owner_id, track)
+        return track
+
+    def get(self, track_id: UUID, owner_id: UUID) -> Any:
+        row = self.rows.get(str(track_id))
+        return row[1] if row and row[0] == owner_id else None
+
+    def list_all(self, owner_id: UUID) -> list[Any]:
+        tracks = [t for owner, t in self.rows.values() if owner == owner_id]
+        return sorted(tracks, key=lambda t: t.created_at, reverse=True)
+
+    def count(self, owner_id: UUID) -> int:
+        return len(self.list_all(owner_id))
+
+    def owned(self, track_ids: set[str], owner_id: UUID) -> set[str]:
+        return {t for t in track_ids if t in self.rows and self.rows[t][0] == owner_id}
+
+    def delete(self, track_id: UUID, owner_id: UUID) -> bool:
+        if self.get(track_id, owner_id) is None:
+            return False
+        del self.rows[str(track_id)]
+        if self._shows is not None:  # like the SQL: no show keeps using it
+            for sid, show in list(self._shows.rows.items()):
+                music = show.music.model_dump()
+                kept = {k: (None if v == str(track_id) else v) for k, v in music.items()}
+                self._shows.rows[sid] = show.model_copy(
+                    update={"music": type(show.music).model_validate(kept)}
+                )
+        return True
+
+    def object_keys(self, owner_id: UUID) -> list[str]:
+        return [t.object_key for owner, t in self.rows.values() if owner == owner_id]

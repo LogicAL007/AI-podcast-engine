@@ -30,9 +30,7 @@
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border-radius: var(--radius);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
+  /* The Oasis octagon draws its own shape and colour. */
 }
 
 /* ---- the signed-in layout: a sidebar beside the page ----------------------------------------- */
@@ -545,25 +543,7 @@
   }
 }
 
-/* ---- assistant dock ----------------------------------------------------------------------------- */
-.assistant-dock {
-  position: fixed;
-  right: var(--space-5);
-  bottom: var(--space-5);
-  z-index: 20;
-  width: min(360px, calc(100vw - 2 * var(--space-4)));
-}
-.dock-inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
-}
-.dock-bot {
-  flex: none;
-  width: 112px;
-  height: 112px;
-}
+/* ---- the 3D bot's loading placeholder (BotFigure) ---------------------------------------------- */
 .dock-bot-placeholder {
   width: 100%;
   height: 100%;
@@ -580,167 +560,6 @@
     opacity: 0.45;
     transform: scale(0.92);
   }
-}
-.bot-canvas {
-  animation: logo-in 500ms ease-out both;
-}
-.bot-canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-.dock-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  font-size: var(--text-sm);
-}
-.dock-name {
-  font-weight: 800;
-  color: var(--color-accent-hover);
-}
-.dock-close {
-  align-self: flex-start;
-  margin-left: auto;
-  border: 0;
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: var(--space-1);
-  border-radius: 6px;
-}
-.dock-close:hover {
-  color: var(--color-text);
-}
-.dock-hint {
-  margin: 0;
-  font-size: var(--text-xs);
-  line-height: 1.45;
-}
-.dock-got-it {
-  align-self: flex-start;
-  padding: 0;
-  font-size: var(--text-xs);
-}
-/* Next steps, chat and voice controls under the bot's line. */
-.dock-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-}
-.dock-actions .choice-pill,
-.chat-actions .choice-pill,
-.chat-suggestions .choice-pill {
-  padding: 2px var(--space-3);
-  font-size: var(--text-xs);
-  background: rgb(255 255 255 / 75%);
-}
-.dock-actions .choice-pill:hover,
-.chat-actions .choice-pill:hover,
-.chat-suggestions .choice-pill:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent-hover);
-}
-.dock-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-1);
-}
-.dock-tools .link-button {
-  padding: 0;
-  font-size: var(--text-xs);
-}
-.dock-error {
-  margin: var(--space-1) 0 0;
-  color: var(--color-danger);
-  font-size: var(--text-xs);
-}
-.assistant-dock.dock-chatting {
-  width: min(400px, calc(100vw - 2 * var(--space-4)));
-}
-/* Leave room at the bottom of the page so the dock never sits on the last thing in it. */
-.app-main:has(.assistant-dock) {
-  padding-bottom: 11rem;
-}
-
-/* ---- chat ------------------------------------------------------------------------------------ */
-.chat {
-  display: grid;
-  gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-3);
-}
-.chat-log {
-  display: grid;
-  gap: var(--space-2);
-  max-height: min(18rem, 40vh);
-  overflow-y: auto;
-  padding: var(--space-2);
-  border-radius: var(--radius-lg);
-  background: rgb(255 255 255 / 55%);
-}
-.chat-empty {
-  margin: 0;
-  font-size: var(--text-xs);
-}
-.chat-message {
-  max-width: 88%;
-  padding: var(--space-2) var(--space-3);
-  border-radius: 14px;
-  font-size: var(--text-sm);
-  line-height: 1.45;
-  animation: bubble-rise 220ms ease-out both;
-}
-.chat-message p {
-  margin: 0;
-}
-.chat-me {
-  justify-self: end;
-  background: var(--color-accent);
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-.chat-bot {
-  justify-self: start;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-bottom-left-radius: 4px;
-}
-.chat-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-}
-.chat-thinking {
-  font-weight: 700;
-  letter-spacing: 2px;
-}
-@keyframes bubble-rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-.chat-suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-.chat-form {
-  display: flex;
-  gap: var(--space-2);
-}
-.chat-form .input {
-  flex: 1;
-  min-width: 0;
-}
-.chat-note {
-  margin: 0;
-  font-size: var(--text-xs);
 }
 
 /* ---- guided tour ----------------------------------------------------------------------------- */
@@ -1704,4 +1523,525 @@
 .template-tags svg {
   width: 16px;
   height: 16px;
+}
+
+/* ---- James, the companion: resting, nudges, the side panel -------------------------------------- */
+.james {
+  position: fixed;
+  bottom: var(--space-5);
+  z-index: 30;
+}
+.james-right {
+  right: var(--space-5);
+}
+/* Bottom left sits beside the sidebar (16rem, or 4.75rem collapsed; none on a phone). */
+.james-left {
+  left: calc(16rem + var(--space-5));
+}
+.sidebar-collapsed .james-left {
+  left: calc(4.75rem + var(--space-5));
+}
+.james-left .james-panel {
+  left: 16rem;
+}
+.sidebar-collapsed .james-left .james-panel {
+  left: 4.75rem;
+}
+@media (max-width: 56rem) {
+  .james-left,
+  .sidebar-collapsed .james-left {
+    left: var(--space-3);
+  }
+  .james-left .james-panel {
+    left: 0;
+  }
+}
+.james-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--glass-card);
+  box-shadow:
+    var(--glass-shadow),
+    0 0 0 1px var(--color-border);
+  backdrop-filter: var(--glass-blur);
+  cursor: pointer;
+}
+.james-button:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+/* "James · ⌘J", on hover and keyboard focus. */
+.james-button::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 50%;
+  transform: translateY(50%);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.james-right .james-button::after {
+  right: calc(100% + var(--space-2));
+}
+.james-left .james-button::after {
+  left: calc(100% + var(--space-2));
+}
+.james-button:hover::after,
+.james-button:focus-visible::after {
+  opacity: 1;
+}
+.james-body {
+  display: block;
+  animation: james-breathe 4s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+@keyframes james-breathe {
+  50% {
+    transform: translateY(-2px) scale(1.015);
+  }
+}
+.james-mood-happy .james-body {
+  animation:
+    james-hop 0.9s ease-out 2,
+    james-breathe 4s ease-in-out 1.8s infinite;
+}
+@keyframes james-hop {
+  30% {
+    transform: translateY(-7px) rotate(-4deg);
+  }
+  60% {
+    transform: translateY(0) rotate(3deg);
+  }
+}
+.james-mood-concerned .james-body {
+  animation: james-tilt 1.2s ease-in-out 1 forwards;
+}
+@keyframes james-tilt {
+  to {
+    transform: rotate(-6deg);
+  }
+}
+.james-mood-sleeping {
+  opacity: 0.7;
+}
+.james-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--color-accent);
+  border-right-color: rgb(194 65 12 / 35%);
+  animation: james-spin 1.2s linear infinite;
+  pointer-events: none;
+}
+@keyframes james-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.james-nudge {
+  position: absolute;
+  bottom: calc(100% + var(--space-3));
+  width: 18.5rem;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: 18px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 32px rgb(28 25 23 / 14%);
+  overflow: hidden;
+  animation: rise 180ms ease-out backwards;
+}
+.james-right .james-nudge {
+  right: 0;
+  border-bottom-right-radius: 6px;
+}
+.james-left .james-nudge {
+  left: 0;
+  border-bottom-left-radius: 6px;
+}
+.james-nudge-problem {
+  border-color: #f5c2c2;
+}
+.james-nudge-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.james-nudge-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.james-nudge-action {
+  height: 2.25rem;
+}
+.james-nudge-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: #fdba74;
+  transform-origin: left;
+  animation: james-timer 8s linear forwards;
+}
+.james-nudge:hover .james-nudge-timer,
+.james-nudge:focus-within .james-nudge-timer {
+  animation-play-state: paused;
+}
+@keyframes james-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+.james-error {
+  position: absolute;
+  bottom: calc(100% + var(--space-3));
+  right: 0;
+  width: 16rem;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+.james-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.james-icon-button:hover {
+  background: var(--color-surface-strong);
+  color: var(--color-text);
+}
+
+.james-panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: min(26rem, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-left: 1px solid var(--color-border);
+  box-shadow: -16px 0 40px rgb(28 25 23 / 10%);
+  animation: james-slide 200ms ease-out backwards;
+}
+.james-right .james-panel {
+  right: 0;
+}
+.james-left .james-panel {
+  border-left: 0;
+  border-right: 1px solid var(--color-border);
+}
+@keyframes james-slide {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+.james-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.james-panel-title {
+  flex: 1;
+  min-width: 0;
+}
+.james-panel-title h2 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.james-panel-title p {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.james-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+.james-message p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.james-from-me {
+  align-self: flex-end;
+  max-width: 85%;
+}
+.james-from-me p {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 16px 16px 4px 16px;
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.james-from-james {
+  align-self: flex-start;
+  max-width: 92%;
+  display: grid;
+  gap: var(--space-2);
+}
+.james-action-card {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid #f5cba7;
+  background: var(--color-accent-soft);
+}
+.james-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.james-actions .choice-pill,
+.james-suggestions .choice-pill {
+  font-size: var(--text-sm);
+}
+.james-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-5) var(--space-3);
+}
+.james-composer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.james-composer input {
+  flex: 1;
+  min-width: 0;
+  height: 2.75rem;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--text-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.james-composer input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.james-mic {
+  background: var(--color-surface-strong);
+  color: var(--color-text);
+}
+.james-send {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.james-send:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
+}
+.james-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.james-note {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-3);
+  font-size: var(--text-xs);
+}
+.james-voice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  text-align: center;
+}
+.james-voice-face {
+  display: grid;
+  place-items: center;
+  width: 15rem;
+  height: 15rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgb(251 146 60 / 18%) 0%,
+    transparent 70%
+  );
+}
+.james-voice-listening {
+  animation: james-listen 1.6s ease-in-out infinite;
+}
+@keyframes james-listen {
+  50% {
+    box-shadow: 0 0 0 10px rgb(251 146 60 / 12%);
+  }
+}
+.james-voice-state {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-hover);
+}
+.james-voice-words {
+  margin: 0;
+  max-width: 20rem;
+  min-height: 3rem;
+  font-size: var(--text-lg);
+  line-height: 1.45;
+  color: var(--color-text);
+}
+.james-talk-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: 0 0 0 8px rgb(194 65 12 / 12%);
+  cursor: pointer;
+}
+.james-talk-button:disabled {
+  opacity: 0.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .james-body,
+  .james-ring,
+  .james-voice-listening,
+  .james-nudge-timer {
+    animation: none;
+  }
+}
+@media (max-width: 40rem) {
+  .james {
+    bottom: var(--space-3);
+  }
+  .james-right {
+    right: var(--space-3);
+  }
+}
+
+/* ---- Companion › Behaviour ------------------------------------------------------------------- */
+.behaviour-layout {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 16rem minmax(0, 1fr);
+  align-items: start;
+}
+.behaviour-preview {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-surface);
+}
+.behaviour-name {
+  margin: 0;
+  font-weight: 700;
+}
+.behaviour-row {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.behaviour-row:last-child {
+  border-bottom: 0;
+}
+.behaviour-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.behaviour-note {
+  font-size: var(--text-sm);
+}
+.behaviour kbd {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+/* The Behaviour tab's on/off choices. Not .segmented (the choice pills) or .segment (a script
+   segment on the episode page): both names were already taken. */
+.toggle-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-strong);
+}
+.toggle-option {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  border-radius: 9px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.toggle-option:has(input:checked) {
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+}
+.toggle-option:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+@media (max-width: 48rem) {
+  .behaviour-layout,
+  .behaviour-row {
+    grid-template-columns: 1fr;
+  }
 }

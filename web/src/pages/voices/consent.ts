@@ -14,7 +14,7 @@ export interface ConsentValues {
 }
 
 export const DEFAULT_TERMS =
-  "Used only to voice this account's podcasts in Podcast Engine";
+  "Used only to voice this account's podcasts in Oasis";
 
 export const EMPTY_CONSENT: ConsentValues = {
   relationship: "self",

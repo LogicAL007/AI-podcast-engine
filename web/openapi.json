@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "AI Podcast Engine",
+    "title": "Oasis",
     "summary": "Create shows, generate grounded episodes and fetch their audio, notes and feeds.",
     "description": "\nTurns web pages into podcast episodes: a scripted conversation between two AI hosts, grounded in\nthe pages' content, with every factual claim tied to the passage it comes from.\n\nA **show** holds a topic, a speaking style and the pages to draw on. Each **episode** of a show is\ngenerated in the background. The pages are fetched and split into sections, the passages that fit\nthe topic are selected, and a script is written in which each claim cites its passage. The script is\nfact-checked and rewritten if a claim is not supported, then voiced, mixed into a single audio file\nand published with show notes and an RSS feed.\n\nA new episode of an existing show is a refresh: only the segments whose source sections changed\nare regenerated, and nothing is regenerated if no source changed. Every episode is labelled as\nAI-generated in its audio, show notes and feed.\n",
     "license": {
@@ -3714,6 +3714,100 @@
         }
       }
     },
+    "/v1/episodes/{episode_id}/remix": {
+      "post": {
+        "tags": [
+          "episodes"
+        ],
+        "summary": "Remix a published episode's audio",
+        "description": "Mix a published episode again from the lines already voiced, with the show's current\nvoice effects and music, then publish it again in place. Nothing is voiced again, so it uses\nno voice quota. The published audio is replaced.",
+        "operationId": "remix_episode",
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "episode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The episode's id",
+              "title": "Episode Id"
+            },
+            "description": "The episode's id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The episode, queued for assembly",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Job queue unavailable; the episode stays published as it was",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Episode not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The episode is not published, or has no audio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/episodes/{episode_id}/retry": {
       "post": {
         "tags": [
@@ -5210,6 +5304,778 @@
         }
       }
     },
+    "/v1/speech/engine": {
+      "get": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "What the voice engine can say",
+        "description": "Which voices can speak on this server: recorded voices need the Chatterbox engine; the\nengine's own voices always work. With Gemini, each clip spends the shared daily budget.",
+        "operationId": "speech_engine",
+        "responses": {
+          "200": {
+            "description": "The engine, its voices, effect presets and today's budget",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechEngine"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      }
+    },
+    "/v1/speech": {
+      "get": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "List your recent clips",
+        "description": "Your most recent type-to-speech clips, newest first.",
+        "operationId": "list_clips",
+        "responses": {
+          "200": {
+            "description": "Your 20 most recent clips, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SpeechClipRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Clips"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "Voice a line",
+        "description": "Queue a line to be voiced in a recorded voice or one of the engine's own, with voice\neffects. Poll `GET /speech/{clip_id}` until it is `done`, then play `audio`.",
+        "operationId": "create_clip",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeechCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "The clip, queued for the voice worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechClipRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The recorded voice is not one of yours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The hourly clip limit, or today's Gemini voice budget for clips, is used up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      }
+    },
+    "/v1/speech/{clip_id}": {
+      "get": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "Get a clip",
+        "description": "One of your clips, with its status.",
+        "operationId": "get_clip",
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The clip's id",
+              "title": "Clip Id"
+            },
+            "description": "The clip's id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The clip and its status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechClipRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clip not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "Delete a clip",
+        "description": "Delete a clip and its audio.",
+        "operationId": "delete_clip",
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The clip's id",
+              "title": "Clip Id"
+            },
+            "description": "The clip's id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clip not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/speech/{clip_id}/audio.wav": {
+      "get": {
+        "tags": [
+          "speech"
+        ],
+        "summary": "Play or download a clip",
+        "description": "The clip's audio (24 kHz mono WAV), for its owner only.",
+        "operationId": "clip_audio",
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The clip's id",
+              "title": "Clip Id"
+            },
+            "description": "The clip's id"
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Save as a file (`attachment`) instead of playing it",
+              "default": false,
+              "title": "Download"
+            },
+            "description": "Save as a file (`attachment`) instead of playing it"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The clip",
+            "content": {
+              "audio/wav": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Clip not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/music": {
+      "get": {
+        "tags": [
+          "music"
+        ],
+        "summary": "List the music library",
+        "description": "Every track a show can use: the built-in ones (made in the app, free to use) and the\nones you uploaded.",
+        "operationId": "list_music",
+        "responses": {
+          "200": {
+            "description": "The built-in tracks, then yours, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MusicTrackRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Music"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "music"
+        ],
+        "summary": "Upload a track",
+        "description": "Add a track to your library, for your shows' intros, outros, stings and beds. You must\nconfirm you have the right to use it.",
+        "operationId": "upload_music",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_music"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The uploaded track",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicTrackRead"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The account already has the most tracks allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than the limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Not a 24 kHz mono 16-bit WAV",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rights not confirmed, or the track is too short, long or silent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ]
+      }
+    },
+    "/v1/music/{track_id}/audio.wav": {
+      "get": {
+        "tags": [
+          "music"
+        ],
+        "summary": "Play a track",
+        "description": "A track's audio (24 kHz mono WAV): a built-in one, or one of yours.",
+        "operationId": "music_audio",
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(builtin:[a-z0-9-]{1,40}|[0-9a-fA-F-]{36})$",
+              "description": "`builtin:...` or the id of a track you uploaded",
+              "title": "Track Id"
+            },
+            "description": "`builtin:...` or the id of a track you uploaded"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The track",
+            "content": {
+              "audio/wav": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Track not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/music/{track_id}": {
+      "delete": {
+        "tags": [
+          "music"
+        ],
+        "summary": "Delete a track you uploaded",
+        "description": "Delete one of your tracks. Shows that used it go back to the default for that slot;\nepisodes already made keep their audio.",
+        "operationId": "delete_music",
+        "security": [
+          {
+            "BearerToken": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(builtin:[a-z0-9-]{1,40}|[0-9a-fA-F-]{36})$",
+              "description": "`builtin:...` or the id of a track you uploaded",
+              "title": "Track Id"
+            },
+            "description": "`builtin:...` or the id of a track you uploaded"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing, invalid, expired or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Login is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Track not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Built-in tracks cannot be deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/assistant/ask": {
       "post": {
         "tags": [
@@ -5788,7 +6654,7 @@
             "minLength": 1,
             "title": "Name",
             "description": "What the bot is called",
-            "default": "Scout"
+            "default": "James"
           },
           "color": {
             "anyOf": [
@@ -6009,7 +6875,7 @@
             "type": "string",
             "title": "License",
             "description": "Terms the recording may be used under",
-            "default": "Used only to voice this account's podcasts in Podcast Engine"
+            "default": "Used only to voice this account's podcasts in Oasis"
           },
           "name": {
             "type": "string",
@@ -6045,6 +6911,52 @@
           "agree_withdraw"
         ],
         "title": "Body_register_voice"
+      },
+      "Body_upload_music": {
+        "properties": {
+          "audio": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Audio",
+            "description": "24 kHz mono 16-bit WAV, 1 s to 6 minutes"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "A name for the track"
+          },
+          "rights": {
+            "type": "boolean",
+            "title": "Rights",
+            "description": "You own this music or have a licence to use it in your podcast"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "bed",
+              "intro",
+              "outro",
+              "sting",
+              "any"
+            ],
+            "title": "Role",
+            "description": "bed, intro, outro, sting or any",
+            "default": "any"
+          },
+          "credit": {
+            "type": "string",
+            "title": "Credit",
+            "description": "Credit line for the show notes, if the licence asks for one",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "audio",
+          "name",
+          "rights"
+        ],
+        "title": "Body_upload_music"
       },
       "Body_upload_source": {
         "properties": {
@@ -6393,6 +7305,60 @@
           "new_email"
         ],
         "title": "EmailChange"
+      },
+      "EngineVoice": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "engine",
+            "title": "Kind",
+            "default": "engine"
+          },
+          "host": {
+            "type": "string",
+            "enum": [
+              "Alex",
+              "Sam",
+              "Jordan",
+              "Riley"
+            ],
+            "title": "Host",
+            "description": "Whose engine voice: Alex, Sam, Jordan or Riley"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "host"
+        ],
+        "title": "EngineVoice",
+        "description": "The voice engine's own voice for a host: a Gemini prebuilt voice, or Chatterbox's default."
+      },
+      "EngineVoiceOption": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "enum": [
+              "Alex",
+              "Sam",
+              "Jordan",
+              "Riley"
+            ],
+            "title": "Host",
+            "description": "Use as EngineVoice.host"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "What to call it in a picker"
+          }
+        },
+        "type": "object",
+        "required": [
+          "host",
+          "label"
+        ],
+        "title": "EngineVoiceOption"
       },
       "EpisodeLinks": {
         "properties": {
@@ -7061,6 +8027,84 @@
         ],
         "title": "ModelUsage",
         "description": "One Gemini model's requests today."
+      },
+      "MusicTrackRead": {
+        "properties": {
+          "track_id": {
+            "type": "string",
+            "title": "Track Id",
+            "description": "`builtin:...` for a built-in track, else the upload's id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "The track's name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "bed",
+              "intro",
+              "outro",
+              "sting",
+              "any"
+            ],
+            "title": "Role",
+            "description": "What it is made for: bed, intro, outro, sting or any"
+          },
+          "builtin": {
+            "type": "boolean",
+            "title": "Builtin",
+            "description": "Made in the app (no licence needed) or uploaded by you"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "What it sounds like (built-in tracks)",
+            "default": ""
+          },
+          "credit": {
+            "type": "string",
+            "title": "Credit",
+            "description": "Credit line added to the show notes of episodes using it",
+            "default": ""
+          },
+          "duration_seconds": {
+            "type": "number",
+            "title": "Duration Seconds",
+            "description": "Length"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At",
+            "description": "When it was uploaded"
+          },
+          "audio": {
+            "type": "string",
+            "title": "Audio",
+            "description": "Where to play it",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "track_id",
+          "name",
+          "role",
+          "builtin",
+          "duration_seconds",
+          "audio"
+        ],
+        "title": "MusicTrackRead",
+        "description": "A track for a show's intro, outro, sting or bed."
       },
       "Operation": {
         "properties": {
@@ -7978,6 +9022,29 @@
         ],
         "title": "Readiness"
       },
+      "RecordedVoice": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "recorded",
+            "title": "Kind",
+            "default": "recorded"
+          },
+          "voice_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Voice Id",
+            "description": "The voice's id (see /voices)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "voice_id"
+        ],
+        "title": "RecordedVoice",
+        "description": "One of your registered (recorded) voices. Needs the Chatterbox voice engine."
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -8491,6 +9558,27 @@
                 "Alex": "6f1c2e8a-0d5b-4f7e-9a3c-2b8d1e4f5a6b"
               }
             ]
+          },
+          "host_effects": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VoiceEffects"
+            },
+            "type": "object",
+            "title": "Host Effects",
+            "description": "Voice effects per host name (Alex, Sam, Jordan, Riley), applied when an episode is assembled: `deepen` (0-100, up to 5 semitones lower), `warmth` (0-100) and `broadcast` (compression, presence and de-essing, a radio voice)",
+            "examples": [
+              {
+                "Alex": {
+                  "broadcast": true,
+                  "deepen": 40,
+                  "warmth": 20
+                }
+              }
+            ]
+          },
+          "music": {
+            "$ref": "#/components/schemas/ShowMusic",
+            "description": "Intro, outro, sting and bed: built-in tracks (GET /v1/music) or ones you uploaded. Empty slots keep the default chime, and no bed"
           }
         },
         "type": "object",
@@ -8520,6 +9608,90 @@
             "topic_keywords": "ClickHouse column-oriented database OLAP analytics queries"
           }
         ]
+      },
+      "ShowMusic": {
+        "properties": {
+          "intro": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(builtin:[a-z0-9-]{1,40}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+                "description": "A built-in track (`builtin:calm-pad`) or the id of a track you uploaded",
+                "examples": [
+                  "builtin:calm-pad"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intro",
+            "description": "Plays before the first line (up to 10 s)"
+          },
+          "outro": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(builtin:[a-z0-9-]{1,40}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+                "description": "A built-in track (`builtin:calm-pad`) or the id of a track you uploaded",
+                "examples": [
+                  "builtin:calm-pad"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outro",
+            "description": "Plays after the last line (up to 15 s)"
+          },
+          "sting": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(builtin:[a-z0-9-]{1,40}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+                "description": "A built-in track (`builtin:calm-pad`) or the id of a track you uploaded",
+                "examples": [
+                  "builtin:calm-pad"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sting",
+            "description": "Plays between segments (up to 4 s)"
+          },
+          "bed": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(builtin:[a-z0-9-]{1,40}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+                "description": "A built-in track (`builtin:calm-pad`) or the id of a track you uploaded",
+                "examples": [
+                  "builtin:calm-pad"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bed",
+            "description": "Loops quietly under the whole conversation"
+          },
+          "bed_level_db": {
+            "type": "integer",
+            "maximum": -12.0,
+            "minimum": -30.0,
+            "title": "Bed Level Db",
+            "description": "How far the bed sits below the voices while they talk, in dB",
+            "default": -22
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ShowMusic",
+        "description": "A show's music. An empty slot keeps the default chime (intro, outro, sting) or no bed."
       },
       "ShowRead": {
         "properties": {
@@ -8611,6 +9783,18 @@
             "type": "object",
             "title": "Host Voices",
             "description": "Registered voice per host name, for Chatterbox"
+          },
+          "host_effects": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VoiceEffects"
+            },
+            "type": "object",
+            "title": "Host Effects",
+            "description": "Voice effects per host name"
+          },
+          "music": {
+            "$ref": "#/components/schemas/ShowMusic",
+            "description": "Intro, outro, sting and bed"
           },
           "created_at": {
             "type": "string",
@@ -8859,6 +10043,41 @@
               }
             ],
             "title": "Host Voices"
+          },
+          "host_effects": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/VoiceEffects"
+                },
+                "type": "object",
+                "description": "Voice effects per host name (Alex, Sam, Jordan, Riley), applied when an episode is assembled: `deepen` (0-100, up to 5 semitones lower), `warmth` (0-100) and `broadcast` (compression, presence and de-essing, a radio voice)",
+                "examples": [
+                  {
+                    "Alex": {
+                      "broadcast": true,
+                      "deepen": 40,
+                      "warmth": 20
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Effects"
+          },
+          "music": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShowMusic",
+                "description": "Intro, outro, sting and bed: built-in tracks (GET /v1/music) or ones you uploaded. Empty slots keep the default chime, and no bed"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -8954,6 +10173,261 @@
         ],
         "title": "SourceRead",
         "description": "One section of a source, as last ingested: the unit that is cited and change-detected."
+      },
+      "SpeechClipRead": {
+        "properties": {
+          "clip_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Clip Id",
+            "description": "The clip's id"
+          },
+          "voice": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordedVoice"
+              },
+              {
+                "$ref": "#/components/schemas/EngineVoice"
+              }
+            ],
+            "title": "Voice",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "engine": "#/components/schemas/EngineVoice",
+                "recorded": "#/components/schemas/RecordedVoice"
+              }
+            }
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What it says"
+          },
+          "delivery": {
+            "type": "string",
+            "title": "Delivery",
+            "description": "How it is said"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/VoiceEffects",
+            "description": "The voice effects applied"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "description": "queued, working, done or failed"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S",
+            "description": "Length, once done"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Why it failed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "When it was asked for"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At",
+            "description": "When it was done or failed"
+          },
+          "audio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio",
+            "description": "Where to play or download it, once done",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "clip_id",
+          "voice",
+          "text",
+          "delivery",
+          "effects",
+          "status",
+          "created_at",
+          "audio"
+        ],
+        "title": "SpeechClipRead",
+        "description": "A type-to-speech clip: queued, being voiced, done (with its audio) or failed (with why)."
+      },
+      "SpeechCreate": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Text",
+            "description": "What to say (up to 600 characters)"
+          },
+          "voice": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RecordedVoice"
+              },
+              {
+                "$ref": "#/components/schemas/EngineVoice"
+              }
+            ],
+            "title": "Voice",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "engine": "#/components/schemas/EngineVoice",
+                "recorded": "#/components/schemas/RecordedVoice"
+              }
+            }
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery",
+            "description": "How it is said",
+            "default": "neutral"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/VoiceEffects",
+            "description": "Voice effects"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "voice"
+        ],
+        "title": "SpeechCreate",
+        "description": "A line to voice.",
+        "examples": [
+          {
+            "delivery": "warm",
+            "effects": {
+              "broadcast": true,
+              "deepen": 40,
+              "warmth": 20
+            },
+            "text": "Welcome back to the show. Today we are talking about tides.",
+            "voice": {
+              "host": "Alex",
+              "kind": "engine"
+            }
+          }
+        ]
+      },
+      "SpeechEngine": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "title": "Backend",
+            "description": "The voice engine: chatterbox, gemini, say or placeholder"
+          },
+          "recorded_voices": {
+            "type": "boolean",
+            "title": "Recorded Voices",
+            "description": "Whether recorded voices can speak here"
+          },
+          "engine_voices": {
+            "items": {
+              "$ref": "#/components/schemas/EngineVoiceOption"
+            },
+            "type": "array",
+            "title": "Engine Voices",
+            "description": "The engine's own voices"
+          },
+          "uses_quota": {
+            "type": "boolean",
+            "title": "Uses Quota",
+            "description": "Whether each clip spends the daily Gemini TTS budget"
+          },
+          "clips_left_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clips Left Today",
+            "description": "Clips the shared Gemini budget still allows today (Gemini only)"
+          },
+          "max_characters": {
+            "type": "integer",
+            "title": "Max Characters",
+            "description": "Longest text accepted",
+            "default": 600
+          },
+          "deliveries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Deliveries",
+            "description": "Delivery styles"
+          },
+          "presets": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VoiceEffects"
+            },
+            "type": "object",
+            "title": "Presets",
+            "description": "Named effect settings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend",
+          "recorded_voices",
+          "engine_voices",
+          "uses_quota",
+          "deliveries",
+          "presets"
+        ],
+        "title": "SpeechEngine",
+        "description": "What this server's voice engine can say, and today's budget for it."
       },
       "StageRunRead": {
         "properties": {
@@ -9362,6 +10836,36 @@
         "title": "VoiceConsent",
         "description": "What the speaker agreed to, as signed."
       },
+      "VoiceEffects": {
+        "properties": {
+          "deepen": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Deepen",
+            "description": "0 = natural, 100 = 5 semitones lower",
+            "default": 0
+          },
+          "warmth": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Warmth",
+            "description": "0 = natural, 100 = fullest low end",
+            "default": 0
+          },
+          "broadcast": {
+            "type": "boolean",
+            "title": "Broadcast",
+            "description": "High-pass, compression, presence and de-ess",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VoiceEffects",
+        "description": "How one host's voice is processed. All off by default. Frozen, so equal settings compare\n(and hash) equal: a clip shared by two hosts is processed only if theirs are the same."
+      },
       "VoiceRead": {
         "properties": {
           "voice_id": {
@@ -9477,6 +10981,14 @@
     {
       "name": "voices",
       "description": "Recorded voices for the Chatterbox backend to clone, each kept with the consent form its speaker signed. Private to their owner."
+    },
+    {
+      "name": "speech",
+      "description": "Type-to-speech: a line voiced in one of your recorded voices or the voice engine's own, with voice effects. Rate-limited per person."
+    },
+    {
+      "name": "music",
+      "description": "The music library for shows' intros, outros, stings and beds: built-in tracks made in the app, and tracks you upload with the right to use them."
     },
     {
       "name": "assistant",

@@ -99,7 +99,7 @@ def register_voice(
     ],
     terms: Annotated[
         str, Form(alias="license", description="Terms the recording may be used under")
-    ] = "Used only to voice this account's podcasts in Podcast Engine",
+    ] = "Used only to voice this account's podcasts in Oasis",
     name: Annotated[str, Form(description="A label for the voice")] = "",
     permission_record: Annotated[
         str, Form(description="Where the speaker's written permission is kept")

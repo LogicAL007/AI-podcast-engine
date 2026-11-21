@@ -38,13 +38,34 @@ follow it.
 
 # Sounding like people talking
 
-- Short sentences and contractions. Mix very short lines with longer ones.
+Two people who both know the subject, talking it through without a script, like a good podcast.
+It is not an interview, where one host asks and the other answers, and it is not two people
+taking turns to read out facts.
+
+- Both hosts explain, and share the facts roughly evenly.
+- Pace the facts: about one fact for every 25 to 30 words of the word budget. Spend the rest on
+  the hosts' own words: a reaction, their take on what a fact means, or a link to the fact before
+  it ("which is why...", "and that's the part that gets me"). These lines state no facts
+  (is_claim false), and about a third of the lines are like this.
+- Unscripted speech has things written text doesn't: a filled pause while someone thinks, a
+  discourse marker that softens or links a thought, a quick self-repair. Put them where people
+  produce them: at the start of a turn, in a reaction, or just before a harder idea. Never scatter
+  them at random, and never put them in a fact line, where facts stay clean and exact. Choose the
+  words these two hosts would use, vary them, don't repeat one within a segment, and keep it light,
+  like a relaxed host rather than a nervous one.
+- Two or three times a segment, the listening host drops in a one- or two-word acknowledgement as
+  its own line, in their own words, and the other host carries on. It is mixed to overlap the end
+  of the line before it, as people do.
+- A host may keep the floor for two or three lines in a row to explain something properly. Each
+  line is still one fact or one thought, and lines in a row from the same host are heard as one
+  turn.
+- One or two real questions a segment, from either host, each opening a new thread ("So where
+  does all that water actually go?"). Not one before every fact, and never a "..., right?" check.
+- Write for the ear: keep each line under about 25 words, and never list more than two things in
+  one line; spread a longer list over several lines.
+- Vary the reactions, and never repeat an exclamation.
+- Contractions every time ("it's", "that's", "there's", "you'd"), and short sentences.
 - Say abbreviations, numbers and dates the way a person would say them aloud.
-- The hosts react to each other: they ask follow-up questions, check they understood, add a quick
-  "Right" or "Huh, I didn't know that", and hand the turn back. A reaction is its own line.
-- Lead into a fact with plain words ("So here's the change:") rather than "Specifically" or
-  "Additionally". Spread facts across the conversation instead of stacking them.
-- Both hosts state facts, and both ask questions.
 - Every word in "text" is read aloud: no markup, lists, stage directions or sound effects.
 
 # Where the segment sits
@@ -73,13 +94,19 @@ Most lines are neutral, curious or thoughtful; keep excited and amused rare so t
 Passages:
 [P1] (Honeybee) A worker bee lives about six weeks in summer.
 [P2] (Honeybee) Colonies keep the brood nest near 35 °C.
+[P3] (Honeybee) Workers warm the nest by shivering their flight muscles.
 
 A good start (speaker | is_claim | passage_ids | delivery | text):
-- Alex | false | - | curious | So how long does a worker bee actually last?
-- Sam | true | P1 | neutral | In summer? About six weeks.
-- Alex | false | - | amused | That's shorter than I'd have guessed.
-- Sam | true | P2 | thoughtful | And they keep the nursery part of the hive at around thirty-five degrees.
-- Alex | false | - | neutral | Right, so it's basically a heated room.
+- Alex | true | P1 | neutral | Here's one that surprised me: in summer, a worker bee only lives about six weeks.
+- Sam | false | - | neutral | Oh, okay.
+- Alex | false | - | thoughtful | Which, I mean, isn't long, when you think about how much a hive has to do.
+- Sam | true | P2 | neutral | For one thing, the colony keeps its nursery, the brood nest, at around thirty-five degrees.
+- Alex | false | - | curious | So how do they pull that off?
+- Sam | true | P3 | thoughtful | They shiver their flight muscles, and that's what warms the nest.
+- Alex | false | - | amused | So the heating system is, like, the bees themselves.
+
+Both hosts carry facts, there's one real question and one backchannel, the small words sit only
+in lines without facts, and the lines between the facts give the listener a moment with each one.
 
 Lines that would fail:
 - Sam | true | P1 | neutral | A worker lives six weeks, and the queen lives for years.
@@ -88,7 +115,12 @@ Lines that would fail:
   (P2 does not state this, so it must not be listed)
 - Alex | false | - | curious | Isn't it wild that they live six weeks?
   (a fact hidden in a question: make it a claim line instead)
+- Alex | false | - | curious | Wow. So what else do they do?
+  (a question that only hands over the next fact: let the host carry on instead)
+- Sam | true | P1 | neutral | So, um, a worker bee lives, you know, about six weeks.
+  (small words in a fact line: keep facts clean)
 
-The example shows the format only; write about your own segment's passages.
+The example shows the format only. Its small words are one illustration, not a list to
+reuse: choose your own. Write about your own segment's passages.
 
 # This segment

@@ -109,7 +109,7 @@ def test_api_catalog_follows_rfc_9727(harness: Harness) -> None:
     assert 'profile="https://www.rfc-editor.org/info/rfc9727"' in content_type
     catalog, api = response.json()["linkset"]
     assert catalog["anchor"] == "http://testserver/.well-known/api-catalog"
-    assert catalog["item"] == [{"href": "http://testserver/home", "title": "AI Podcast Engine"}]
+    assert catalog["item"] == [{"href": "http://testserver/home", "title": "Oasis"}]
     assert api["service-desc"][0]["href"] == "http://testserver/openapi.json"
     assert api["status"][0]["href"] == "http://testserver/health"
     assert {"service-doc", "service-meta"} <= set(api)

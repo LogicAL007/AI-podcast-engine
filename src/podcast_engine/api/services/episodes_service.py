@@ -42,6 +42,7 @@ EDITABLE = {EpisodeStatus.NEEDS_REVIEW}
 CANCELLABLE = {EpisodeStatus.QUEUED, EpisodeStatus.PROCESSING, EpisodeStatus.NEEDS_REVIEW}
 RETRYABLE = {EpisodeStatus.FAILED, EpisodeStatus.CANCELLED}
 RUNNING = {EpisodeStatus.QUEUED, EpisodeStatus.PROCESSING}
+REMIXABLE = {EpisodeStatus.PUBLISHED}
 
 
 def _utc_now() -> datetime:
@@ -235,6 +236,20 @@ class EpisodeService:
             approved_at=self._now(),
         )  # fmt: skip
         self._dispatch(episode_id, Stage.VOICE, revert_to=EpisodeStatus.NEEDS_REVIEW)
+        return self.get(episode_id, owner)
+
+    def remix(self, episode_id: UUID, owner: UUID) -> EpisodeRead:
+        """Assemble a published episode again from its voiced lines, with the show's current
+        voice effects and music, and publish it again. Nothing is voiced again (no TTS quota);
+        the published audio is replaced."""
+        self._require(episode_id, owner, REMIXABLE, "remixed")
+        files = self._episodes.get_files(episode_id)
+        if files is None or not files.audio_key:
+            raise ConflictError(f"episode {episode_id} has no audio to remix")
+        self._episodes.update(
+            episode_id, status=EpisodeStatus.QUEUED, stage=Stage.ASSEMBLE.value, error=None
+        )
+        self._dispatch(episode_id, Stage.ASSEMBLE, revert_to=EpisodeStatus.PUBLISHED)
         return self.get(episode_id, owner)
 
     # ---- lifecycle --------------------------------------------------------------------------

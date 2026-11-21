@@ -7,8 +7,12 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { CompanionPage } from "./pages/CompanionPage";
+import { MusicTab } from "./pages/voices/MusicTab";
 import { NewVoicePage } from "./pages/voices/NewVoicePage";
+import { ShowSoundTab } from "./pages/voices/ShowSoundTab";
+import { SpeakPage } from "./pages/voices/SpeakPage";
 import { VoicesPage } from "./pages/voices/VoicesPage";
+import { VoiceStudio } from "./pages/voices/VoiceStudio";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -47,7 +51,12 @@ export function App() {
         <Route path="/shows/:showId" element={<ShowPage />} />
         <Route path="/episodes/:episodeId" element={<EpisodePage />} />
         <Route path="/companion" element={<CompanionPage />} />
-        <Route path="/voices" element={<VoicesPage />} />
+        <Route path="/voices" element={<VoiceStudio />}>
+          <Route index element={<VoicesPage />} />
+          <Route path="speak" element={<SpeakPage />} />
+          <Route path="music" element={<MusicTab />} />
+          <Route path="show-sound" element={<ShowSoundTab />} />
+        </Route>
         <Route path="/voices/new" element={<NewVoicePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

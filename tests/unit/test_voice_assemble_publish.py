@@ -10,8 +10,8 @@ from podcast_engine.common.llm import GeminiQuotaError
 from podcast_engine.common.models import Claim, Delivery, ScriptLine
 from podcast_engine.common.queue import Stage
 from podcast_engine.common.quota import DailyBudget, MemoryCounter
+from podcast_engine.stages.assemble.music import SPEECH_RMS
 from podcast_engine.stages.assemble.service import (
-    SPEECH_RMS,
     mix,
     mix_natural,
     needs_normalisation,
@@ -136,7 +136,11 @@ def voice_ctx(budget: DailyBudget | None = None) -> tuple[Any, dict[str, Any]]:
     saved: dict[str, Any] = {}
     stored: dict[str, bytes] = {}
     ctx: Any = SimpleNamespace(
-        settings=SimpleNamespace(tts_backend="gemini", tts_model="gemini-3.8-flash-tts"),
+        settings=SimpleNamespace(
+            tts_backend="gemini",
+            tts_model="gemini-3.8-flash-tts",
+            config_dir=__import__("pathlib").Path(__file__).resolve().parents[2] / "config",
+        ),
         budget=budget,
         repo=SimpleNamespace(
             get_episode=lambda _: episode,
@@ -250,8 +254,8 @@ def test_show_notes_name_the_product_not_the_hosted_model() -> None:
         show=_show([]), episode_id=uuid4(), revision=1, script={}, chapters=[],
         item_of_chunk={}, items={}, manifest=manifest,
     )  # fmt: skip
-    assert "Script and fact-check: Podcast Engine;" in notes
-    assert "Alex: Podcast Engine prebuilt voice Kore (no real person cloned)" in notes
+    assert "Script and fact-check: Oasis;" in notes
+    assert "Alex: Oasis prebuilt voice Kore (no real person cloned)" in notes
     assert "gemini" not in notes.lower()
 
 

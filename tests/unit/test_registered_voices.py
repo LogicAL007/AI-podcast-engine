@@ -45,7 +45,7 @@ def test_a_hosts_registered_voice_becomes_a_consented_clone(tmp_path: Path) -> N
     assert voice.is_clone
     assert Path(str(voice.reference_audio)).read_bytes() == b"RIFF-recording"
     assert voice.speaker == "Ada Lovelace"
-    assert "signed in Podcast Engine by Ada Lovelace" in voice.consent
+    assert "signed in Oasis by Ada Lovelace" in voice.consent
     # It passes the same consent check as a voice from voices.yaml.
     registry = with_overrides(VoiceRegistry(chatterbox={"Sam": ClonedVoice()}), voices)
     assert problems_with(registry, ["Alex", "Sam"], Path("/")) == []

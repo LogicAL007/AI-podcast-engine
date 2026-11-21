@@ -52,6 +52,19 @@ def test_other_workers_do_not_check_the_voice_backend(monkeypatch: pytest.Monkey
     assert len(started) == 1
 
 
+def test_a_worker_waits_out_a_broker_outage_instead_of_exiting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(celery_app, "worker_main", lambda argv: None)
+    monkeypatch.setattr(worker, "start_metrics_server", lambda port: None)
+    monkeypatch.setattr(worker, "get_settings", lambda: Settings(tts_backend="placeholder"))
+    monkeypatch.setattr(celery_app.conf, "broker_connection_max_retries", 100)
+    monkeypatch.setattr(celery_app.conf, "broker_connection_retry_on_startup", None)
+    assert worker.main(["voice"]) == 0
+    assert celery_app.conf.broker_connection_max_retries is None  # Celery: retry forever
+    assert celery_app.conf.broker_connection_retry_on_startup is True
+
+
 def test_backend_unavailable_names_what_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
     problem = backends.backend_unavailable(Settings(tts_backend="chatterbox"))

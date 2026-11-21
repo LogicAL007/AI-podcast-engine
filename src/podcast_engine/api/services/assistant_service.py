@@ -147,7 +147,7 @@ FALLBACK = (
     "sources and feeds. Try asking about one of those."
 )
 
-SYSTEM = """You are {name}, the assistant in Podcast Engine, an app that turns a creator's \
+SYSTEM = """You are {name}, the assistant in Oasis, an app that turns a creator's \
 sources into a fact-checked, two-host podcast episode. Personality: {personality}; let it colour \
 your tone, briefly.
 
@@ -262,7 +262,8 @@ class AssistantService:
     ) -> dict[str, object]:
         avatar = user.avatar
         system = SYSTEM.format(
-            name=avatar.name if avatar else "Scout",
+            # "Scout" was the default before the companion became James; never renamed, it is James.
+            name=avatar.name if avatar and avatar.name != "Scout" else "James",
             personality=avatar.personality if avatar else "cheerful",
         )
         facts = [f"Page: {context.page}"]

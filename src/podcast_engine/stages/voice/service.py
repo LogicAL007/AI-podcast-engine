@@ -9,6 +9,7 @@ from podcast_engine.common.audio import wav_bytes
 from podcast_engine.common.context import PipelineContext, get_context
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.models import ScriptLine
+from podcast_engine.common.pronunciation import rules_for, spoken
 from podcast_engine.common.queue import Stage
 from podcast_engine.stages.publish.service import AI_DISCLOSURE
 from podcast_engine.stages.voice.backends import DialogueBackend, TtsBackend, make_backend
@@ -147,7 +148,7 @@ def registered_voices(
             reference_audio=str(path),  # absolute, so the registry's root does not apply
             speaker=record.speaker,
             consent=(
-                f"signed in Podcast Engine by {consent.get('signed_by', '?')} on "
+                f"signed in Oasis by {consent.get('signed_by', '?')} on "
                 f"{consent.get('agreed_at', '?')} ({consent.get('relationship', '?')}, "
                 f"form {consent.get('version', '?')})"
             ),
@@ -201,6 +202,10 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     if len({backend.voice_id(h) for h in hosts}) != len(hosts):
         raise ValueError("Each host needs a distinct voice (FR6); check the voice configuration.")
     lines = episode_lines(show.topic, hosts, script_lines(episode.script))
+    # What each voice says: the line with the pronunciation lexicon applied. The line's own text
+    # stays as written for transcripts; the cache key follows what is said.
+    rules = rules_for(ctx.settings.config_dir)
+    said = [spoken(line["text"], rules) for line in lines]
     dialogue = isinstance(backend, DialogueBackend)
     groups = (
         voice_groups(lines, backend.max_dialogue_chars)
@@ -211,11 +216,11 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
         segment_cache_key(
             backend.provider,
             backend.voice_id(lines[group[0]]["speaker"]),
-            lines[group[0]]["text"],
+            said[group[0]],
             lines[group[0]]["delivery"],
         )
         if len(group) == 1
-        else dialogue_cache_key(backend, [lines[i] for i in group])
+        else dialogue_cache_key(backend, [{**lines[i], "text": said[i]} for i in group])
         for group in groups
     ]
     cached = [ctx.store.exists(key) for key in keys]
@@ -232,11 +237,11 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
             reused += 1
         else:
             if len(members) == 1:
-                audio = backend.synthesise(first["speaker"], first["text"], first["delivery"])
+                audio = backend.synthesise(first["speaker"], said[group[0]], first["delivery"])
             else:
                 assert isinstance(backend, DialogueBackend)  # noqa: S101 - groups imply dialogue
                 audio = backend.synthesise_dialogue(
-                    [(line["speaker"], line["text"]) for line in members],
+                    [(lines[i]["speaker"], said[i]) for i in group],
                     [line["delivery"] for line in members],
                 )
             ctx.store.put(key, wav_bytes(audio), "audio/wav")

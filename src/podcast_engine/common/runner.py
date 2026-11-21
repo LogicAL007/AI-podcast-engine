@@ -54,6 +54,20 @@ def _llm_usage(ctx: PipelineContext) -> dict[str, int]:
     return dict(llm.usage) if llm is not None else {}
 
 
+def _llm_models(ctx: PipelineContext) -> dict[str, int]:
+    """Calls answered per model so far: with a fallback, not always the configured one."""
+    llm = ctx.__dict__.get("llm")
+    return dict(getattr(llm, "models_used", {})) if llm is not None else {}
+
+
+def _answered_by(ctx: PipelineContext, before: dict[str, int]) -> str | None:
+    """The model(s) that actually answered during a stage, as provider:model[+model]."""
+    answered = sorted(m for m, n in _llm_models(ctx).items() if n > before.get(m, 0))
+    if not answered:
+        return None
+    return f"{ctx.settings.llm_provider}:{'+'.join(answered)}"
+
+
 def _release_budget(ctx: PipelineContext, episode_id: UUID) -> None:
     """The episode has stopped (ended, failed or paused): give back its unused reservation."""
     try:
@@ -84,6 +98,7 @@ def run_stage(
         episode_id, status=EpisodeStatus.PROCESSING, stage=stage.value, error=None
     )
     usage_before = _llm_usage(ctx)
+    models_before = _llm_models(ctx)
     started = time.perf_counter()
     try:
         with stage_timer(stage, episode_id), spending_for(str(episode_id)):
@@ -122,7 +137,9 @@ def run_stage(
         episode_id,
         stage.value,
         seconds=seconds,
-        model=_model_for(stage, ctx),
+        # The model that answered, not just the configured one: a fallback (LLM_FALLBACK_MODEL)
+        # may have written this stage, and every episode must say which (proposal slide 17).
+        model=_answered_by(ctx, models_before) or _model_for(stage, ctx),
         prompt_version=f"{prompt}.v{PROMPT_VERSIONS[prompt]}"
         if prompt and ctx.settings.llm_enabled
         else None,

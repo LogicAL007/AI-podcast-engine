@@ -28,7 +28,7 @@ export function PublicLayout({
           <GlassPanel className="public-card auth-card" radius={28}>
             <span className="auth-logo">
               <LiquidLogo size={52} />
-              <span className="auth-logo-name">Podcast Engine</span>
+              <span className="auth-logo-name">Oasis</span>
             </span>
             <h1 className="auth-title">{title}</h1>
             <div className="stack">{children}</div>
@@ -55,10 +55,10 @@ export function PublicLayout({
 /** The right-hand panel: what the product is, in a few words. */
 function AuthDescription() {
   return (
-    <aside className="auth-split-about" aria-label="About Podcast Engine">
+    <aside className="auth-split-about" aria-label="About Oasis">
       <div className="auth-about">
         <span className="auth-about-mark" aria-hidden="true" />
-        <p className="auth-about-brand">Podcast Engine</p>
+        <p className="auth-about-brand">Oasis</p>
         <p className="auth-about-eyebrow">
           Grounded&nbsp;·&nbsp;Checked&nbsp;·&nbsp;Voiced
         </p>

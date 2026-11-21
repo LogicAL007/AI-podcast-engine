@@ -44,6 +44,10 @@ x-app-env: &app-env
   LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
   LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
   LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+  LLM_EFFORT: ${LLM_EFFORT:-} # Claude only: thinking effort; blank = the model's default
+  # plain (fixed gaps) or natural (room tone, varied pauses, acknowledgements overlapping the line
+  # before) for published episodes; the study's clips are mixed by the research scripts.
+  ASSEMBLY_STYLE: ${ASSEMBLY_STYLE:-plain}
   # placeholder (tones, for testing), gemini, or chatterbox (with the voice image's cloning extra,
   # see the voice service). say runs on a macOS host only: see the README.
   TTS_BACKEND: ${TTS_BACKEND:-placeholder}

@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"  # "gemini" or "anthropic"
     llm_model: str = "gemini-3.8-flash"
     llm_fallback_model: str = ""  # opt-in: another model if llm_model stays overloaded
+    # Claude only: thinking effort (low, medium, high, xhigh or max); empty = the model's default.
+    # Thinking is billed as output, so a lower effort costs less.
+    llm_effort: Literal["", "low", "medium", "high", "xhigh", "max"] = ""
     llm_timeout_seconds: float = Field(default=180, gt=0)  # per Gemini request, then retried
     tts_backend: str = "placeholder"  # "placeholder", "say", "chatterbox" or "gemini"
     # "natural": room tone, varied pauses and overlapping quick replies (assemble.mix_natural)
@@ -55,6 +58,7 @@ class Settings(BaseSettings):
     llm_requests_per_day: int = Field(default=0, ge=0)
     tts_requests_per_day: int = Field(default=0, ge=0)
     assistant_questions_per_hour: int = Field(default=20, ge=1)  # each one may call the LLM
+    speech_clips_per_hour: int = Field(default=30, ge=1)  # type-to-speech lines per person
     voices_file: Path | None = None  # defaults to <config_dir>/voices.yaml
     llm_api_key: SecretStr = SecretStr("")
     llm_api_key_file: Path | None = None
@@ -92,7 +96,7 @@ class Settings(BaseSettings):
     smtp_password: SecretStr = SecretStr("")  # from Vault
     smtp_password_file: Path | None = None
     smtp_starttls: bool = True
-    mail_from: str = "Podcast Engine <no-reply@localhost>"
+    mail_from: str = "Oasis <no-reply@localhost>"
     # Where people use the service. Links in emails are built from this, never from a request's
     # Host header (which a client controls).
     public_web_url: str = "http://localhost:8080"

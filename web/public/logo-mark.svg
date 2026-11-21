@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The Oasis mark: an octagon with rounded corners. The liquid-metal logo and the sign-in pages
+       use its shape as a mask; the Voice studio's octagon is the same shape, in motion. -->
+  <path d="M454.5 384.1 L384.1 454.5 Q351.7 487.0 305.7 487.0 L206.3 487.0 Q160.3 487.0 127.9 454.5 L57.5 384.1 Q25.0 351.7 25.0 305.7 L25.0 206.3 Q25.0 160.3 57.5 127.9 L127.9 57.5 Q160.3 25.0 206.3 25.0 L305.7 25.0 Q351.7 25.0 384.1 57.5 L454.5 127.9 Q487.0 160.3 487.0 206.3 L487.0 305.7 Q487.0 351.7 454.5 384.1 Z" fill="#000"/>
+</svg>
