@@ -38,7 +38,7 @@ def consent_pdf() -> bytes:
 
     story: list[Any] = [
         Paragraph(CONSENT_TITLE, title),
-        Paragraph(f"Podcast Engine · version {CONSENT_VERSION}", small),
+        Paragraph(f"Oasis · version {CONSENT_VERSION}", small),
         Spacer(1, 4 * mm),
     ]
     for section, paragraphs in CONSENT_SECTIONS:
@@ -74,7 +74,7 @@ def consent_pdf() -> bytes:
         KeepTogether([Paragraph("Signatures", heading), signatures]),
         Spacer(1, 6 * mm),
         Paragraph(
-            "In Podcast Engine this form is signed by typing the signer's name; the version and "
+            "In Oasis this form is signed by typing the signer's name; the version and "
             "full text of the form are stored with the recording. A printed and signed copy can "
             "serve as the written permission for someone else's voice.",
             small,
@@ -93,6 +93,6 @@ def consent_pdf() -> bytes:
     SimpleDocTemplate(
         out, pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm,
         bottomMargin=20 * mm, title=f"{CONSENT_TITLE} ({CONSENT_VERSION})",
-        author="Podcast Engine", subject="Consent to record and clone a voice",
+        author="Oasis", subject="Consent to record and clone a voice",
     ).build(story, onFirstPage=footer, onLaterPages=footer)  # fmt: skip
     return out.getvalue()

@@ -18,9 +18,11 @@ from podcast_engine.api.controllers.auth_controller import AuthController
 from podcast_engine.api.controllers.episodes_controller import EpisodeController
 from podcast_engine.api.controllers.feeds_controller import FeedController
 from podcast_engine.api.controllers.home_controller import HomeController
+from podcast_engine.api.controllers.music_controller import MusicController
 from podcast_engine.api.controllers.ops_controller import OpsController
 from podcast_engine.api.controllers.shows_controller import ShowController
 from podcast_engine.api.controllers.sources_controller import SourceController
+from podcast_engine.api.controllers.speech_controller import SpeechController
 from podcast_engine.api.controllers.uploads_controller import UploadController
 from podcast_engine.api.controllers.usage_controller import UsageController
 from podcast_engine.api.controllers.voices_controller import VoiceController
@@ -45,11 +47,13 @@ from podcast_engine.api.repositories.login_attempts_repository import (
     LoginAttempts,
     RedisLoginAttempts,
 )
+from podcast_engine.api.repositories.music_repository import PostgresMusicRepository
 from podcast_engine.api.repositories.security_events_repository import (
     PostgresSecurityEventRepository,
 )
 from podcast_engine.api.repositories.shows_repository import PostgresShowRepository
 from podcast_engine.api.repositories.sources_repository import PostgresSourceRepository
+from podcast_engine.api.repositories.speech_repository import PostgresSpeechRepository
 from podcast_engine.api.repositories.uploads_repository import PostgresUploadRepository
 from podcast_engine.api.repositories.voices_repository import PostgresVoiceRepository
 from podcast_engine.api.services.assistant_service import AssistantService
@@ -62,9 +66,11 @@ from podcast_engine.api.services.episodes_service import (
     RebuildFeed,
 )
 from podcast_engine.api.services.feeds_service import FeedService
+from podcast_engine.api.services.music_service import MusicService
 from podcast_engine.api.services.ops_service import Check, OpsService
 from podcast_engine.api.services.shows_service import ShowService
 from podcast_engine.api.services.sources_service import SourceService
+from podcast_engine.api.services.speech_service import SpeechService
 from podcast_engine.api.services.uploads_service import UploadService
 from podcast_engine.api.services.usage_service import UsageService
 from podcast_engine.api.services.voices_service import VoiceService
@@ -73,7 +79,13 @@ from podcast_engine.common.db import get_engine
 from podcast_engine.common.llm import LlmClient, make_llm
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.mailer import Mailer, make_mailer
-from podcast_engine.common.queue import Stage, celery_app, dispatch, dispatch_feed_rebuild
+from podcast_engine.common.queue import (
+    Stage,
+    celery_app,
+    dispatch,
+    dispatch_feed_rebuild,
+    dispatch_speech,
+)
 from podcast_engine.common.storage import ObjectStore, S3ObjectStore
 
 log = get_logger("api.dependencies")
@@ -109,7 +121,11 @@ def get_rebuild_feed() -> RebuildFeed:
 
 def get_show_controller(session: SessionDep) -> ShowController:
     return ShowController(
-        ShowService(PostgresShowRepository(session), PostgresVoiceRepository(session))
+        ShowService(
+            PostgresShowRepository(session),
+            PostgresVoiceRepository(session),
+            PostgresMusicRepository(session),
+        )
     )
 
 
@@ -178,7 +194,11 @@ def get_assistant_controller(
         store,
         rebuild_feed,
     )
-    shows = ShowService(PostgresShowRepository(session), PostgresVoiceRepository(session))
+    shows = ShowService(
+        PostgresShowRepository(session),
+        PostgresVoiceRepository(session),
+        PostgresMusicRepository(session),
+    )
     per_hour = get_settings().assistant_questions_per_hour
     return AssistantController(AssistantService(episodes, shows, usage, llm, per_hour))
 
@@ -211,6 +231,46 @@ def get_voice_controller(
     session: SessionDep, store: Annotated[ObjectStore, Depends(get_object_store)]
 ) -> VoiceController:
     return VoiceController(VoiceService(PostgresVoiceRepository(session), store))
+
+
+@lru_cache
+def get_speech_usage() -> AssistantUsage:
+    """Clip counts shared by every API process (Redis), so the hourly limit holds."""
+    import redis
+
+    client = redis.Redis.from_url(get_settings().redis_url, socket_timeout=2)
+    return RedisAssistantUsage(client, prefix="speech")
+
+
+def get_speech_enqueue() -> Callable[[str], str]:
+    return dispatch_speech
+
+
+def get_speech_controller(
+    session: SessionDep,
+    store: Annotated[ObjectStore, Depends(get_object_store)],
+    usage: Annotated[AssistantUsage, Depends(get_speech_usage)],
+    enqueue: Annotated[Callable[[str], str], Depends(get_speech_enqueue)],
+) -> SpeechController:
+    from podcast_engine.common.quota import make_budget
+
+    settings = get_settings()
+    service = SpeechService(
+        PostgresSpeechRepository(session),
+        PostgresVoiceRepository(session),
+        store,
+        usage,
+        enqueue,
+        settings,
+        make_budget(settings),
+    )
+    return SpeechController(service)
+
+
+def get_music_controller(
+    session: SessionDep, store: Annotated[ObjectStore, Depends(get_object_store)]
+) -> MusicController:
+    return MusicController(MusicService(PostgresMusicRepository(session), store))
 
 
 def get_upload_controller(
@@ -304,7 +364,9 @@ def get_auth_service(session: SessionDep) -> AuthService:
         events=PostgresSecurityEventRepository(session),
         purge_files=lambda user_id: purge_stored_files(
             PostgresShowRepository(session).stored_files(owner_id=user_id)
-            + PostgresVoiceRepository(session).object_keys(user_id),
+            + PostgresVoiceRepository(session).object_keys(user_id)
+            + PostgresSpeechRepository(session).object_keys(user_id)
+            + PostgresMusicRepository(session).object_keys(user_id),
             get_object_store(),
         ),
         reset_minutes=settings.password_reset_minutes,

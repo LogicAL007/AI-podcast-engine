@@ -60,6 +60,16 @@ TAGS: list[dict[str, Any]] = [
         "consent form its speaker signed. Private to their owner.",
     },
     {
+        "name": "speech",
+        "description": "Type-to-speech: a line voiced in one of your recorded voices or the voice "
+        "engine's own, with voice effects. Rate-limited per person.",
+    },
+    {
+        "name": "music",
+        "description": "The music library for shows' intros, outros, stings and beds: built-in "
+        "tracks made in the app, and tracks you upload with the right to use them.",
+    },
+    {
         "name": "assistant",
         "description": "The companion bot's answers, grounded in your own episode, with "
         "suggested next steps. Rate-limited per person.",

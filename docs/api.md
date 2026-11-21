@@ -109,6 +109,7 @@ the unit tests run the whole API with in-memory fakes.
 | POST | `/v1/episodes/{episode_id}/approve` | `approve_episode` | 200 | 404, 409, 503 | Release an episode in review to voicing |
 | POST | `/v1/episodes/{episode_id}/retry` | `retry_episode` | 200 | 404, 409, 503 | Resume a failed or cancelled episode at its stage |
 | POST | `/v1/episodes/{episode_id}/cancel` | `cancel_episode` | 200 | 404, 409 | Stop after the running stage |
+| POST | `/v1/episodes/{episode_id}/remix` | `remix_episode` | 200 | 404, 409, 503 | Re-assemble a published episode with the show's current host effects and music, and publish it again in place; nothing is voiced |
 | GET | `/v1/episodes/{episode_id}/runs` | `list_episode_runs` | 200 | 404 | Page of stage runs: seconds, model, prompt version, seed |
 | GET | `/v1/episodes/{episode_id}/claims` | `list_episode_claims` | 200 | 404 | Page of claims; `supported`, `segment` filters |
 | GET, HEAD | `/v1/episodes/{episode_id}/audio.wav` | `get_episode_audio`, `head_episode_audio` | 200, 206 | 404, 416 | `audio/wav` with Range support; `?download=true` |
@@ -121,6 +122,16 @@ the unit tests run the whole API with in-memory fakes.
 | DELETE | `/v1/shows/{show_id}/uploads/{upload_id}` | `delete_upload` | 204 | 404 | Its sections leave at the next episode |
 | GET | `/v1/feeds/{show_id}/rss.xml` | `get_show_feed` | 200 | 404 | `application/rss+xml` |
 | GET | `/v1/usage` | `usage_today` | 200 | 401 | Today's Gemini requests used and left per model, and what writes and voices episodes |
+| GET | `/v1/speech/engine` | `speech_engine` | 200 | 401 | Type-to-speech: the voice engine, whether recorded voices can speak, its own voices, effect presets, clips left today (Gemini) |
+| POST | `/v1/speech` | `create_clip` | 202 | 404, 422, 429 | Queue a line (up to 600 characters) in a recorded or engine voice, with `delivery` and `effects`; voiced by the voice worker |
+| GET | `/v1/speech` | `list_clips` | 200 | 401 | Your 20 most recent clips |
+| GET | `/v1/speech/{clip_id}` | `get_clip` | 200 | 404 | Poll until `status` is `done` (then `audio`) or `failed` (then `error`) |
+| GET | `/v1/speech/{clip_id}/audio.wav` | `clip_audio` | 200 | 404 | The clip, owner only; `?download=true` |
+| DELETE | `/v1/speech/{clip_id}` | `delete_clip` | 204 | 404 | |
+| GET | `/v1/music` | `list_music` | 200 | 401 | Built-in tracks (made in code), then your uploads |
+| POST | `/v1/music` | `upload_music` | 201 | 409, 413, 415, 422 | Multipart 24 kHz mono WAV (the web app converts any format), `name`, `role`, `credit`, `rights=true` |
+| GET | `/v1/music/{track_id}/audio.wav` | `music_audio` | 200 | 404 | `builtin:...` or one of yours |
+| DELETE | `/v1/music/{track_id}` | `delete_music` | 204 | 404, 409 | Yours only; shows using it go back to the default for that slot |
 | GET | `/health` | `health` | 200 | | Liveness only |
 | GET | `/ready` | `ready` | 200 | 503 | Database, queue and storage; 503 names the failing one |
 | GET | `/metrics` | | 200 | | Prometheus metrics; not in the OpenAPI schema |
@@ -275,6 +286,14 @@ curl -N -H "Authorization: Bearer $TOKEN" localhost:8000/v1/episodes/<episode_id
 - **Starting an episode** commits the episode row *before* enqueuing the first stage, so a worker
   can always find it. If the queue is unreachable, the episode is marked `failed` and the client
   gets `503`, so nothing sits in `queued` forever.
+- **Type-to-speech is a job, not a request.** `POST /v1/speech` stores the clip as `queued` and
+  sends it to the voice queue, so whichever worker has the voices makes it: Chatterbox with the
+  recordings (`make voice-host` on the Mac) or Gemini. A recorded voice on a Gemini server fails
+  with a plain reason. With Gemini, clips may use only half of the day's voice budget.
+- **Host effects and music are applied at assembly**, never at synthesis: the TTS cache keeps the
+  raw voices, so changing them voices nothing again, and `remix` hears the change on a published
+  episode for free. Built-in music is synthesised in code (`common/music.py`), so the API and the
+  assemble worker play the same audio and the repository holds no music files.
 - **Each repository write commits by itself.** There is no multi-statement unit of work yet; add
   one if an operation ever needs to change two tables atomically.
 - **Errors** follow one path: services raise `NotFoundError` or `PipelineUnavailableError`

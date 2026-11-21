@@ -13,9 +13,11 @@ from podcast_engine.api.routers.episodes_router import router as episodes_router
 from podcast_engine.api.routers.feeds_router import router as feeds_router
 from podcast_engine.api.routers.home_router import router as home_router
 from podcast_engine.api.routers.media_router import router as media_router
+from podcast_engine.api.routers.music_router import router as music_router
 from podcast_engine.api.routers.ops_router import router as ops_router
 from podcast_engine.api.routers.shows_router import router as shows_router
 from podcast_engine.api.routers.sources_router import router as sources_router
+from podcast_engine.api.routers.speech_router import router as speech_router
 from podcast_engine.api.routers.uploads_router import router as uploads_router
 from podcast_engine.api.routers.usage_router import router as usage_router
 from podcast_engine.api.routers.voices_router import router as voices_router
@@ -30,7 +32,7 @@ PROTECTED = errors(
 def create_app() -> FastAPI:
     configure_logging(get_settings().log_level)
     app = FastAPI(
-        title="AI Podcast Engine",
+        title="Oasis",
         version=__version__,
         summary="Create shows, generate grounded episodes and fetch their audio, notes and feeds.",
         description=DESCRIPTION,
@@ -52,6 +54,8 @@ def create_app() -> FastAPI:
         sources_router,
         uploads_router,
         voices_router,
+        speech_router,
+        music_router,
         assistant_router,
         usage_router,
     )

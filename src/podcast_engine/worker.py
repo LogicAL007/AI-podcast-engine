@@ -72,6 +72,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             log.warning("voice_worker_standing_down", backend=settings.tts_backend, reason=problem)
             return 0
     start_metrics_server(settings.metrics_port)
+    # Wait out a broker outage however long it lasts (Docker Desktop quit, the laptop slept),
+    # instead of exiting after Celery's default 100 tries. A container would be restarted, but
+    # the Mac voice worker (`make voice-host`) has nothing to restart it.
+    celery_app.conf.broker_connection_retry_on_startup = True
+    celery_app.conf.broker_connection_max_retries = None
     celery_app.worker_main(
         worker_args(
             list(dict.fromkeys(args.stages)),
