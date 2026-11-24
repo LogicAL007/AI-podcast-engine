@@ -1,9 +1,0 @@
-# Example show definition (FR1). Validated against podcast_engine.common.models.ShowConfig.
-topic: "Weekly digest of open-source AI research"
-tone: neutral
-target_minutes: 7
-host_count: 2
-language: en
-expertise: intermediate
-sources:
-  - https://export.arxiv.org/rss/cs.CL
