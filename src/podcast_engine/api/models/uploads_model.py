@@ -1,5 +1,3 @@
-"""Schemas for files a creator uploads as sources."""
-
 from datetime import datetime
 from uuid import UUID
 
@@ -26,6 +24,7 @@ class UploadRead(BaseModel):
     @computed_field(description="Where to download the file")  # type: ignore[prop-decorator]
     @property
     def file(self) -> str:
+        """Path in the API to download the file."""
         return f"{V1}/shows/{self.show_id}/uploads/{self.upload_id}/file"
 
 

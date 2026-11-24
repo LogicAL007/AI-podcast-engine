@@ -1,17 +1,3 @@
-"""TLS for the local Vault: ``python -m podcast_engine.common.vault_tls`` (the vault-certs service).
-
-Run at every ``docker compose up``, before Vault starts, and safe to repeat:
-
-* A private certificate authority is created once. Its key stays in ``<secrets>/vault-ca-key.pem``
-  (owner-only); its certificate, ``<secrets>/vault-ca.pem``, is what every client trusts.
-* Vault's server certificate (names ``vault``, ``localhost`` and ``127.0.0.1``, valid one year)
-  is issued into the ``vaulttls`` volume, owned by Vault's user with the key readable only by it.
-  It is replaced when it is within 30 days of expiry, or when its names change.
-
-From the host: ``curl --cacert secrets/vault-ca.pem https://localhost:8200/v1/sys/health``.
-For production, use a certificate from your organisation's CA instead.
-"""
-
 import ipaddress
 import json
 import os
@@ -32,11 +18,27 @@ VAULT_UID, VAULT_GID = 100, 1000  # the vault user in hashicorp/vault
 
 
 def _say(event: str, **fields: object) -> None:
+    """Print one JSON log line.
+
+    Args:
+        event: What happened.
+        **fields: Details to log with it.
+    """
     print(json.dumps({"event": event, **fields}, default=str), flush=True)  # noqa: T201
 
 
 def _write(path: Path, data: bytes, mode: int, owner: tuple[int, int] | None = None) -> None:
-    path.unlink(missing_ok=True)  # replace, even a read-only file
+    """Write a file with its permissions and, when running as root, its owner.
+
+    An existing file is removed first, so even a read-only one is replaced.
+
+    Args:
+        path: Where to write.
+        data: The file's bytes.
+        mode: Its permission bits.
+        owner: Its (uid, gid), or None to leave the owner as it is.
+    """
+    path.unlink(missing_ok=True)
     path.write_bytes(data)
     path.chmod(mode)
     if owner is not None and os.geteuid() == 0:
@@ -44,6 +46,14 @@ def _write(path: Path, data: bytes, mode: int, owner: tuple[int, int] | None = N
 
 
 def _pem_key(key: ec.EllipticCurvePrivateKey) -> bytes:
+    """Encode a private key as unencrypted PKCS#8 PEM.
+
+    Args:
+        key: The key.
+
+    Returns:
+        The PEM bytes.
+    """
     return key.private_bytes(
         serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
     )
@@ -52,6 +62,19 @@ def _pem_key(key: ec.EllipticCurvePrivateKey) -> bytes:
 def ensure_ca(
     secrets_dir: Path, now: datetime
 ) -> tuple[x509.Certificate, ec.EllipticCurvePrivateKey]:
+    """Return the local certificate authority, creating it when needed.
+
+    The CA is created once and reused; a new one is made only when its files are missing or empty,
+    or it is within 30 days of expiry. Its key stays in ``<secrets>/vault-ca-key.pem`` (owner-only);
+    its certificate, ``<secrets>/vault-ca.pem``, is what every client trusts.
+
+    Args:
+        secrets_dir: The secrets folder that holds the CA's files.
+        now: The current time.
+
+    Returns:
+        The CA's certificate and private key.
+    """
     cert_path, key_path = secrets_dir / "vault-ca.pem", secrets_dir / "vault-ca-key.pem"
     if (
         cert_path.exists()
@@ -101,6 +124,17 @@ def ensure_ca(
 
 
 def needs_server_cert(path: Path, ca: x509.Certificate, now: datetime) -> bool:
+    """Tell whether Vault's server certificate must be issued again.
+
+    Args:
+        path: The server certificate's file.
+        ca: The CA that should have issued it.
+        now: The current time.
+
+    Returns:
+        True when it is missing, was issued by another CA, is within 30 days of expiry, or has
+        different names.
+    """
     if not path.exists() or not path.stat().st_size:
         return True
     cert = x509.load_pem_x509_certificate(path.read_bytes())
@@ -115,6 +149,18 @@ def needs_server_cert(path: Path, ca: x509.Certificate, now: datetime) -> bool:
 def issue_server_cert(
     tls_dir: Path, ca: x509.Certificate, ca_key: ec.EllipticCurvePrivateKey, now: datetime
 ) -> None:
+    """Issue Vault's server certificate from the local CA.
+
+    Valid for one year, for the names ``vault``, ``localhost`` and ``127.0.0.1``. The key and
+    certificate are written to the ``vaulttls`` volume, owned by Vault's user, with the key readable
+    only by it.
+
+    Args:
+        tls_dir: The folder Vault reads its TLS files from.
+        ca: The CA's certificate.
+        ca_key: The CA's private key.
+        now: The current time.
+    """
     key = ec.generate_private_key(ec.SECP256R1())
     alt_names: list[x509.GeneralName] = [x509.DNSName(name) for name in DNS_NAMES]
     alt_names += [x509.IPAddress(ipaddress.ip_address(ip)) for ip in IP_NAMES]
@@ -141,11 +187,22 @@ def issue_server_cert(
 
 
 def main() -> int:
+    """Set up TLS for the local Vault: ``python -m podcast_engine.common.vault_tls``.
+
+    The ``vault-certs`` service runs it at every ``docker compose up``, before Vault starts, and it
+    is safe to repeat. It ensures the CA, copies the CA certificate next to Vault's own (for its
+    healthcheck's ``vault status``), and issues the server certificate when needed.
+
+    From the host: ``curl --cacert secrets/vault-ca.pem https://localhost:8200/v1/sys/health``. For
+    production, use a certificate from your organisation's CA instead.
+
+    Returns:
+        0, the process's exit status.
+    """
     secrets_dir = Path(os.environ.get("SECRETS_DIR", "/secrets"))
     tls_dir = Path(os.environ.get("VAULT_TLS_DIR", "/tls"))
     now = datetime.now(UTC)
     ca, ca_key = ensure_ca(secrets_dir, now)
-    # The CA certificate also goes next to Vault's own, for its healthcheck's `vault status`.
     _write(tls_dir / "ca.pem", ca.public_bytes(serialization.Encoding.PEM), 0o444)
     if needs_server_cert(tls_dir / "vault-cert.pem", ca, now):
         issue_server_cert(tls_dir, ca, ca_key, now)

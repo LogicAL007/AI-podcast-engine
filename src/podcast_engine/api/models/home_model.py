@@ -1,14 +1,3 @@
-"""Schemas for the API's home document and its API catalog.
-
-The home document follows "Home Documents for HTTP APIs" (draft-nottingham-json-home-06): an
-``api`` object with the title and links, and ``resources`` keyed by link relation, each with a URI
-(or URI template) and hints such as the allowed methods and formats. ``operations`` on a resource
-and ``auth``, ``health`` and ``conventions`` on the API object are this API's own additions, which
-JSON Home clients ignore.
-
-The catalog follows RFC 9727: a Linkset (RFC 9264) using the link relations of RFC 8631.
-"""
-
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +8,8 @@ CATALOG_PROFILE = "https://www.rfc-editor.org/info/rfc9727"
 
 
 class AuthScheme(BaseModel):
+    """An HTTP authentication scheme the API accepts."""
+
     scheme: str = Field(description="An HTTP authentication scheme name", examples=["Bearer"])
     realms: list[str] = Field(default=[], description="Protection spaces it applies to")
 
@@ -83,6 +74,8 @@ class Resource(BaseModel):
 
 
 class Auth(BaseModel):
+    """How authentication works: whether it is needed, the schemes, and where to sign in."""
+
     required: bool = Field(description="Whether any request needs credentials")
     schemes: list[AuthScheme] = Field(description="Authentication schemes the API accepts")
     login: str | None = Field(description="Where to obtain credentials; null when there is none")
@@ -94,11 +87,19 @@ class Auth(BaseModel):
 
 
 class HealthLinks(BaseModel):
+    """Where the liveness and readiness checks are."""
+
     live: str = Field(description="Liveness: the process is serving")
     ready: str = Field(description="Readiness: database, queue and storage answer")
 
 
 class ApiInfo(BaseModel):
+    """The home document's ``api`` object: title, links, auth, health and conventions.
+
+    ``auth``, ``health`` and ``conventions`` are this API's own additions to JSON Home, which JSON
+    Home clients ignore.
+    """
+
     title: str = Field(description="The API's name")
     version: str = Field(description="The API's version")
     description: str = Field(description="What the API does")
@@ -111,13 +112,20 @@ class ApiInfo(BaseModel):
 
 
 class HomeDocument(BaseModel):
-    """The API's home document: what it offers and how to use it, in one request."""
+    """The API's home document: what it offers and how to use it, in one request.
+
+    Follows "Home Documents for HTTP APIs" (draft-nottingham-json-home-06): an ``api`` object with
+    the title and links, and ``resources`` keyed by link relation, each with a URI (or URI template)
+    and hints such as the allowed methods and formats.
+    """
 
     api: ApiInfo
     resources: dict[str, Resource] = Field(description="Every resource, keyed by link relation")
 
 
 class LinkTarget(BaseModel):
+    """One link in a Linkset: where it points, its media type and title."""
+
     href: str = Field(description="The linked resource")
     type: str | None = Field(default=None, description="Its media type")
     title: str | None = Field(default=None, description="What it is")
@@ -132,6 +140,9 @@ class LinkContext(BaseModel):
 
 
 class ApiCatalog(BaseModel):
-    """An RFC 9727 API catalog: a Linkset (RFC 9264) listing this publisher's APIs."""
+    """An RFC 9727 API catalog: a Linkset (RFC 9264) listing this publisher's APIs.
+
+    Uses the link relations of RFC 8631.
+    """
 
     linkset: list[LinkContext] = Field(description="The catalog and each API's links")

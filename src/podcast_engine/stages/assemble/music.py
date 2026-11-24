@@ -1,15 +1,3 @@
-"""Music and voice effects for the assemble stage.
-
-- Host effects (``shows.host_effects``) are applied to each clip before it is levelled and mixed.
-- The show's intro, outro and sting (``shows.music``) take the place of the default chimes, cut to
-  length and brought to a level just under the voices.
-- The bed loops under the conversation and ducks while people talk: it sits ``bed_level_db``
-  below the voices during speech and comes up in longer pauses and between segments.
-
-Everything works on 24 kHz mono float32, after the voices are mixed and before loudness is
-normalised, so the -16 LUFS target and the silence and clipping checks apply to the full mix.
-"""
-
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -40,19 +28,26 @@ BED_FADE_S = 1.0
 LOOP_CROSSFADE_S = 1.0  # an uploaded bed is joined to itself with this crossfade
 
 
-# ---- voice effects ---------------------------------------------------------------------------
-
-
 def apply_host_effects(
     lines: list[dict[str, Any]],
     clips: list[np.ndarray | None],
     host_effects: dict[str, VoiceEffects],
 ) -> tuple[list[np.ndarray | None], dict[str, Any]]:
-    """Each clip processed with its speaker's effects, and a report of what was done.
+    """Process each clip with its speaker's voice effects, and report what was done.
 
-    A clip may hold several lines (voiced together; the lines after it have no clip of their
-    own). It is processed only when every speaker in it has the same effects, since one clip
-    cannot be split by speaker.
+    Host effects (``shows.host_effects``) are applied to each clip before it is levelled and mixed.
+    A clip may hold several lines (voiced together; the lines after it have no clip of their own).
+    It is processed only when every speaker in it has the same effects, since one clip cannot be
+    split by speaker.
+
+    Args:
+        lines: The episode's voiced lines, in order.
+        clips: Each line's audio, or None for a line voiced with the one before.
+        host_effects: Each host's effects.
+
+    Returns:
+        The processed clips, and a report of which hosts' effects were applied and which clips were
+        skipped.
     """
     active = {host: fx for host, fx in host_effects.items() if fx.active}
     report: dict[str, Any] = {
@@ -79,12 +74,14 @@ def apply_host_effects(
     return out, report
 
 
-# ---- tracks ----------------------------------------------------------------------------------
-
-
 @dataclass
 class ShowTracks:
-    """The show's music, loaded and fitted. A slot is None when the default should play."""
+    """The show's music, loaded and fitted. A slot is None when the default should play.
+
+    The intro, outro and sting take the place of the default chimes; the bed loops under the
+    conversation. ``bed_seamless`` marks a bed made to loop, and ``report`` and ``credits`` go into
+    the assembly report and the show notes.
+    """
 
     intro: np.ndarray | None = None
     outro: np.ndarray | None = None
@@ -96,6 +93,15 @@ class ShowTracks:
 
 
 def _level(audio: np.ndarray, rms: float) -> np.ndarray:
+    """Scale audio to an RMS level, keeping peaks under 0.95.
+
+    Args:
+        audio: The audio.
+        rms: The level to reach.
+
+    Returns:
+        The levelled audio; silence is returned as it is.
+    """
     current = float(np.sqrt(np.mean(audio**2))) if len(audio) else 0.0
     if current == 0.0:
         return audio.astype(np.float32)
@@ -107,14 +113,26 @@ def _level(audio: np.ndarray, rms: float) -> np.ndarray:
 
 
 def fit_slot(audio: np.ndarray, slot: str) -> np.ndarray:
-    """An intro, outro or sting cut to its longest length, faded, at the slot level."""
+    """Fit an intro, outro or sting to its slot.
+
+    It is cut to the slot's longest length and faded out (a built-in intro that ends on its own gets
+    only a short fade, to avoid a click); an outro also fades in. Everything is levelled about 2 dB
+    under the voices.
+
+    Args:
+        audio: The track's audio.
+        slot: ``intro``, ``outro`` or ``sting``.
+
+    Returns:
+        The fitted audio.
+    """
     longest = int(SLOT_SECONDS[slot] * SR)
     out = np.array(audio[:longest], dtype=np.float32)
     fade = min(int(SLOT_FADE_OUT_S[slot] * SR), len(out) // 2)
     if len(audio) > longest or slot != "intro":
         out[len(out) - fade :] *= np.linspace(1.0, 0.0, fade, dtype=np.float32)
     else:
-        tail = min(int(0.05 * SR), len(out))  # a built-in intro ends on its own; avoid a click
+        tail = min(int(0.05 * SR), len(out))
         out[len(out) - tail :] *= np.linspace(1.0, 0.0, tail, dtype=np.float32)
     if slot == "outro":
         rise = min(int(OUTRO_FADE_IN_S * SR), len(out) // 2)
@@ -125,8 +143,19 @@ def fit_slot(audio: np.ndarray, slot: str) -> np.ndarray:
 def load_show_tracks(
     music: ShowMusic, uploaded: dict[str, MusicTrackRecord], store: ObjectStore
 ) -> ShowTracks:
-    """The show's tracks, built-in or uploaded. A track that is gone (deleted since it was
-    chosen) or unreadable is reported and left out, so the default plays in its place."""
+    """Load the show's tracks, built-in or uploaded, and fit them to their slots.
+
+    A track that is gone (deleted since it was chosen) or unreadable is reported and left out, so
+    the default plays in its place.
+
+    Args:
+        music: The show's music settings.
+        uploaded: The owner's uploaded tracks the settings name, by id.
+        store: Where uploaded tracks are stored.
+
+    Returns:
+        The fitted tracks, with a report and the credits to add to the show notes.
+    """
     tracks = ShowTracks()
     for slot in ("intro", "outro", "sting", "bed"):
         track_id: str | None = getattr(music, slot)
@@ -163,12 +192,20 @@ def load_show_tracks(
     return tracks
 
 
-# ---- the bed ---------------------------------------------------------------------------------
-
-
 def loop_to(bed: np.ndarray, samples: int, *, seamless: bool) -> np.ndarray:
-    """``bed`` repeated to ``samples`` long. A track made to loop is tiled end to start; any
-    other is joined to itself with an equal-power crossfade, so the seam is not heard."""
+    """Repeat a bed to a given length.
+
+    A track made to loop is tiled end to start; any other is joined to itself with a one-second
+    equal-power crossfade, so the seam is not heard.
+
+    Args:
+        bed: The bed's audio.
+        samples: The length needed.
+        seamless: Whether the track was made to loop.
+
+    Returns:
+        The bed, exactly ``samples`` long.
+    """
     if len(bed) >= samples:
         return np.array(bed[:samples], dtype=np.float32)
     if seamless:
@@ -186,10 +223,19 @@ def loop_to(bed: np.ndarray, samples: int, *, seamless: bool) -> np.ndarray:
 
 
 def duck_gains(region: np.ndarray, level_db: float) -> np.ndarray:
-    """A per-sample gain for the bed under ``region`` of the mix: ``level_db`` while people talk
-    (speech within GAP_S / 2 either side), GAP_LIFT_DB more in longer pauses. It ducks quickly
-    and recovers slowly, and since it looks a little ahead, it is already down when a line
-    starts."""
+    """Compute a per-sample gain for the bed under part of the mix.
+
+    The bed sits at ``level_db`` while people talk (speech within GAP_S / 2 either side) and
+    GAP_LIFT_DB higher in longer pauses. It ducks quickly and recovers slowly, and since it looks a
+    little ahead, it is already down when a line starts.
+
+    Args:
+        region: The part of the mix the bed goes under.
+        level_db: The bed's level under speech, in dB.
+
+    Returns:
+        One linear gain per sample of the region.
+    """
     frame = int(FRAME_S * SR)
     count = max(-(-len(region) // frame), 1)
     padded = np.zeros(count * frame, dtype=np.float32)
@@ -220,10 +266,25 @@ def add_bed(
     level_db: float,
     seamless: bool,
 ) -> np.ndarray:
-    """``mix`` with ``bed`` under it from sample ``start`` to ``end``, ducked under speech and
-    faded in and out."""
+    """Put the bed under part of the mix, ducked under speech and faded in and out.
+
+    This works on 24 kHz mono float32, after the voices are mixed and before loudness is normalised,
+    so the -16 LUFS target and the silence and clipping checks apply to the full mix. A stretch
+    under a second gets no bed.
+
+    Args:
+        mix: The mixed episode.
+        bed: The bed's audio.
+        start: The first sample to put it under.
+        end: The sample to stop at.
+        level_db: The bed's level under speech, in dB.
+        seamless: Whether the bed was made to loop.
+
+    Returns:
+        The mix with the bed added; the input unchanged when the stretch is too short.
+    """
     start, end = max(start, 0), min(end, len(mix))
-    if end - start < SR:  # under a second: nothing to put a bed under
+    if end - start < SR:
         return mix
     under = _level(loop_to(bed, end - start, seamless=seamless), SPEECH_RMS)
     under *= duck_gains(mix[start:end], level_db)

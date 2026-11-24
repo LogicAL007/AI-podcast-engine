@@ -1,5 +1,3 @@
-"""Assemble: stitch audio together and normalise loudness."""
-
 import random
 from pathlib import Path
 from typing import Any
@@ -35,16 +33,42 @@ log = get_logger("assemble")
 
 
 def needs_normalisation(measured_lufs: float) -> bool:
-    """True when integrated loudness is outside the NFR target of about -16 LUFS."""
+    """Tell whether loudness is outside the target of about -16 LUFS (the NFR).
+
+    Args:
+        measured_lufs: The measured integrated loudness.
+
+    Returns:
+        True when it is further from the target than the tolerance.
+    """
     return abs(measured_lufs - TARGET_LUFS) > LOUDNESS_TOLERANCE_LU
 
 
 def episode_audio_key(episode_id: UUID) -> str:
+    """Return the object key of an episode's audio.
+
+    Args:
+        episode_id: The episode.
+
+    Returns:
+        The WAV's key in object storage.
+    """
     return f"episodes/{episode_id}.wav"
 
 
 def load_asset(assets_dir: Path, name: str, fallback: np.ndarray) -> tuple[np.ndarray, str]:
-    """``assets/audio/<name>.wav`` (24 kHz mono 16-bit) if present, else the synthetic chime."""
+    """Load ``assets/audio/<name>.wav`` (24 kHz mono 16-bit) if present, else the fallback.
+
+    A file in the wrong format is logged and ignored.
+
+    Args:
+        assets_dir: The assets folder.
+        name: ``intro`` or ``outro``.
+        fallback: The synthetic chime to use instead.
+
+    Returns:
+        The audio, and where it came from, for the assembly report.
+    """
     path = assets_dir / "audio" / f"{name}.wav"
     if path.exists():
         try:
@@ -59,8 +83,17 @@ EDGE_PAD_S = 0.04  # kept around the speech after trimming, so words are not cli
 
 
 def tighten(clip: np.ndarray) -> np.ndarray:
-    """The clip without the silence a voice model leaves before and after the words, at the
-    common speech level. Gaps between lines then come only from ``pause_after``."""
+    """Trim the silence a voice model leaves around the words, and level the clip.
+
+    The gaps between lines then come only from ``pause_after``. A little is kept around the speech,
+    so words are not clipped.
+
+    Args:
+        clip: One voiced clip.
+
+    Returns:
+        The trimmed clip at the common speech level.
+    """
     if not clip.size:
         return clip
     peak = float(np.abs(clip).max())
@@ -75,19 +108,28 @@ def tighten(clip: np.ndarray) -> np.ndarray:
 
 
 def pause_after(line: dict[str, Any], following: dict[str, Any] | None) -> float:
-    """Seconds of quiet between one line and the next, the way people take turns.
+    """Return the seconds of quiet between one line and the next, the way people take turns.
 
-    A quick reaction or an answer comes in fast, the same speaker carrying on pauses briefly, and
-    a fact gets a moment to land. Lines voiced together in one clip are paced by the voice itself.
+    A quick reaction ("Right.") or an answer to a question comes in fast, with no dead air; the same
+    speaker carrying on pauses briefly; and a fact gets a moment to land. At the end of a part there
+    is no pause, since the transition or the outro adds its own. Lines voiced together in one clip
+    are paced by the voice itself.
+
+    Args:
+        line: The line just spoken.
+        following: The next line, or None at the end.
+
+    Returns:
+        The pause in seconds.
     """
     if line["kind"] == "disclosure":
         return 0.7
     if following is None or following["kind"] != line["kind"]:
-        return 0.25  # the part ends; the transition (or the outro) adds its own pause
+        return 0.25
     if following["speaker"] == line["speaker"]:
         return 0.2
     if len(following["text"].split()) <= 4 or line["text"].rstrip().endswith("?"):
-        return 0.18  # "Right." or the answer to a question: no dead air before it
+        return 0.18
     if line.get("claim"):
         return 0.45
     if line.get("delivery") == "thoughtful" or following.get("delivery") == "serious":
@@ -104,17 +146,33 @@ def mix(
     outro: np.ndarray,
     transition: np.ndarray,
 ) -> tuple[np.ndarray, list[tuple[float, str]]]:
-    """Intro, lines with pauses, transitions between segments, outro. Returns audio and chapters.
+    """Mix the intro, the lines with their pauses, transitions between segments, and the outro.
 
-    A line without a clip was voiced together with the lines before it, in their clip. Each
-    clip is trimmed and levelled (``tighten``), and the pause after it fits the turn
-    (``pause_after``).
+    A line without a clip was voiced together with the lines before it, in their clip; the clip ends
+    with the last line voiced in it, and the pause after it depends on who speaks next. Each clip is
+    trimmed and levelled (``tighten``), and the pause after it fits the turn (``pause_after``).
+
+    Args:
+        lines: The episode's voiced lines, in order.
+        clips: Each line's audio, or None for a line voiced in the clip before it.
+        titles: Each segment's title, for the chapters.
+        intro: The intro audio.
+        outro: The outro audio.
+        transition: What plays between segments; empty for a pause only.
+
+    Returns:
+        The audio, and each chapter's (start in seconds, title).
     """
     parts: list[np.ndarray] = []
     chapters: list[tuple[float, str]] = []
     cursor = 0.0
 
     def add(signal: np.ndarray) -> None:
+        """Append a signal and move the cursor past it.
+
+        Args:
+            signal: The audio to append.
+        """
         nonlocal cursor
         parts.append(signal)
         cursor += len(signal) / SR
@@ -139,7 +197,6 @@ def mix(
         if clip is None:
             continue
         add(tighten(clip))
-        # The clip ends with the last line voiced in it; the pause depends on who speaks next.
         end = next((n for n in range(index + 1, len(lines)) if clips[n] is not None), len(lines))
         add(silence(pause_after(lines[end - 1], lines[end] if end < len(lines) else None)))
     add(silence(0.3))
@@ -153,16 +210,35 @@ OVERLAP_S = (0.08, 0.2)  # a quick reply starts this long before the line it ans
 
 
 def room_tone(samples: int, rng: np.random.Generator) -> np.ndarray:
-    """Soft, warm background noise at ROOM_TONE_DBFS: white noise smoothed so it has no hiss."""
+    """Make soft, warm background noise at the room-tone level.
+
+    White noise smoothed over about 2 ms, so it has no hiss.
+
+    Args:
+        samples: How many samples to make.
+        rng: The seeded random generator.
+
+    Returns:
+        The noise.
+    """
     white = rng.standard_normal(samples).astype(np.float32)
-    warm = np.convolve(white, np.ones(48, dtype=np.float32) / 48, mode="same")  # about 2 ms
+    warm = np.convolve(white, np.ones(48, dtype=np.float32) / 48, mode="same")
     rms = float(np.sqrt(np.mean(warm**2))) or 1.0
     return (warm * (10 ** (ROOM_TONE_DBFS / 20) / rms)).astype(np.float32)
 
 
 def is_quick_reply(line: dict[str, Any], previous: dict[str, Any] | None) -> bool:
-    """A short answer from the other host ("Right.", "Wait, really?"), which people start before
-    the speaker has quite finished."""
+    """Tell whether a line is a short answer from the other host ("Right.", "Wait, really?").
+
+    People start such replies before the speaker has quite finished.
+
+    Args:
+        line: The line.
+        previous: The line before it, or None.
+
+    Returns:
+        True for a reply of four words or fewer from the other host within a segment.
+    """
     return (
         previous is not None
         and line["kind"] == previous["kind"] == "segment"
@@ -181,22 +257,45 @@ def mix_natural(
     transition: np.ndarray,
     seed: int = 0,
 ) -> tuple[np.ndarray, list[tuple[float, str]]]:
-    """``mix``, post-produced to sound like people in one room: quiet room tone instead of
-    digital silence between lines, each pause varied a little (a fixed gap after every line is a
-    giveaway of synthetic speech), and quick replies overlapping the end of the line they answer.
-    The same lines, levels and order as ``mix``; the seed makes it reproducible."""
+    """Mix like ``mix``, post-produced to sound like people in one room.
+
+    Quiet room tone instead of digital silence between lines, each pause varied a little (a fixed
+    gap after every line is a giveaway of synthetic speech), and quick replies overlapping the end
+    of the line they answer. The same lines, levels and order as ``mix``; the seed makes it
+    reproducible.
+
+    Args:
+        lines: The episode's voiced lines, in order.
+        clips: Each line's audio, or None for a line voiced in the clip before it.
+        titles: Each segment's title, for the chapters.
+        intro: The intro audio.
+        outro: The outro audio.
+        transition: What plays between segments; empty for a pause only.
+        seed: Seeds the room tone, pause lengths and overlaps.
+
+    Returns:
+        The audio, and each chapter's (start in seconds, title).
+    """
     rng = random.Random(seed)  # noqa: S311 - timing variation, not security
     placed: list[tuple[int, np.ndarray]] = []
     chapters: list[tuple[float, str]] = []
 
     def at(seconds: float) -> int:
+        """Convert seconds to a sample index.
+
+        Args:
+            seconds: The time.
+
+        Returns:
+            The sample at that time.
+        """
         return int(seconds * SR)
 
     placed.append((0, intro))
-    cursor = len(intro) + at(0.4)  # where the next line may start
+    cursor = len(intro) + at(0.4)
     current: int | None = None
     previous_kind = "disclosure"
-    last: tuple[int, int, dict[str, Any]] | None = None  # (start, length, line) of the last clip
+    last: tuple[int, int, dict[str, Any]] | None = None
     for index, (line, clip) in enumerate(zip(lines, clips, strict=True)):
         if line["kind"] == "segment" and line["position"] != current:
             if current is not None:
@@ -220,7 +319,6 @@ def mix_natural(
                 last_start + last_length - at(rng.uniform(*OVERLAP_S)),
             )
         placed.append((start, speech))
-        # The clip ends with the last line voiced in it; the pause depends on who speaks next.
         end = next((n for n in range(index + 1, len(lines)) if clips[n] is not None), len(lines))
         gap = pause_after(lines[end - 1], lines[end] if end < len(lines) else None)
         cursor = start + len(speech) + at(gap * rng.uniform(*PAUSE_JITTER))
@@ -234,7 +332,27 @@ def mix_natural(
 
 
 def assemble_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """FR6: add intro, outro and transitions, normalise loudness, run silence/clipping checks."""
+    """Mix the episode with its music, normalise loudness and run the checks (stage 7, FR6).
+
+    Host effects are applied to each clip first. For the intro and outro, the show's own music comes
+    first, then a deployment-wide asset, then the synthetic chime. Between segments the show's sting
+    plays if it has one, otherwise only the pause around it: a synthetic chime there made the
+    conversation sound like separate clips. A bed, if set, goes under the conversation before
+    loudness is normalised.
+
+    The checks are a sample rate of 24 kHz or more, loudness near -16 LUFS, no clipping, and no
+    silence over the limit. Everything goes into the assembly report.
+
+    Args:
+        episode_id: The episode being made.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        The next stage, publish.
+
+    Raises:
+        ValueError: There are no voiced lines.
+    """
     ctx = ctx or get_context()
     episode = ctx.repo.get_episode(episode_id)
     lines = episode.voice_lines or []
@@ -249,7 +367,6 @@ def assemble_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> St
     clips, effects = apply_host_effects(lines, clips, show.host_effects)
     uploaded = {t for t in show.music.track_ids() if not t.startswith("builtin:")}
     tracks = load_show_tracks(show.music, ctx.repo.get_music_tracks(uploaded), ctx.store)
-    # The show's own music first, then a deployment-wide asset, then the synthetic chime.
     intro, intro_source = (
         (tracks.intro, f"music:{show.music.intro}")
         if tracks.intro is not None
@@ -264,8 +381,6 @@ def assemble_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> St
             ctx.settings.assets_dir, "outro", chime((1046.5, 783.99, 659.25, 523.25), 2.4)
         )
     )
-    # Between segments: the show's sting if it has one, otherwise nothing but the pause around it.
-    # The synthetic two-note chime made the conversation sound like separate clips.
     transition = tracks.sting if tracks.sting is not None else np.zeros(0, dtype=np.float32)
     combine = mix_natural if ctx.settings.assembly_style == "natural" else mix
     raw, chapters = combine(lines, clips, titles, intro=intro, outro=outro, transition=transition)

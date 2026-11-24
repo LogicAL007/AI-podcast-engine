@@ -1,10 +1,3 @@
-"""RSS and Atom feeds as sources (FR2): each recent entry becomes one or more citable sections.
-
-An entry whose summary is long enough to talk about is used as it is. Many feeds carry only a
-title, a teaser or nothing; for those the entry's own page is fetched and read like any web page,
-so a feed without summaries still yields material (the notebook's TODO).
-"""
-
 import calendar
 import re
 from collections.abc import Callable
@@ -17,32 +10,73 @@ from podcast_engine.stages.ingest.extract import MIN_SECTION_SENTENCES, Section,
 
 log = get_logger("ingest.feeds")
 
-MIN_SUMMARY_WORDS = 40  # shorter summaries are teasers: read the linked page instead
+MIN_SUMMARY_WORDS = 40
 
 
 def looks_like_feed(body: str) -> bool:
-    """True for an RSS or Atom document (checked on the first few hundred bytes)."""
+    """Tell whether a fetched document is an RSS or Atom feed.
+
+    Only the first few hundred bytes are checked.
+
+    Args:
+        body: The fetched document.
+
+    Returns:
+        True for an RSS or Atom document.
+    """
     head = body.lstrip()[:600].lower()
     return "<rss" in head or "<feed" in head or ("<?xml" in head and "<channel" in body[:2000])
 
 
 def _text(html: str) -> str:
-    """Summary HTML as plain paragraphs."""
+    """Turn summary HTML into plain paragraphs.
+
+    Args:
+        html: The entry's summary or content HTML.
+
+    Returns:
+        The text, with paragraphs separated by blank lines.
+    """
     paragraphs = re.split(r"</p>|<br\s*/?>", html, flags=re.IGNORECASE)
     cleaned = (" ".join(re.sub(r"<[^>]+>", " ", p).split()) for p in paragraphs)
     return "\n\n".join(p for p in cleaned if p)
 
 
 def _published(entry: Any) -> datetime | None:
+    """Return when a feed entry was published, else when it was last updated.
+
+    Args:
+        entry: A feedparser entry.
+
+    Returns:
+        The date in UTC (feedparser gives a UTC struct_time), or None when the entry has neither.
+    """
     parts = entry.get("published_parsed") or entry.get("updated_parsed")
-    # feedparser gives a UTC struct_time.
     return datetime.fromtimestamp(calendar.timegm(parts), tz=UTC) if parts else None
 
 
 def feed_sections(
     body: str, fetch: Callable[[str], str], *, max_items: int
 ) -> tuple[str, list[tuple[str, Section, datetime | None]]]:
-    """The feed's title and its sections as (url, section, published), newest entries first."""
+    """Read an RSS or Atom feed's recent entries as citable sections (FR2).
+
+    An entry whose summary is long enough to talk about (at least 40 words in enough speakable
+    sentences) is used as it is. Many feeds carry only a title, a teaser or nothing; for those the
+    entry's own page is fetched and read like any web page, so a feed without summaries still yields
+    material. One unreachable article is skipped and logged, rather than losing the whole feed.
+
+    Args:
+        body: The feed document.
+        fetch: Fetches a URL and returns its HTML.
+        max_items: Most entries to read.
+
+    Returns:
+        The feed's title, and its sections as (url, section, published) in the feed's order, newest
+        first.
+
+    Raises:
+        ValueError: The document is not a readable feed.
+    """
     import feedparser
 
     parsed = feedparser.parse(body)
@@ -66,7 +100,7 @@ def feed_sections(
             continue
         try:
             page = extract_page(fetch(link))
-        except Exception as error:  # one unreachable article should not lose the whole feed
+        except Exception as error:
             log.warning("feed_entry_skipped", url=link, reason=str(error)[:200])
             continue
         for section in page.sections:

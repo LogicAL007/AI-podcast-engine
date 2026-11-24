@@ -1,5 +1,3 @@
-"""Persistence for cloned voices: the only module that knows the ``voices`` table."""
-
 import json
 from typing import Any, Protocol
 from uuid import UUID
@@ -18,32 +16,133 @@ _COLUMNS = (
 
 
 class VoiceRepository(Protocol):
-    """Every method is scoped to one owner: another user's voice does not exist for them."""
+    """Stores cloned voices and their consent records.
 
-    def add(self, owner_id: UUID, values: dict[str, Any]) -> VoiceRead: ...
+    Every method is scoped to one owner: another user's voice does not exist for them.
+    """
 
-    def get(self, voice_id: UUID, owner_id: UUID) -> VoiceRead | None: ...
+    def add(self, owner_id: UUID, values: dict[str, Any]) -> VoiceRead:
+        """Record a registered voice.
 
-    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[VoiceRead]: ...
+        Args:
+            owner_id: The user registering the voice.
+            values: The voice's id, name, speaker, licence, source, consent record, storage key,
+                size, length and checksum.
 
-    def count(self, owner_id: UUID) -> int: ...
+        Returns:
+            The registered voice.
+        """
+        ...
 
-    def owned(self, voice_ids: set[UUID], owner_id: UUID) -> set[UUID]: ...
+    def get(self, voice_id: UUID, owner_id: UUID) -> VoiceRead | None:
+        """Return one of the user's voices.
 
-    def delete(self, voice_id: UUID, owner_id: UUID) -> bool: ...
+        Args:
+            voice_id: The voice.
+            owner_id: The user asking.
 
-    def object_keys(self, owner_id: UUID) -> list[str]: ...
+        Returns:
+            The voice, or None when the user has no such voice.
+        """
+        ...
 
-    def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]: ...
+    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[VoiceRead]:
+        """Return one page of the user's voices, newest first.
+
+        Args:
+            owner_id: The user asking.
+            limit: Most voices to return.
+            offset: Voices to skip before this page.
+
+        Returns:
+            The page of voices, newest first, and the total.
+        """
+        ...
+
+    def count(self, owner_id: UUID) -> int:
+        """Count the user's voices, for the per-account limit.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            How many voices the user has registered.
+        """
+        ...
+
+    def owned(self, voice_ids: set[UUID], owner_id: UUID) -> set[UUID]:
+        """Return which of some voice ids are the user's.
+
+        Args:
+            voice_ids: Voice ids to check.
+            owner_id: The user.
+
+        Returns:
+            The ids among them that are the user's voices.
+        """
+        ...
+
+    def delete(self, voice_id: UUID, owner_id: UUID) -> bool:
+        """Delete a voice and take it off the user's show hosts.
+
+        Args:
+            voice_id: The voice.
+            owner_id: The user asking.
+
+        Returns:
+            True if a voice was deleted.
+        """
+        ...
+
+    def object_keys(self, owner_id: UUID) -> list[str]:
+        """Return where every one of the user's recordings is stored, to delete them all.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            Where each of the user's recordings is stored.
+        """
+        ...
+
+    def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]:
+        """Return the stored speech made with a voice, to delete when it is withdrawn.
+
+        Args:
+            voice_id: The voice being withdrawn.
+            owner_id: The user.
+
+        Returns:
+            The object keys to delete.
+        """
+        ...
 
 
 class PostgresVoiceRepository:
-    """Each write commits on its own."""
+    """Voices in the ``voices`` table, the only code that knows it.
+
+    Each write commits on its own.
+    """
 
     def __init__(self, session: Session) -> None:
+        """Create the repository.
+
+        Args:
+            session: The database session for this request.
+        """
         self._session = session
 
     def add(self, owner_id: UUID, values: dict[str, Any]) -> VoiceRead:
+        """Record a registered voice.
+
+        Args:
+            owner_id: The user registering the voice.
+            values: The voice's id, name, speaker, licence, source, consent record, storage key,
+                size, length and checksum.
+
+        Returns:
+            The registered voice.
+        """
         row = (
             self._session.execute(
                 text(
@@ -62,6 +161,15 @@ class PostgresVoiceRepository:
         return VoiceRead.model_validate(row)
 
     def get(self, voice_id: UUID, owner_id: UUID) -> VoiceRead | None:
+        """Return one of the user's voices.
+
+        Args:
+            voice_id: The voice.
+            owner_id: The user asking.
+
+        Returns:
+            The voice, or None when the user has no such voice.
+        """
         row = (
             self._session.execute(
                 text(
@@ -76,6 +184,16 @@ class PostgresVoiceRepository:
         return VoiceRead.model_validate(row) if row else None
 
     def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[VoiceRead]:
+        """Return one page of the user's voices, newest first.
+
+        Args:
+            owner_id: The user asking.
+            limit: Most voices to return.
+            offset: Voices to skip before this page.
+
+        Returns:
+            The page of voices, newest first, and the total.
+        """
         rows = self._session.execute(
             text(
                 f"SELECT {_COLUMNS} FROM voices WHERE owner_id = :owner_id"  # noqa: S608
@@ -87,6 +205,14 @@ class PostgresVoiceRepository:
         return Paged(items, self.count(owner_id))
 
     def count(self, owner_id: UUID) -> int:
+        """Count the user's voices, for the per-account limit.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            How many voices the user has registered.
+        """
         return int(
             self._session.execute(
                 text("SELECT count(*) FROM voices WHERE owner_id = :owner_id"),
@@ -95,6 +221,15 @@ class PostgresVoiceRepository:
         )
 
     def owned(self, voice_ids: set[UUID], owner_id: UUID) -> set[UUID]:
+        """Return which of some voice ids are the user's.
+
+        Args:
+            voice_ids: Voice ids to check.
+            owner_id: The user.
+
+        Returns:
+            The ids among them that are the user's voices.
+        """
         if not voice_ids:
             return set()
         rows = self._session.execute(
@@ -104,7 +239,15 @@ class PostgresVoiceRepository:
         return set(rows)
 
     def delete(self, voice_id: UUID, owner_id: UUID) -> bool:
-        """Remove the voice, and take it off every host of the owner's shows that used it."""
+        """Remove the voice, and take it off every host of the owner's shows that used it.
+
+        Args:
+            voice_id: The voice.
+            owner_id: The user asking.
+
+        Returns:
+            True if a voice was deleted.
+        """
         self._session.execute(
             text(
                 "UPDATE shows SET host_voices = (SELECT coalesce(jsonb_object_agg(k, v), '{}')"
@@ -128,6 +271,14 @@ class PostgresVoiceRepository:
         return bool(result.rowcount)  # type: ignore[attr-defined]
 
     def object_keys(self, owner_id: UUID) -> list[str]:
+        """Return where every one of the user's recordings is stored, to delete them all.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            Where each of the user's recordings is stored.
+        """
         rows = self._session.execute(
             text("SELECT object_key FROM voices WHERE owner_id = :owner_id"),
             {"owner_id": owner_id},
@@ -135,9 +286,19 @@ class PostgresVoiceRepository:
         return list(rows)
 
     def clip_keys(self, voice_id: UUID, owner_id: UUID) -> list[str]:
-        """Stored speech made with this voice, to delete when it is withdrawn: its type-to-speech
-        clips always, and the clips (and cached raw speech) in the owner's episodes and studio
-        unless another registered voice has the same recording (then they are that voice's too)."""
+        """Return the stored speech made with this voice, to delete when it is withdrawn.
+
+        Its type-to-speech clips always, and the clips (and cached raw speech) in the owner's
+        episodes and studio, unless another registered voice has the same recording (then they are
+        that voice's too).
+
+        Args:
+            voice_id: The voice being withdrawn.
+            owner_id: The user.
+
+        Returns:
+            The object keys to delete.
+        """
         sha256 = self._session.execute(
             text("SELECT sha256 FROM voices WHERE voice_id = :id AND owner_id = :owner_id"),
             {"id": voice_id, "owner_id": owner_id},

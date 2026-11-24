@@ -1,13 +1,3 @@
-"""Music for episodes: a show's music settings, and the built-in tracks, made in code.
-
-Built-in tracks are synthesised with numpy from a fixed seed, so the API (which plays them in the
-web app) and the assemble worker (which mixes them into episodes) make the same audio, and no
-music files live in the repository. They are original, so there is nothing to license. Uploaded
-tracks are stored like voices; see the API's music service.
-
-Every track is 24 kHz mono float32, like the rest of the pipeline.
-"""
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -48,22 +38,49 @@ class ShowMusic(BaseModel):
     )
 
     def track_ids(self) -> set[str]:
+        """Return the ids of every track the show uses.
+
+        Returns:
+            The ids of the filled slots.
+        """
         return {t for t in (self.intro, self.outro, self.sting, self.bed) if t}
 
 
-# ---- synthesis ------------------------------------------------------------------------------
-
-
 def _hz(midi: float) -> float:
+    """Convert a MIDI note number to a frequency.
+
+    Args:
+        midi: The note; 69 is A4.
+
+    Returns:
+        The frequency in Hz.
+    """
     return float(440.0 * 2 ** ((midi - 69) / 12))
 
 
 def _time(seconds: float) -> np.ndarray:
+    """Return the sample times for a stretch of audio.
+
+    Args:
+        seconds: Its length.
+
+    Returns:
+        Each sample's time, in seconds.
+    """
     return np.arange(int(SR * seconds), dtype=np.float64) / SR
 
 
 def _envelope(t: np.ndarray, attack: float, release: float) -> np.ndarray:
-    """Rise over ``attack`` seconds and fall (exponentially) over the last ``release`` seconds."""
+    """Rise over ``attack`` seconds and fall (exponentially) over the last ``release`` seconds.
+
+    Args:
+        t: The sample times.
+        attack: The rise's length.
+        release: The fall's length.
+
+    Returns:
+        The gain at each sample.
+    """
     length = t[-1] if len(t) else 0.0
     rise = np.clip(t / max(attack, 1e-3), 0.0, 1.0)
     fall_start = max(length - release, 0.0)
@@ -72,7 +89,19 @@ def _envelope(t: np.ndarray, attack: float, release: float) -> np.ndarray:
 
 
 def _pad_note(midi: float, seconds: float, attack: float = 1.8, release: float = 2.5) -> np.ndarray:
-    """A soft, slightly detuned pad voice: a fundamental with two quiet overtones."""
+    """Play a soft, slightly detuned pad note: a fundamental with two quiet overtones.
+
+    Its level drifts slowly, so a held chord does not sound static.
+
+    Args:
+        midi: The note, as a MIDI number.
+        seconds: Its length.
+        attack: Seconds to swell in.
+        release: Seconds to fade out.
+
+    Returns:
+        The note's samples.
+    """
     t = _time(seconds)
     f = _hz(midi)
     tone = np.zeros_like(t)
@@ -80,12 +109,21 @@ def _pad_note(midi: float, seconds: float, attack: float = 1.8, release: float =
         for cents in (-6.0, 6.0):
             detuned = f * harmonic * 2 ** (cents / 1200)
             tone += level * np.sin(2 * np.pi * detuned * t + harmonic * cents)
-    shimmer = 1.0 + 0.04 * np.sin(2 * np.pi * 0.23 * t + midi)  # a slow drift in level
+    shimmer = 1.0 + 0.04 * np.sin(2 * np.pi * 0.23 * t + midi)
     return np.asarray(tone * shimmer * _envelope(t, attack, release) / 2.8)
 
 
 def _keys_note(midi: float, seconds: float, velocity: float = 1.0) -> np.ndarray:
-    """An electric-piano tone: a little FM bite at the start that mellows as it decays."""
+    """Play an electric-piano note: a little FM bite at the start that mellows as it decays.
+
+    Args:
+        midi: The note, as a MIDI number.
+        seconds: Its length.
+        velocity: How hard it is played.
+
+    Returns:
+        The note's samples.
+    """
     t = _time(seconds)
     f = _hz(midi)
     index = 1.1 * np.exp(-3.5 * t)
@@ -97,15 +135,35 @@ def _keys_note(midi: float, seconds: float, velocity: float = 1.0) -> np.ndarray
 
 
 def _bell(midi: float, seconds: float, velocity: float = 1.0) -> np.ndarray:
+    """Play a bell note, with the bright inharmonic partial that makes it a bell.
+
+    Args:
+        midi: The note, as a MIDI number.
+        seconds: Its length.
+        velocity: How hard it is struck.
+
+    Returns:
+        The note's samples.
+    """
     t = _time(seconds)
     f = _hz(midi)
     tone = np.sin(2 * np.pi * f * t) * np.exp(-2.8 * t)
-    tone += 0.35 * np.sin(2 * np.pi * 2.76 * f * t) * np.exp(-6.0 * t)  # the bell's bright partial
+    tone += 0.35 * np.sin(2 * np.pi * 2.76 * f * t) * np.exp(-6.0 * t)
     tone += 0.2 * np.sin(2 * np.pi * 2 * f * t) * np.exp(-4.0 * t)
     return np.asarray(velocity * tone * _envelope(t, 0.003, 0.2))
 
 
 def _bass_note(midi: float, seconds: float, velocity: float = 1.0) -> np.ndarray:
+    """Play a round bass note.
+
+    Args:
+        midi: The note, as a MIDI number.
+        seconds: Its length.
+        velocity: How hard it is played.
+
+    Returns:
+        The note's samples.
+    """
     t = _time(seconds)
     f = _hz(midi)
     tone = np.sin(2 * np.pi * f * t) + 0.25 * np.sin(2 * np.pi * 2 * f * t)
@@ -113,6 +171,11 @@ def _bass_note(midi: float, seconds: float, velocity: float = 1.0) -> np.ndarray
 
 
 def _kick() -> np.ndarray:
+    """Make a soft kick drum: a falling sine.
+
+    Returns:
+        The drum's samples.
+    """
     t = _time(0.35)
     freq = 45.0 + 70.0 * np.exp(-t * 28.0)
     phase = 2 * np.pi * np.cumsum(freq) / SR
@@ -120,21 +183,44 @@ def _kick() -> np.ndarray:
 
 
 def _noise_hit(rng: np.random.Generator, seconds: float, decay: float, bright: bool) -> np.ndarray:
+    """Make a noise drum: a hat when bright, a soft snare when dull.
+
+    Args:
+        rng: The seeded random generator.
+        seconds: Its length.
+        decay: How fast it dies away.
+        bright: True tilts the noise toward the highs (a hat); False smooths it (a snare).
+
+    Returns:
+        The drum's samples.
+    """
     t = _time(seconds)
     noise = rng.standard_normal(len(t))
     if bright:
-        noise = np.diff(noise, prepend=0.0)  # tilt toward the highs: a hat
+        noise = np.diff(noise, prepend=0.0)
     else:
-        noise = np.convolve(noise, np.ones(4) / 4, mode="same")  # duller: a soft snare
+        noise = np.convolve(noise, np.ones(4) / 4, mode="same")
     return noise * np.exp(-t * decay)
 
 
 def _reverb(signal: np.ndarray, seconds: float, wet: float, seed: int) -> np.ndarray:
-    """A plain algorithmic room: the signal convolved with smoothed, decaying noise."""
+    """Add a plain algorithmic room: the signal convolved with smoothed, decaying noise.
+
+    The noise is smoothed for a darker tail.
+
+    Args:
+        signal: The dry audio.
+        seconds: The room's decay time.
+        wet: How much of the room to add.
+        seed: Seeds the room's noise, so it is the same every time.
+
+    Returns:
+        The audio with the room added.
+    """
     rng = np.random.default_rng(seed)
     t = _time(seconds)
     impulse = rng.standard_normal(len(t)) * np.exp(-t * 6.0 / seconds)
-    impulse = np.convolve(impulse, np.ones(6) / 6, mode="same")  # darker tail
+    impulse = np.convolve(impulse, np.ones(6) / 6, mode="same")
     impulse /= np.sqrt(np.sum(impulse**2)) or 1.0
     size = 1 << int(np.ceil(np.log2(len(signal) + len(impulse))))
     tail = np.fft.irfft(np.fft.rfft(signal, size) * np.fft.rfft(impulse, size), size)
@@ -142,6 +228,13 @@ def _reverb(signal: np.ndarray, seconds: float, wet: float, seed: int) -> np.nda
 
 
 def _add(buffer: np.ndarray, seconds: float, signal: np.ndarray) -> None:
+    """Mix a signal into a buffer at a time, cutting off what runs past its end.
+
+    Args:
+        buffer: The track being built; changed in place.
+        seconds: Where the signal starts.
+        signal: The audio to add.
+    """
     start = int(seconds * SR)
     end = min(start + len(signal), len(buffer))
     if end > start:
@@ -149,8 +242,15 @@ def _add(buffer: np.ndarray, seconds: float, signal: np.ndarray) -> None:
 
 
 def _loop(rendered: np.ndarray, loop_seconds: float) -> np.ndarray:
-    """Fold everything past ``loop_seconds`` (the tails of the last notes) back onto the start,
-    so the track repeats without a seam."""
+    """Fold the tails of the last notes back onto the start, so the track repeats without a seam.
+
+    Args:
+        rendered: The rendered audio, longer than the loop.
+        loop_seconds: The loop's length.
+
+    Returns:
+        The loop, exactly ``loop_seconds`` long.
+    """
     n = int(loop_seconds * SR)
     out = rendered[:n].copy()
     tail = rendered[n:]
@@ -159,6 +259,15 @@ def _loop(rendered: np.ndarray, loop_seconds: float) -> np.ndarray:
 
 
 def _finish(signal: np.ndarray, rms: float = 0.1) -> np.ndarray:
+    """Level a track and keep its peaks under 0.9.
+
+    Args:
+        signal: The track.
+        rms: The level to reach.
+
+    Returns:
+        The track as float32.
+    """
     level = float(np.sqrt(np.mean(signal**2))) or 1.0
     out = signal * (rms / level)
     peak = float(np.max(np.abs(out))) or 1.0
@@ -168,13 +277,26 @@ def _finish(signal: np.ndarray, rms: float = 0.1) -> np.ndarray:
 
 
 def _fade_out(signal: np.ndarray, seconds: float) -> np.ndarray:
+    """Fade the end of a signal to silence.
+
+    Args:
+        signal: The audio; changed in place.
+        seconds: The fade's length.
+
+    Returns:
+        The same array.
+    """
     n = min(int(seconds * SR), len(signal))
     signal[len(signal) - n :] *= np.linspace(1.0, 0.0, n)
     return signal
 
 
 def _calm_pad() -> np.ndarray:
-    """32 s of slow, warm chords (C, Am, F, G), made to loop."""
+    """Make 32 s of slow, warm chords (C, Am, F, G), made to loop.
+
+    Returns:
+        The track.
+    """
     chords = ([48, 55, 64, 71], [45, 52, 60, 67], [41, 48, 57, 64], [43, 50, 59, 62])
     hold = 8.0
     out = np.zeros(int(SR * (hold * len(chords) + 4.0)))
@@ -186,7 +308,13 @@ def _calm_pad() -> np.ndarray:
 
 
 def _lofi_loop() -> np.ndarray:
-    """8 bars of a mellow lo-fi groove at 80 bpm (Fmaj7, Em7, Dm7, Cmaj7), made to loop."""
+    """Make 8 bars of a mellow lo-fi groove at 80 bpm (Fmaj7, Em7, Dm7, Cmaj7), made to loop.
+
+    Keys hold each chord with a lazy off-beat note, over bass, a soft kick, snare and swung hats.
+
+    Returns:
+        The track.
+    """
     rng = np.random.default_rng(7)
     beat = 60.0 / 80
     bar = 4 * beat
@@ -207,7 +335,7 @@ def _lofi_loop() -> np.ndarray:
         for at in (1.0, 3.0):
             _add(drums, start + at * beat, 0.35 * _noise_hit(rng, 0.2, 22.0, bright=False))
         for eighth in range(8):
-            swing = 0.08 * beat if eighth % 2 else 0.0  # lazy off-beats
+            swing = 0.08 * beat if eighth % 2 else 0.0
             level = 0.12 if eighth % 2 else 0.18
             _add(
                 drums, start + eighth * beat / 2 + swing, level * _noise_hit(rng, 0.06, 70.0, True)
@@ -217,7 +345,11 @@ def _lofi_loop() -> np.ndarray:
 
 
 def _bright_intro() -> np.ndarray:
-    """About 7 s: a pad swells, a bright arpeggio climbs and lands on a bell chord."""
+    """Make about 7 s of intro: a pad swells, a bright arpeggio climbs and lands on a bell chord.
+
+    Returns:
+        The track.
+    """
     out = np.zeros(int(SR * 7.0))
     for midi in (48, 55, 64, 67):
         _add(out, 0.0, 0.8 * _pad_note(midi, 6.8, attack=1.2, release=2.8))
@@ -229,7 +361,11 @@ def _bright_intro() -> np.ndarray:
 
 
 def _soft_outro() -> np.ndarray:
-    """About 9 s: a falling arpeggio over Fmaj7 that resolves to C, then fades."""
+    """Make about 9 s of outro: a falling arpeggio over Fmaj7 that resolves to C, then fades.
+
+    Returns:
+        The track.
+    """
     out = np.zeros(int(SR * 9.0))
     for n, midi in enumerate((79, 76, 72, 69, 67, 64)):
         _add(out, 0.2 + 0.32 * n, _keys_note(midi, 2.5, 0.5))
@@ -242,7 +378,11 @@ def _soft_outro() -> np.ndarray:
 
 
 def _two_note_sting() -> np.ndarray:
-    """1.6 s: two bell notes over a short, soft chord, between segments."""
+    """Make a 1.6 s sting between segments: two bell notes over a short, soft chord.
+
+    Returns:
+        The track.
+    """
     out = np.zeros(int(SR * 1.6))
     for midi in (60, 67, 76):
         _add(out, 0.0, 0.35 * _pad_note(midi, 1.6, attack=0.15, release=0.9))
@@ -253,11 +393,19 @@ def _two_note_sting() -> np.ndarray:
 
 @dataclass(frozen=True)
 class BuiltinTrack:
+    """A built-in track, made in code.
+
+    Built-in tracks are synthesised with numpy from a fixed seed, so the API (which plays them in
+    the web app) and the assemble worker (which mixes them into episodes) make the same audio, and
+    no music files live in the repository. They are original, so there is nothing to license. A
+    ``seamless`` track is made to loop: repeated end to start without a crossfade.
+    """
+
     track_id: str
     name: str
     role: Role
     description: str
-    seamless: bool  # made to loop: repeated end to start without a crossfade
+    seamless: bool
     render: Callable[[], np.ndarray]
 
 
@@ -309,18 +457,46 @@ BUILTIN_TRACKS: dict[str, BuiltinTrack] = {
 
 
 def is_builtin(track_id: str) -> bool:
+    """Tell whether a track id names a built-in track.
+
+    Args:
+        track_id: The track's id.
+
+    Returns:
+        True for ``builtin:...``.
+    """
     return track_id.startswith(BUILTIN_PREFIX)
 
 
 @lru_cache(maxsize=len(BUILTIN_TRACKS))
 def _rendered(track_id: str) -> np.ndarray:
+    """Render a built-in track once per process, read-only.
+
+    Args:
+        track_id: The track's id.
+
+    Returns:
+        The track's audio.
+    """
     audio = BUILTIN_TRACKS[track_id].render()
     audio.setflags(write=False)
     return audio
 
 
 def builtin_audio(track_id: str) -> np.ndarray:
-    """A built-in track's audio (read-only; copy it before changing it). KeyError if unknown."""
+    """Return a built-in track's audio, 24 kHz mono float32 like the rest of the pipeline.
+
+    The array is read-only; copy it before changing it.
+
+    Args:
+        track_id: The track's id.
+
+    Returns:
+        The track's audio.
+
+    Raises:
+        KeyError: There is no such built-in track.
+    """
     if track_id not in BUILTIN_TRACKS:
         raise KeyError(track_id)
     return _rendered(track_id)

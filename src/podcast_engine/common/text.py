@@ -1,5 +1,3 @@
-"""Word-level text helpers shared by the embedder and the offline fact-check."""
-
 import hashlib
 import re
 
@@ -22,7 +20,17 @@ _DANGLING_OPENER = re.compile(
 
 
 def stem(token: str) -> str:
-    """A crude stemmer: enough to match "stored" with "storing" and "columns" with "column"."""
+    """Strip a common suffix from a word.
+
+    A crude stemmer: enough to match "stored" with "storing" and "columns" with "column". A suffix
+    is removed only when at least four letters remain.
+
+    Args:
+        token: A lower-case word.
+
+    Returns:
+        The word without its suffix.
+    """
     for suffix in ("ing", "ed", "es", "s"):
         if token.endswith(suffix) and len(token) - len(suffix) >= 4:
             return token[: -len(suffix)]
@@ -30,7 +38,16 @@ def stem(token: str) -> str:
 
 
 def content_tokens(text: str) -> list[str]:
-    """Lower-cased, stemmed words with stop words and very short words removed."""
+    """Return a text's content words: lower-cased and stemmed.
+
+    Stop words and words of two letters or fewer are removed.
+
+    Args:
+        text: The text.
+
+    Returns:
+        The content words, in order.
+    """
     return [
         stem(token)
         for token in re.findall(r"[a-z0-9]+", text.lower())
@@ -39,28 +56,63 @@ def content_tokens(text: str) -> list[str]:
 
 
 def content_hash(text: str) -> str:
-    """Hash of whitespace-normalised text, so reflowed but identical content is unchanged."""
+    """Hash text with its whitespace normalised.
+
+    Reflowed but otherwise identical content gets the same hash, so it is not seen as a change.
+
+    Args:
+        text: The text.
+
+    Returns:
+        The SHA-256 hex digest.
+    """
     normalised = " ".join(text.split())
     return hashlib.sha256(normalised.encode("utf-8")).hexdigest()
 
 
 def _words(sentence: str) -> frozenset[str]:
+    """Return a sentence's distinct lower-case words.
+
+    Args:
+        sentence: The sentence.
+
+    Returns:
+        Its set of words.
+    """
     return frozenset(re.findall(r"[a-z0-9]+", sentence.lower()))
 
 
 def _repeats(sentence: str, kept: list[frozenset[str]]) -> bool:
-    """True if almost the same sentence was already kept (pages often repeat their tagline)."""
+    """Tell whether almost the same sentence was already kept.
+
+    Pages often repeat their tagline. Two sentences count as the same when at least 80% of their
+    words are shared.
+
+    Args:
+        sentence: The sentence to check.
+        kept: The word sets of the sentences kept so far.
+
+    Returns:
+        True for a near-repeat.
+    """
     words = _words(sentence)
     return any(len(words & other) / len(words | other) >= 0.8 for other in kept)
 
 
 def speakable_sentences(text: str) -> list[str]:
-    """Whole sentences that read naturally aloud, in order.
+    """Return the whole sentences of a text that read naturally aloud, in order.
 
-    Drops labels and lead-ins (a paragraph must end in a full stop), code-like fragments, and
-    sentences that point at a diagram or link, near-repeats of a sentence already kept, and an
-    opening sentence that depends on text before the section ("Such a level of ...").
-    This is a heuristic: it errs toward dropping.
+    Drops labels and lead-ins (a paragraph must end in a full stop), code-like fragments, sentences
+    that point at a diagram or link, near-repeats of a sentence already kept, and an opening
+    sentence that depends on text before the section ("Such a level of ..."). Sentences are split
+    only before a capital, so "e.g. aggregations" is not cut in two. This is a heuristic: it errs
+    toward dropping.
+
+    Args:
+        text: Paragraphs separated by blank lines.
+
+    Returns:
+        The sentences kept.
     """
     sentences: list[str] = []
     kept: list[frozenset[str]] = []
@@ -68,7 +120,6 @@ def speakable_sentences(text: str) -> list[str]:
         paragraph = " ".join(paragraph.split())
         if len(paragraph.split()) < 6 or paragraph[-1] not in ".!?":
             continue
-        # Split only before a capital, so "e.g. aggregations" is not cut in two.
         for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z“\"'(])", paragraph):
             sentence = sentence.strip()
             if (

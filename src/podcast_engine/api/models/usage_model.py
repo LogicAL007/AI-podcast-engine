@@ -1,5 +1,3 @@
-"""Response schema for today's use of the Gemini free tier."""
-
 from typing import Literal
 
 from pydantic import BaseModel, Field

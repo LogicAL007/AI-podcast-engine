@@ -1,5 +1,3 @@
-"""Response schemas for the music library: built-in tracks and the ones you upload."""
-
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -26,4 +24,5 @@ class MusicTrackRead(BaseModel):
     @computed_field(description="Where to play it")  # type: ignore[prop-decorator]
     @property
     def audio(self) -> str:
+        """Path of the track's audio in the API."""
         return f"{V1}/music/{self.track_id}/audio.wav"

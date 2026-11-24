@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
-.PHONY: help api openapi web-client test-312 research setup secrets rotate-secret build up dev down voice-host demo-site demo-next demo-reset aws-demo-whoami aws-demo-quota aws-demo-up aws-demo-deploy aws-demo-data aws-demo-stop aws-demo-start aws-demo-destroy aws-demo-ci-vars logs lint format typecheck test check
+.PHONY: help api openapi web-client test-312 research setup secrets rotate-secret build up dev down voice-host demo-site demo-next demo-reset aws-demo-whoami aws-demo-up aws-demo-deploy aws-demo-data aws-demo-stop aws-demo-start aws-demo-destroy aws-demo-ci-vars logs lint format typecheck test check
 
 help:  ## List targets
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "%-12s %s\n", $$1, $$2}'
@@ -106,10 +106,6 @@ DEMO_AWS := $(DEMO_ENV) aws
 
 aws-demo-whoami:  ## AWS demo: which AWS user the demo targets run as (podcast-user)
 	$(DEMO_AWS) sts get-caller-identity --query Arn --output text
-
-aws-demo-quota:  ## AWS demo: the account's GPU quota in ca-central-1 (g4dn.xlarge needs 4 vCPUs)
-	$(DEMO_AWS) service-quotas get-service-quota --service-code ec2 \
-		--quota-code L-DB2E81BA --query 'Quota.[QuotaName, Value]' --output text
 
 aws-demo-up:  ## AWS demo: create the server, bucket and roles (Terraform asks before changing anything)
 	$(DEMO_TF) init -input=false >/dev/null

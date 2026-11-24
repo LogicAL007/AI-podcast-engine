@@ -1,5 +1,3 @@
-"""Routes for type-to-speech: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 from uuid import UUID
 
@@ -24,8 +22,20 @@ NOT_FOUND = errors(e404="Clip not found")
     response_description="The engine, its voices, effect presets and today's budget",
 )
 def speech_engine(me: CurrentUserDep, controller: Controller) -> SpeechEngine:  # noqa: ARG001
-    """Which voices can speak on this server: recorded voices need the Chatterbox engine; the
-    engine's own voices always work. With Gemini, each clip spends the shared daily budget."""
+    """Which voices can speak on this server.
+
+    Recorded voices need the Chatterbox engine; the engine's own voices always work. With Gemini,
+    each clip spends the shared daily budget.
+
+    \f
+
+    Args:
+        me: The signed-in user (required, not otherwise used).
+        controller: The speech controller, injected by FastAPI.
+
+    Returns:
+        The engine, its voices, effect presets and today's budget.
+    """
     return controller.engine()
 
 
@@ -41,8 +51,20 @@ def speech_engine(me: CurrentUserDep, controller: Controller) -> SpeechEngine:  
     ),
 )
 def create_clip(data: SpeechCreate, me: CurrentUserDep, controller: Controller) -> SpeechClipRead:
-    """Queue a line to be voiced in a recorded voice or one of the engine's own, with voice
-    effects. Poll `GET /speech/{clip_id}` until it is `done`, then play `audio`."""
+    """Queue a line to be voiced in a recorded voice or one of the engine's own, with effects.
+
+    Poll `GET /speech/{clip_id}` until it is `done`, then play `audio`.
+
+    \f
+
+    Args:
+        data: The text, voice, delivery and effects.
+        me: The signed-in user.
+        controller: The speech controller, injected by FastAPI.
+
+    Returns:
+        The clip, queued for the voice worker.
+    """
     return controller.create(me.user_id, data)
 
 
@@ -53,7 +75,17 @@ def create_clip(data: SpeechCreate, me: CurrentUserDep, controller: Controller) 
     response_description="Your 20 most recent clips, newest first",
 )
 def list_clips(me: CurrentUserDep, controller: Controller) -> list[SpeechClipRead]:
-    """Your most recent type-to-speech clips, newest first."""
+    """Your most recent type-to-speech clips, newest first.
+
+    \f
+
+    Args:
+        me: The signed-in user.
+        controller: The speech controller, injected by FastAPI.
+
+    Returns:
+        Your 20 most recent clips.
+    """
     return controller.recent(me.user_id)
 
 
@@ -65,7 +97,18 @@ def list_clips(me: CurrentUserDep, controller: Controller) -> list[SpeechClipRea
     responses=NOT_FOUND,
 )
 def get_clip(clip_id: ClipId, me: CurrentUserDep, controller: Controller) -> SpeechClipRead:
-    """One of your clips, with its status."""
+    """One of your clips, with its status.
+
+    \f
+
+    Args:
+        clip_id: The clip to return.
+        me: The signed-in user.
+        controller: The speech controller, injected by FastAPI.
+
+    Returns:
+        The clip.
+    """
     return controller.get(clip_id, me.user_id)
 
 
@@ -83,7 +126,19 @@ def clip_audio(
         bool, Query(description="Save as a file (`attachment`) instead of playing it")
     ] = False,
 ) -> Response:
-    """The clip's audio (24 kHz mono WAV), for its owner only."""
+    """The clip's audio (24 kHz mono WAV), for its owner only.
+
+    \f
+
+    Args:
+        clip_id: The clip to play.
+        me: The signed-in user.
+        controller: The speech controller, injected by FastAPI.
+        download: Whether to save it as a file instead of playing it.
+
+    Returns:
+        The WAV file, never cached.
+    """
     disposition = "attachment" if download else "inline"
     return Response(
         controller.audio(clip_id, me.user_id),
@@ -102,5 +157,13 @@ def clip_audio(
     responses=NOT_FOUND,
 )
 def delete_clip(clip_id: ClipId, me: CurrentUserDep, controller: Controller) -> None:
-    """Delete a clip and its audio."""
+    """Delete a clip and its audio.
+
+    \f
+
+    Args:
+        clip_id: The clip to delete.
+        me: The signed-in user.
+        controller: The speech controller, injected by FastAPI.
+    """
     controller.delete(clip_id, me.user_id)

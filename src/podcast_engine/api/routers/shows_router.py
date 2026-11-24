@@ -1,5 +1,3 @@
-"""Routes for shows: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 from uuid import UUID
 
@@ -27,8 +25,21 @@ NOT_FOUND = errors(e404="Show not found")
     response_description="The created show",
 )
 def create_show(data: ShowCreate, me: CurrentUserDep, controller: Controller) -> ShowRead:
-    """Create a show, owned by you: its topic, style, hosts and the web pages its episodes are
-    built from. Only you can see or change it."""
+    """Create a show, owned by you.
+
+    Its topic, style, hosts and the web pages its episodes are built from. Only you can see or
+    change it.
+
+    \f
+
+    Args:
+        data: The new show's settings.
+        me: The signed-in user.
+        controller: The show controller, injected by FastAPI.
+
+    Returns:
+        The created show.
+    """
     return controller.create(data, me.user_id)
 
 
@@ -41,7 +52,19 @@ def create_show(data: ShowCreate, me: CurrentUserDep, controller: Controller) ->
 def list_shows(
     me: CurrentUserDep, controller: Controller, paging: Paging, request: Request
 ) -> Page[ShowRead]:
-    """A page of your shows, newest first."""
+    """A page of your shows, newest first.
+
+    \f
+
+    Args:
+        me: The signed-in user.
+        controller: The show controller, injected by FastAPI.
+        paging: The page size and offset from the query string.
+        request: The request, used to build the next page's link.
+
+    Returns:
+        A page of shows.
+    """
     result = controller.list_page(me.user_id, limit=paging.limit, offset=paging.offset)
     return to_page(result, paging, request)
 
@@ -54,7 +77,20 @@ def list_shows(
     responses=NOT_FOUND,
 )
 def get_show(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> ShowRead:
-    """One of your shows' settings. Another user's show is reported as not found."""
+    """One of your shows' settings.
+
+    Another user's show is reported as not found.
+
+    \f
+
+    Args:
+        show_id: The show to return.
+        me: The signed-in user.
+        controller: The show controller, injected by FastAPI.
+
+    Returns:
+        The show.
+    """
     return controller.get(show_id, me.user_id)
 
 
@@ -68,8 +104,21 @@ def get_show(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> Sho
 def update_show(
     show_id: ShowId, data: ShowUpdate, me: CurrentUserDep, controller: Controller
 ) -> ShowRead:
-    """Change only the fields sent; omitted or null fields are kept. Applies to episodes started
-    afterwards."""
+    """Change only the fields sent; omitted or null fields are kept.
+
+    Applies to episodes started afterwards.
+
+    \f
+
+    Args:
+        show_id: The show to change.
+        data: The fields to change.
+        me: The signed-in user.
+        controller: The show controller, injected by FastAPI.
+
+    Returns:
+        The show after the change.
+    """
     return controller.update(show_id, me.user_id, data)
 
 
@@ -81,6 +130,15 @@ def update_show(
     responses=NOT_FOUND,
 )
 def delete_show(show_id: ShowId, me: CurrentUserDep, controller: Controller) -> None:
-    """Delete a show and, by cascade, its source items, episodes and claims. Files already in object
-    storage (audio, notes, feed) are not removed."""
+    """Delete a show and, by cascade, its source items, episodes and claims.
+
+    Files already in object storage (audio, notes, feed) are not removed.
+
+    \f
+
+    Args:
+        show_id: The show to delete.
+        me: The signed-in user.
+        controller: The show controller, injected by FastAPI.
+    """
     controller.delete(show_id, me.user_id)

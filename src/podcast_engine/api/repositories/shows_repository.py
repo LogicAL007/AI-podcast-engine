@@ -1,5 +1,3 @@
-"""Persistence for shows: the only module that knows the ``shows`` table."""
-
 import json
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -50,36 +48,123 @@ _UPDATABLE = frozenset(
 
 
 class ShowRepository(Protocol):
-    """Every method is scoped to one owner: another user's show does not exist for them."""
+    """Stores shows.
 
-    def add(self, data: ShowCreate, owner_id: UUID) -> ShowRead: ...
+    Every method is scoped to one owner: another user's show does not exist for them.
+    """
 
-    def get(self, show_id: UUID, owner_id: UUID) -> ShowRead | None: ...
+    def add(self, data: ShowCreate, owner_id: UUID) -> ShowRead:
+        """Create a show.
 
-    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[ShowRead]: ...
+        Args:
+            data: The new show's settings.
+            owner_id: The user who will own it.
 
-    def update(
-        self, show_id: UUID, owner_id: UUID, changes: Mapping[str, Any]
-    ) -> ShowRead | None: ...
+        Returns:
+            The created show.
+        """
+        ...
 
-    def delete(self, show_id: UUID, owner_id: UUID) -> bool: ...
+    def get(self, show_id: UUID, owner_id: UUID) -> ShowRead | None:
+        """Return one of the user's shows.
 
-    def claim_unowned(self, owner_id: UUID) -> int: ...
+        Args:
+            show_id: The show.
+            owner_id: The user asking.
+
+        Returns:
+            The show, or None when the user has no such show.
+        """
+        ...
+
+    def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[ShowRead]:
+        """Return one page of the user's shows, newest first.
+
+        Args:
+            owner_id: The user asking.
+            limit: Most shows to return.
+            offset: Shows to skip before this page.
+
+        Returns:
+            The page of shows, newest first, and the total.
+        """
+        ...
+
+    def update(self, show_id: UUID, owner_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None:
+        """Change some of a show's settings.
+
+        Args:
+            show_id: The show.
+            owner_id: The user asking.
+            changes: The columns to change and their new values.
+
+        Returns:
+            The show after the change, or None when the user has no such show.
+        """
+        ...
+
+    def delete(self, show_id: UUID, owner_id: UUID) -> bool:
+        """Delete a show and, by cascade, everything in it.
+
+        Args:
+            show_id: The show.
+            owner_id: The user asking.
+
+        Returns:
+            True if a show was deleted.
+        """
+        ...
+
+    def claim_unowned(self, owner_id: UUID) -> int:
+        """Give shows made before login existed to this user.
+
+        Args:
+            owner_id: The user to give them to.
+
+        Returns:
+            How many shows were claimed.
+        """
+        ...
 
     def stored_files(
         self, *, owner_id: UUID | None = None, show_id: UUID | None = None
     ) -> list[str]:
-        """Object-storage keys of the files under a user's shows (or one show)."""
+        """Return the object-storage keys of the files under a user's shows (or one show).
+
+        Args:
+            owner_id: Every show of this user, or None.
+            show_id: This show only, or None.
+
+        Returns:
+            The object keys of their files.
+        """
         ...
 
 
 class PostgresShowRepository:
-    """Each write commits on its own, so callers can act on the result straight away."""
+    """Shows in the ``shows`` table, the only code that knows it.
+
+    Each write commits on its own, so callers can act on the result straight away.
+    """
 
     def __init__(self, session: Session) -> None:
+        """Create the repository.
+
+        Args:
+            session: The database session for this request.
+        """
         self._session = session
 
     def add(self, data: ShowCreate, owner_id: UUID) -> ShowRead:
+        """Create a show.
+
+        Args:
+            data: The new show's settings.
+            owner_id: The user who will own it.
+
+        Returns:
+            The created show.
+        """
         row = (
             self._session.execute(
                 text(_INSERT),
@@ -92,6 +177,15 @@ class PostgresShowRepository:
         return ShowRead.model_validate(row)
 
     def get(self, show_id: UUID, owner_id: UUID) -> ShowRead | None:
+        """Return one of the user's shows.
+
+        Args:
+            show_id: The show.
+            owner_id: The user asking.
+
+        Returns:
+            The show, or None when the user has no such show.
+        """
         row = (
             self._session.execute(
                 text(
@@ -106,6 +200,16 @@ class PostgresShowRepository:
         return ShowRead.model_validate(row) if row else None
 
     def list_page(self, owner_id: UUID, *, limit: int, offset: int) -> Paged[ShowRead]:
+        """Return one page of the user's shows, newest first.
+
+        Args:
+            owner_id: The user asking.
+            limit: Most shows to return.
+            offset: Shows to skip before this page.
+
+        Returns:
+            The page of shows, newest first, and the total.
+        """
         params = {"owner_id": owner_id, "limit": limit, "offset": offset}
         rows = self._session.execute(
             text(
@@ -120,10 +224,21 @@ class PostgresShowRepository:
         return Paged([ShowRead.model_validate(row) for row in rows], int(total))
 
     def update(self, show_id: UUID, owner_id: UUID, changes: Mapping[str, Any]) -> ShowRead | None:
+        """Change some of a show's settings.
+
+        Column names come from a fixed whitelist; values are always bound parameters.
+
+        Args:
+            show_id: The show.
+            owner_id: The user asking.
+            changes: The columns to change and their new values.
+
+        Returns:
+            The show after the change, or None when the user has no such show.
+        """
         unknown = set(changes) - _UPDATABLE
         if unknown:
             raise ValueError(f"not updatable: {sorted(unknown)}")
-        # Column names come from the whitelist above; values are always bound parameters.
         assignments = ", ".join(
             f"{column} = CAST(:{column} AS jsonb)"
             if column in _JSON_COLUMNS
@@ -146,6 +261,15 @@ class PostgresShowRepository:
         return ShowRead.model_validate(row) if row else None
 
     def delete(self, show_id: UUID, owner_id: UUID) -> bool:
+        """Delete a show and, by cascade, everything in it.
+
+        Args:
+            show_id: The show.
+            owner_id: The user asking.
+
+        Returns:
+            True if a show was deleted.
+        """
         result = self._session.execute(
             text("DELETE FROM shows WHERE show_id = :show_id AND owner_id = :owner_id"),
             {"show_id": show_id, "owner_id": owner_id},
@@ -154,7 +278,14 @@ class PostgresShowRepository:
         return bool(result.rowcount)  # type: ignore[attr-defined]
 
     def claim_unowned(self, owner_id: UUID) -> int:
-        """Give shows made before login existed to this user (the first admin)."""
+        """Give shows made before login existed to this user (the first admin).
+
+        Args:
+            owner_id: The user to give them to.
+
+        Returns:
+            How many shows were claimed.
+        """
         result = self._session.execute(
             text("UPDATE shows SET owner_id = :owner_id WHERE owner_id IS NULL"),
             {"owner_id": owner_id},
@@ -165,9 +296,18 @@ class PostgresShowRepository:
     def stored_files(
         self, *, owner_id: UUID | None = None, show_id: UUID | None = None
     ) -> list[str]:
-        """Every object-storage key belonging to the owner's shows (or one show): episode audio
-        (WAV and MP3) and notes, uploaded PDFs, and the shows' feeds. Read before deleting rows,
-        so the files can be removed too."""
+        """Return every object-storage key belonging to the owner's shows (or one show).
+
+        Episode audio (WAV and MP3) and notes, uploaded PDFs, and the shows' feeds. Read before
+        deleting rows, so the files can be removed too.
+
+        Args:
+            owner_id: Every show of this user, or None.
+            show_id: This show only, or None.
+
+        Returns:
+            The object keys of their files.
+        """
         if (owner_id is None) == (show_id is None):
             raise ValueError("give exactly one of owner_id or show_id")
         scope = "s.owner_id = :id" if owner_id is not None else "s.show_id = :id"
@@ -178,7 +318,7 @@ class PostgresShowRepository:
             " FROM uploads u JOIN shows s ON s.show_id = u.show_id WHERE {scope}"
             " UNION ALL SELECT 'feeds/' || s.show_id || '.xml' FROM shows s WHERE {scope}) keys"
             " WHERE k IS NOT NULL"
-        ).format(scope=scope)  # scope is one of two fixed strings
+        ).format(scope=scope)
         rows = self._session.execute(
             text(query),
             {"id": owner_id or show_id},
@@ -187,7 +327,16 @@ class PostgresShowRepository:
 
 
 def _to_params(values: Mapping[str, Any]) -> dict[str, Any]:
-    """Serialise the jsonb columns; everything else binds as-is."""
+    """Serialise the jsonb columns for binding; everything else binds as it is.
+
+    The jsonb values are already plain JSON, from ``model_dump(mode="json")``.
+
+    Args:
+        values: Column values.
+
+    Returns:
+        The values with jsonb columns as JSON text.
+    """
     params = dict(values)
     if "sources" in params:
         params["sources"] = json.dumps([str(url) for url in params["sources"]])
@@ -195,7 +344,7 @@ def _to_params(values: Mapping[str, Any]) -> dict[str, Any]:
         params["search_queries"] = json.dumps(list(params["search_queries"]))
     if "host_voices" in params:
         params["host_voices"] = json.dumps({h: str(v) for h, v in params["host_voices"].items()})
-    for column in ("host_effects", "music"):  # already plain JSON (model_dump(mode="json"))
+    for column in ("host_effects", "music"):
         if column in params:
             params[column] = json.dumps(params[column])
     return params

@@ -1,7 +1,6 @@
 #!/bin/bash
-# First boot of the demo server (Ubuntu 22.04: Canonical's standard image, or AWS's GPU base image
-# with the NVIDIA driver and Container Toolkit). Installs Docker with Compose and BuildKit if it is
-# missing, gives containers the GPU when there is one, then installs /opt/demo/deploy.sh, which
+# First boot of the demo server (Ubuntu 22.04, Canonical's standard image). Installs Docker with
+# Compose and BuildKit if it is missing, then installs /opt/demo/deploy.sh, which
 # infra/demo/deploy.sh (or the GitHub deploy workflow) runs here through SSM for every release.
 set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -21,13 +20,6 @@ fi
 command -v aws >/dev/null || snap install aws-cli --classic
 
 systemctl enable docker
-GPU=${gpu}
-if [ "$GPU" = true ]; then
-  # GPU access for containers, checked once here so a broken driver shows up in the boot log.
-  nvidia-ctk runtime configure --runtime=docker
-  systemctl restart docker
-  nvidia-smi
-fi
 
 mkdir -p /opt/demo/secrets
 cat > /opt/demo/deploy.sh <<'DEPLOY'
@@ -63,22 +55,14 @@ done
 chown -R "$APP_UID:$APP_UID" "$SECRETS" && chmod 700 "$SECRETS"
 rm -rf /opt/demo/next/secrets && ln -s "$SECRETS" /opt/demo/next/secrets
 
-# .env: the Mac's settings, with this server's addresses and its own voice worker: Gemini TTS, or
-# Chatterbox on the GPU (voice_backend, set by Terraform).
+# .env: the Mac's settings, with this server's addresses and its own voice worker (Gemini TTS).
 SITE=$(param site_address)
-if [ "$(param voice_backend)" = chatterbox-gpu ]; then
-  FILES=docker-compose.yml:infra/demo/docker-compose.aws.yml:infra/demo/docker-compose.aws-gpu.yml
-  TTS=chatterbox
-else
-  FILES=docker-compose.yml:infra/demo/docker-compose.aws.yml
-  TTS=gemini
-fi
 param dotenv | grep -vE '^(COMPOSE_FILE|COMPOSE_PROJECT_NAME|TTS_BACKEND|PUBLIC_WEB_URL|PUBLIC_FEED_BASE_URL|SITE_ADDRESS|VOICE_EXTRAS|VOICE_TORCH_INDEX_URL)=' \
   > /opt/demo/next/.env || true
 cat >> /opt/demo/next/.env <<ENV
-COMPOSE_FILE=$FILES
+COMPOSE_FILE=docker-compose.yml:infra/demo/docker-compose.aws.yml
 COMPOSE_PROJECT_NAME=podcast-engine
-TTS_BACKEND=$TTS
+TTS_BACKEND=gemini
 SITE_ADDRESS=$SITE
 PUBLIC_WEB_URL=https://$SITE
 PUBLIC_FEED_BASE_URL=https://$SITE
@@ -115,11 +99,6 @@ if [ "$${1:-}" = "restore" ]; then
   echo "Restored."
 fi
 
-if [ "$TTS" = chatterbox ]; then
-  # Chatterbox's weights (a few GB) download on first use; fetch them now, not during the demo.
-  docker compose run --rm -T voice python -c "from chatterbox.tts import ChatterboxTTS; ChatterboxTTS.from_pretrained(device='cuda'); print('chatterbox ready on the GPU')" \
-    || echo "Could not warm up Chatterbox; the first voiced episode will download its weights."
-fi
 docker image prune -f >/dev/null
 echo "Deployed $(date -u +%FT%TZ): https://$SITE"
 DEPLOY

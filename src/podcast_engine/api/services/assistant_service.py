@@ -1,12 +1,3 @@
-"""The companion bot's answers: Gemini, grounded in the asker's own episode, or the built-in help.
-
-The model sees only the asker's episode (status, error, segment titles, the claims the fact-check
-cut) and this app's help text. Source text it quotes is marked as data, never instructions. It may
-only suggest actions from a fixed list that fits the page; the page shows them as buttons, so
-nothing happens until the person presses one. When the model is off, busy or out of quota, or
-answers badly, the built-in help replies instead, so the bot always says something useful.
-"""
-
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -31,7 +22,10 @@ MAX_QUOTE = 240
 
 @dataclass
 class Context:
-    """What the bot knows about the page it was asked on."""
+    """What the bot knows about the page it was asked on.
+
+    ``cut_claims`` holds each claim the fact-check cut, with the reason.
+    """
 
     page: str
     topic: str | None = None
@@ -40,12 +34,16 @@ class Context:
     error: str | None = None
     rewrites: int = 0
     segments: list[str] = field(default_factory=list)
-    cut_claims: list[tuple[str, str]] = field(default_factory=list)  # (claim, reason)
+    cut_claims: list[tuple[str, str]] = field(default_factory=list)
     on_episode: bool = False
     on_show: bool = False
 
     def allowed(self) -> list[ActionId]:
-        """The actions that make sense here; anything else the model suggests is dropped."""
+        """Return the actions that make sense here; the model's other suggestions are dropped.
+
+        Returns:
+            The allowed actions, by what is on screen and the episode's status.
+        """
         actions: list[ActionId] = list(EVERYWHERE)
         if self.page in {"shows", "show", "new_show", "episode", "voices", "new_voice"}:
             actions.append("start_tour")
@@ -64,6 +62,8 @@ class Context:
 
 @dataclass(frozen=True)
 class Topic:
+    """One built-in help topic: the words that select it, its answer and its suggested actions."""
+
     words: frozenset[str]
     answer: str
     actions: tuple[ActionId, ...] = ()
@@ -162,16 +162,43 @@ Suggest at most 3 actions, only ids from ALLOWED, and only when they help; other
 
 
 def _words(text: str) -> set[str]:
+    """Return a text's lower-case words.
+
+    Args:
+        text: The text.
+
+    Returns:
+        Its set of words.
+    """
     return set(re.findall(r"[a-z]+", text.lower()))
 
 
 def _quote(text: str) -> str:
+    """Mark text as data for the model, never instructions.
+
+    The text is cut to a fixed length and its angle brackets replaced, so it cannot close the
+    ``<data>`` tag.
+
+    Args:
+        text: Text from the episode or the question.
+
+    Returns:
+        The text wrapped in ``<data>`` tags.
+    """
     clean = " ".join(text.split())[:MAX_QUOTE]
     return f"<data>{clean.replace('<', '(').replace('>', ')')}</data>"
 
 
 def help_answer(question: str, context: Context) -> tuple[str, list[ActionId]]:
-    """The built-in help's reply: the episode's own situation first, then the best topic."""
+    """Answer with the built-in help: the episode's own situation first, then the best topic.
+
+    Args:
+        question: What the person asked.
+        context: What is on screen.
+
+    Returns:
+        The answer and the suggested actions.
+    """
     asked = _words(question)
     allowed = context.allowed()
     why = asked & {"why", "fail", "failed", "error", "stopped", "wrong", "happened"}
@@ -194,6 +221,16 @@ def help_answer(question: str, context: Context) -> tuple[str, list[ActionId]]:
 
 
 class AssistantService:
+    """The companion bot: Gemini, grounded in the asker's episode, or the built-in help.
+
+    The model sees only the asker's episode (status, error, segment titles, the claims the
+    fact-check cut) and this app's help text. Source text it quotes is marked as data, never
+    instructions. It may only suggest actions from a fixed list that fits the page; the page shows
+    them as buttons, so nothing happens until the person presses one. When the model is off, busy or
+    out of quota, or answers badly, the built-in help replies instead, so the bot always says
+    something useful.
+    """
+
     def __init__(
         self,
         episodes: EpisodeService,
@@ -202,6 +239,15 @@ class AssistantService:
         llm: Callable[[], LlmClient | None],
         per_hour: int,
     ) -> None:
+        """Create the service.
+
+        Args:
+            episodes: The episode service, for the episode on screen.
+            shows: The show service, for the show on screen.
+            usage: The per-person hourly question counter.
+            llm: Returns the LLM client, or None when the model is off.
+            per_hour: Questions each person may ask per hour.
+        """
         self._episodes = episodes
         self._shows = shows
         self._usage = usage
@@ -209,7 +255,22 @@ class AssistantService:
         self._per_hour = per_hour
 
     def ask(self, user: CurrentUser, question: Question) -> Answer:
-        context = self._context(user, question)  # 404 for someone else's episode or show
+        """Answer a question about the app or the episode on screen.
+
+        Any model failure is logged and the built-in help answers instead.
+
+        Args:
+            user: The person asking.
+            question: The question and the page it was asked from.
+
+        Returns:
+            The answer, its suggested actions, who wrote it and the questions left this hour.
+
+        Raises:
+            NotFoundError: The episode or show on screen is not the asker's.
+            TooManyRequestsError: The asker has used this hour's questions.
+        """
+        context = self._context(user, question)
         remaining = self._usage.take(user.user_id, self._per_hour)
         if remaining is None:
             raise TooManyRequestsError(
@@ -221,12 +282,26 @@ class AssistantService:
             try:
                 reply = self._ask_model(llm, user, question, context)
                 return Answer(**reply, source="gemini", remaining=remaining)
-            except Exception as error:  # any model failure: the help answers instead
+            except Exception as error:
                 log.warning("assistant_model_failed", reason=type(error).__name__)
         answer, actions = help_answer(question.question, context)
         return Answer(answer=answer, actions=actions, source="help", remaining=remaining)
 
     def _context(self, user: CurrentUser, question: Question) -> Context:
+        """Gather what is on screen: the episode's status, segments and cut claims, and the show.
+
+        An episode that is not scripted yet has no segments.
+
+        Args:
+            user: The person asking.
+            question: The question, with the episode and show on screen.
+
+        Returns:
+            The context.
+
+        Raises:
+            NotFoundError: The episode or show is not the asker's.
+        """
         context = Context(page=question.page)
         show_id = question.show_id
         if question.episode_id is not None:
@@ -240,7 +315,7 @@ class AssistantService:
             try:
                 script = self._episodes.get_script(question.episode_id, user.user_id)
                 context.segments = [s.title for s in script.segments][:12]
-            except NotFoundError:  # not scripted yet
+            except NotFoundError:
                 context.segments = []
             claims = self._episodes.list_claims(
                 question.episode_id,
@@ -260,9 +335,25 @@ class AssistantService:
     def _ask_model(
         self, llm: LlmClient, user: CurrentUser, question: Question, context: Context
     ) -> dict[str, object]:
+        """Ask the model, with the help text and the asker's own context.
+
+        The companion is named after the person's avatar; ``Scout``, the default before the
+        companion became James, is shown as James. At most three allowed actions are kept.
+
+        Args:
+            llm: The LLM client.
+            user: The person asking.
+            question: The question.
+            context: What is on screen.
+
+        Returns:
+            The answer and its allowed actions.
+
+        Raises:
+            ValueError: The model's answer is empty.
+        """
         avatar = user.avatar
         system = SYSTEM.format(
-            # "Scout" was the default before the companion became James; never renamed, it is James.
             name=avatar.name if avatar and avatar.name != "Scout" else "James",
             personality=avatar.personality if avatar else "cheerful",
         )

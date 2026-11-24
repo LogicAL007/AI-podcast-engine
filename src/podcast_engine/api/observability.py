@@ -1,5 +1,3 @@
-"""API metrics: a request-timing middleware and the ``/metrics`` endpoint Prometheus scrapes."""
-
 import time
 from collections.abc import Awaitable, Callable
 
@@ -17,25 +15,40 @@ UNMATCHED_ROUTE = "unmatched"
 
 
 def add_metrics(app: FastAPI) -> None:
-    """Record request count and latency per route template, and expose ``/metrics``."""
+    """Record request count and latency per route, and expose ``/metrics`` for Prometheus.
+
+    Args:
+        app: The FastAPI app to instrument.
+    """
 
     @app.middleware("http")
     async def record_request(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        """Time one request and count it by method, route and status.
+
+        The label is the route template (``/v1/shows/{show_id}``), never the raw path: raw ids would
+        create one time series per show. Routes in an included router know only their own path, so
+        the full template with the router's prefix is read from FastAPI's effective route. Requests
+        that match no route share one label, and a handler that raises is counted as 500.
+        ``/metrics`` itself is not counted.
+
+        Args:
+            request: The incoming request.
+            call_next: The rest of the app, which produces the response.
+
+        Returns:
+            The app's response, unchanged.
+        """
         if request.url.path == METRICS_PATH:
             return await call_next(request)
         started = time.perf_counter()
-        status_code = 500  # what we report if the handler raises
+        status_code = 500
         try:
             response = await call_next(request)
             status_code = response.status_code
             return response
         finally:
-            # The route template ("/shows/{show_id}"), never the raw path: raw ids would create
-            # one time series per show. Requests that match no route share one label.
-            # Routes in an included router know only their own path; FastAPI records the full
-            # template, with the router's prefix (/v1), as the effective route.
             effective = request.scope.get("fastapi", {}).get("effective_route_context")
             route = request.scope.get("route")
             path = getattr(effective, "path", None) or getattr(route, "path", UNMATCHED_ROUTE)
@@ -44,4 +57,9 @@ def add_metrics(app: FastAPI) -> None:
 
     @app.get(METRICS_PATH, include_in_schema=False)
     def metrics() -> Response:
+        """Serve the metrics in Prometheus's text format.
+
+        Returns:
+            Every metric this process has recorded.
+        """
         return Response(render_metrics(), media_type=METRICS_CONTENT_TYPE)

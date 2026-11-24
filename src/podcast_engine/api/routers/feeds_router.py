@@ -1,5 +1,3 @@
-"""Routes for feeds: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 from uuid import UUID
 
@@ -28,8 +26,19 @@ ShowId = Annotated[UUID, Path(description="The show's id")]
     },
 )
 def get_show_feed(show_id: ShowId, controller: Controller) -> Response:
-    """The show's podcast feed, for podcast apps. Each item's enclosure is the episode's
-    audio, its description the show notes; titles are labelled `[AI-generated]`. Rewritten
-    by the publish stage each time an episode is published."""
+    """The show's podcast feed, for podcast apps.
+
+    Each item's enclosure is the episode's audio, its description the show notes; titles are
+    labelled `[AI-generated]`. Rewritten by the publish stage each time an episode is published.
+
+    \f
+
+    Args:
+        show_id: The show whose feed to return.
+        controller: The feed controller, injected by FastAPI.
+
+    Returns:
+        The RSS 2.0 document with iTunes tags.
+    """
     feed = controller.get_rss(show_id)
     return Response(content=feed.content, media_type=RSS_MEDIA_TYPE)

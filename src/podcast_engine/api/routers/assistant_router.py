@@ -1,5 +1,3 @@
-"""Routes for the in-app assistant: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -26,9 +24,21 @@ Controller = Annotated[AssistantController, Depends(get_assistant_controller)]
     ),
 )
 def ask(question: Question, me: CurrentUserDep, controller: Controller) -> Answer:
-    """Ask about the app or the episode on screen. With the LLM on, Gemini answers from your
-    episode's own data (its status, error, segments and the claims the fact-check cut); otherwise,
-    or if the model is unavailable, the built-in help does. Suggested actions are only offered as
-    buttons; nothing runs by itself. Limited per person per hour
-    (`ASSISTANT_QUESTIONS_PER_HOUR`)."""
+    """Ask about the app or the episode on screen.
+
+    With the LLM on, Gemini answers from your episode's own data (its status, error, segments and
+    the claims the fact-check cut); otherwise, or if the model is unavailable, the built-in help
+    does. Suggested actions are only offered as buttons; nothing runs by itself. Limited per person
+    per hour (`ASSISTANT_QUESTIONS_PER_HOUR`).
+
+    \f
+
+    Args:
+        question: The question and the page it was asked from.
+        me: The signed-in user.
+        controller: The assistant controller, injected by FastAPI.
+
+    Returns:
+        The answer, suggested next steps and questions left this hour.
+    """
     return controller.ask(me, question)

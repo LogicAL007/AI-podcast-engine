@@ -1,5 +1,3 @@
-"""Routes for the music library: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Path, Response, UploadFile, status
@@ -30,8 +28,19 @@ NOT_FOUND = errors(e404="Track not found")
     response_description="The built-in tracks, then yours, newest first",
 )
 def list_music(me: CurrentUserDep, controller: Controller) -> list[MusicTrackRead]:
-    """Every track a show can use: the built-in ones (made in the app, free to use) and the
-    ones you uploaded."""
+    """Every track a show can use.
+
+    The built-in ones (made in the app, free to use) and the ones you uploaded.
+
+    \f
+
+    Args:
+        me: The signed-in user.
+        controller: The music controller, injected by FastAPI.
+
+    Returns:
+        The built-in tracks, then yours, newest first.
+    """
     return controller.list_all(me.user_id)
 
 
@@ -61,9 +70,26 @@ def upload_music(
         str, Form(description="Credit line for the show notes, if the licence asks for one")
     ] = "",
 ) -> MusicTrackRead:
-    """Add a track to your library, for your shows' intros, outros, stings and beds. You must
-    confirm you have the right to use it."""
-    data = audio.file.read(controller.max_bytes + 1)  # one byte over the limit is enough to refuse
+    """Add a track to your library, for your shows' intros, outros, stings and beds.
+
+    You must confirm you have the right to use it.
+
+    \f
+
+    Args:
+        me: The signed-in user.
+        controller: The music controller, injected by FastAPI.
+        audio: The track as 24 kHz mono 16-bit WAV; reading stops one byte past the limit, which is
+            enough to refuse it.
+        name: A name for the track.
+        rights: Whether you own the music or have a licence to use it.
+        role: What the track is for: bed, intro, outro, sting or any.
+        credit: Credit line for the show notes, if the licence asks for one.
+
+    Returns:
+        The uploaded track.
+    """
+    data = audio.file.read(controller.max_bytes + 1)
     return controller.upload(
         me.user_id, name=name, role=role, credit=credit, rights=rights, data=data
     )
@@ -76,7 +102,18 @@ def upload_music(
     responses={**file_response("audio/wav", "The track", binary=True), **NOT_FOUND},
 )
 def music_audio(track_id: TrackId, me: CurrentUserDep, controller: Controller) -> Response:
-    """A track's audio (24 kHz mono WAV): a built-in one, or one of yours."""
+    """A track's audio (24 kHz mono WAV): a built-in one, or one of yours.
+
+    \f
+
+    Args:
+        track_id: ``builtin:...`` or the id of a track you uploaded.
+        me: The signed-in user.
+        controller: The music controller, injected by FastAPI.
+
+    Returns:
+        The WAV file, cacheable privately for an hour.
+    """
     return Response(
         controller.audio(track_id, me.user_id),
         media_type="audio/wav",
@@ -91,6 +128,15 @@ def music_audio(track_id: TrackId, me: CurrentUserDep, controller: Controller) -
     responses={**NOT_FOUND, **errors(e409="Built-in tracks cannot be deleted")},
 )
 def delete_music(track_id: TrackId, me: CurrentUserDep, controller: Controller) -> None:
-    """Delete one of your tracks. Shows that used it go back to the default for that slot;
-    episodes already made keep their audio."""
+    """Delete one of your tracks.
+
+    Shows that used it go back to the default for that slot; episodes already made keep their audio.
+
+    \f
+
+    Args:
+        track_id: The track to delete.
+        me: The signed-in user.
+        controller: The music controller, injected by FastAPI.
+    """
     controller.delete(track_id, me.user_id)

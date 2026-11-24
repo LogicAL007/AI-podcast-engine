@@ -2,8 +2,7 @@
 #   - Caddy in front of the web app for HTTPS (Let's Encrypt);
 #   - nothing published on the internet except Caddy's 80 and 443. The security group allows
 #     only those two anyway.
-# The voice worker is the base file's: TTS_BACKEND=gemini by default (the server's .env). With
-# voice_backend = "chatterbox-gpu", docker-compose.aws-gpu.yml is added on top.
+# The voice worker is the base file's, with TTS_BACKEND=gemini (the server's .env).
 # The server's deploy script sets COMPOSE_FILE in .env. Paths are relative to the repository root,
 # the project directory.
 

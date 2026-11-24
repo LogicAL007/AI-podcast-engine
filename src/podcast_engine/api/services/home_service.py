@@ -1,9 +1,3 @@
-"""Builds the home document and API catalog from the API's own OpenAPI description.
-
-Generating them from the routes keeps them true: a new endpoint appears in the home document as soon
-as it exists, with the methods, formats and documentation link its route declares.
-"""
-
 import re
 from typing import Any
 
@@ -46,11 +40,18 @@ CONVENTIONS = {
 
 
 def relation_for(path: str) -> str:
-    """A resource's link relation from its path: a segment followed by an id is singular.
+    """Return a resource's link relation, from its path.
 
-    ``/shows/{show_id}/episodes`` -> ``tag:podcast-engine,2026:show-episodes``;
-    ``/episodes/{episode_id}/audio.wav`` -> ``...:episode-audio``. A collection without a plural
-    (``/music``, ``/speech``) names one of its members ``music-item``, ``speech-item``.
+    A segment followed by an id is singular. ``/shows/{show_id}/episodes`` gives
+    ``tag:podcast-engine,2026:show-episodes`` and ``/episodes/{episode_id}/audio.wav`` gives
+    ``...:episode-audio``. A collection without a plural (``/music``, ``/speech``) names one of its
+    members ``music-item``, ``speech-item``.
+
+    Args:
+        path: The route's path template.
+
+    Returns:
+        A tag URI (RFC 4151) naming the relation.
     """
     segments = path.strip("/").split("/")
     names = []
@@ -66,6 +67,15 @@ def relation_for(path: str) -> str:
 
 
 def _media_types(responses: dict[str, Any], *, success: bool) -> list[str]:
+    """Collect the media types of a route's success or error responses.
+
+    Args:
+        responses: The route's OpenAPI responses.
+        success: True for 2xx and 3xx responses, False for errors.
+
+    Returns:
+        The media types, without duplicates, in order.
+    """
     types: list[str] = []
     for code, response in responses.items():
         if code.startswith(("2", "3")) == success:
@@ -74,7 +84,19 @@ def _media_types(responses: dict[str, Any], *, success: bool) -> list[str]:
 
 
 def build_home(schema: dict[str, Any], *, base: str, auth: Auth) -> HomeDocument:
-    """The home document for an OpenAPI description. ``base`` is the API's public base URL."""
+    """Build the home document from the API's own OpenAPI description.
+
+    Generating it from the routes keeps it true: a new endpoint appears in the home document as soon
+    as it exists, with the methods, formats and documentation link its route declares.
+
+    Args:
+        schema: The app's OpenAPI description.
+        base: The API's public base URL.
+        auth: How the API authenticates.
+
+    Returns:
+        The home document.
+    """
     info = schema["info"]
     resources: dict[str, Resource] = {}
     for path, operations in schema["paths"].items():
@@ -162,7 +184,15 @@ def build_home(schema: dict[str, Any], *, base: str, auth: Auth) -> HomeDocument
 
 
 def bearer_auth(*, base: str, token_days: int) -> Auth:
-    """How this API authenticates, for the home document."""
+    """Describe how this API authenticates, for the home document.
+
+    Args:
+        base: The API's public base URL.
+        token_days: How long a login token or API key lasts.
+
+    Returns:
+        The auth description: Bearer tokens, where to get them, and which routes are public.
+    """
     return Auth(
         required=True,
         schemes=[AuthScheme(scheme="Bearer")],
@@ -180,7 +210,15 @@ def bearer_auth(*, base: str, token_days: int) -> Auth:
 
 
 def build_catalog(*, base: str, title: str) -> ApiCatalog:
-    """The RFC 9727 catalog: this publisher has one API, described by these documents."""
+    """Build the RFC 9727 API catalog: this publisher has one API, described by these documents.
+
+    Args:
+        base: The API's public base URL.
+        title: The API's title.
+
+    Returns:
+        The catalog: links to the home document, OpenAPI description, docs and status.
+    """
     return ApiCatalog(
         linkset=[
             LinkContext(

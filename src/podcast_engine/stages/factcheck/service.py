@@ -1,5 +1,3 @@
-"""Fact-check: the gate between script and voice."""
-
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -16,24 +14,38 @@ SUPPORT_THRESHOLD = 0.6  # offline judge: share of a claim's content words found
 
 
 class Verdict(BaseModel):
-    # The reason comes before the verdict: the model states its evidence, then decides from it.
+    """The model's verdict on one claim.
+
+    The reason comes before the verdict: the model states its evidence, then decides from it.
+    """
+
     claim_number: int
     reason: str
     supported: bool
 
 
 class Verdicts(BaseModel):
+    """What the fact-check model returns: one verdict per claim."""
+
     verdicts: list[Verdict]
 
 
 def route_after_factcheck(
     report: FactCheckReport, *, rewrites_done: int, max_rewrites: int
 ) -> Stage | None:
-    """Decide where the episode goes after the gate.
+    """Decide where the episode goes after the fact-check gate.
 
-    Passing scripts go to voice. Failing scripts loop back to the script stage until the
-    rewrite budget is spent; then None holds the episode for human review rather than voicing
-    unsupported claims.
+    Passing scripts go to voice. Failing scripts loop back to the script stage until the rewrite
+    budget is spent; then the episode is held for human review rather than voicing unsupported
+    claims.
+
+    Args:
+        report: The gate's report.
+        rewrites_done: Rewrites already made for this episode.
+        max_rewrites: Rewrites allowed (0 for a script a reviewer edited).
+
+    Returns:
+        ``voice``, ``script``, or None to hold the episode for review.
     """
     if report.passed:
         return Stage.VOICE
@@ -43,9 +55,17 @@ def route_after_factcheck(
 
 
 def lexical_support(claim: str, passages: list[str]) -> float:
-    """Offline stand-in for the judge.
+    """Score how well passages support a claim, offline: the stand-in for the LLM judge.
 
-    It catches invented claims made of new words, not ones that reuse the source's words.
+    It catches invented claims made of new words, not ones that reuse the source's words. A claim
+    passes at 60%.
+
+    Args:
+        claim: The claim's text.
+        passages: The passages it cites.
+
+    Returns:
+        The share of the claim's content words found in the passages; 1.0 for a claim with none.
     """
     tokens = set(content_tokens(claim))
     if not tokens:
@@ -57,18 +77,32 @@ def lexical_support(claim: str, passages: list[str]) -> float:
 def judge_llm(
     items: list[tuple[Claim, list[str]]], ctx: PipelineContext
 ) -> dict[int, tuple[bool, str]]:
+    """Ask the LLM to judge each claim against the passages it cites.
+
+    Each passage goes on one line. The task is repeated after the material, which models follow best
+    (Google's prompting guide).
+
+    Args:
+        items: Each claim and the text of the passages it cites.
+        ctx: The pipeline context, with an LLM client.
+
+    Returns:
+        For each claim number (from 1), whether it is supported and why.
+
+    Raises:
+        RuntimeError: There is no LLM client.
+    """
     from podcast_engine.stages.script.service import load_prompt
 
     if ctx.llm is None:
         raise RuntimeError("judge_llm needs an LLM client")
     listing = "\n\n".join(
         f"Claim {n}: {claim.text}\nCited passages:\n"
-        + "\n".join(f"- {' '.join(p.split())}" for p in passages)  # one line per passage
+        + "\n".join(f"- {' '.join(p.split())}" for p in passages)
         for n, (claim, passages) in enumerate(items, start=1)
     )
     result = ctx.llm.parse(
         system=load_prompt(ctx.settings.prompts_dir, "factcheck", PROMPT_VERSIONS["factcheck"]),
-        # The task again after the material, which models follow best (Google's prompting guide).
         user=f"{listing}\n\nGive one verdict for each of the {len(items)} claims above.",
         output_format=Verdicts,
     )
@@ -76,7 +110,28 @@ def judge_llm(
 
 
 def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """FR9: judge each claim against its retrieved passages, then route with the report."""
+    """Judge each claim against its cited passages, then route the episode (stage 5, FR9).
+
+    Claims without a citation fail. With the LLM on, the model judges the rest; otherwise word
+    overlap does. Failing segments are rewritten (with the failed claims to avoid) until the rewrite
+    budget is spent; then the episode is held for review.
+
+    A script a reviewer edited is never regenerated over the edit: if it fails, it goes back to
+    review. A passing script waits for approval when the show reviews before voicing. A rewrite
+    costs one request per flagged segment plus another check; if today's Gemini budget cannot cover
+    that, the episode is held for review instead of failing halfway. Each pass is added to the
+    fact-check history.
+
+    Args:
+        episode_id: The episode being made.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        ``voice``, ``script`` for a rewrite, or None when the episode is held for review.
+
+    Raises:
+        ValueError: There is no script to check.
+    """
     from podcast_engine.stages.script.service import script_lines
 
     ctx = ctx or get_context()
@@ -128,16 +183,12 @@ def check_script(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage 
     report = FactCheckReport(
         episode_id=episode_id, unsupported=unsupported, total_claims=len(claims_by_id)
     )
-    # A script a reviewer edited is never regenerated over the edit: if it fails, it goes back
-    # to review. A passing script waits for approval when the show reviews before voicing.
     edited = bool((episode.script or {}).get("edited_segments"))
     decision = route_after_factcheck(
         report,
         rewrites_done=episode.rewrite_count,
         max_rewrites=0 if edited else ctx.settings.max_rewrites,
     )
-    # A rewrite is one request per flagged segment plus another check. If today's Gemini budget
-    # cannot cover that, hold the episode for review instead of failing it halfway.
     flagged_segments = {segment_of[c.claim_id] for c in unsupported}
     low_budget = (
         decision is Stage.SCRIPT

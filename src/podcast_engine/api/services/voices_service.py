@@ -1,10 +1,3 @@
-"""Business rules for cloned voices. No HTTP and no SQL in here.
-
-The PRD forbids cloning anyone without their permission, so a voice is refused unless its consent
-form is complete: the speaker signs for their own voice, or the account holder states where the
-speaker's written permission is kept. The signed text is stored verbatim with the recording.
-"""
-
 import hashlib
 import wave
 from collections.abc import Callable
@@ -40,16 +33,46 @@ SILENT_RMS = 0.005  # below this the "recording" is silence or a muted microphon
 
 
 def voice_key(owner: UUID, voice_id: UUID) -> str:
-    """Object key of a voice recording. Private: only its owner, through the API, can play it."""
+    """Return the object key of a voice recording.
+
+    Private: only its owner, through the API, can play it.
+
+    Args:
+        owner: The user who registered it.
+        voice_id: The voice.
+
+    Returns:
+        The recording's key in object storage.
+    """
     return f"voices/{owner}/{voice_id}.wav"
 
 
 def _tidy(value: str) -> str:
+    """Collapse runs of whitespace and trim.
+
+    Args:
+        value: Text typed in the form.
+
+    Returns:
+        The text with single spaces.
+    """
     return " ".join(value.split())
 
 
 def check_consent(form: ConsentForm) -> list[str]:
-    """Everything missing from the consent form, so one reply lists it all."""
+    """List everything missing from a voice consent form, so one reply lists it all.
+
+    The PRD forbids cloning anyone without their permission, so a voice is refused unless its
+    consent form is complete: the speaker signs for their own voice, or the account holder states
+    where the speaker's written permission is kept. All three consent statements must be agreed to,
+    and the terms of use stated.
+
+    Args:
+        form: The consent form as submitted.
+
+    Returns:
+        One message per problem; empty when the form is complete.
+    """
     problems: list[str] = []
     if not (form.agree_clone and form.agree_ai_label and form.agree_withdraw):
         problems.append("all three consent statements must be agreed to")
@@ -70,6 +93,8 @@ def check_consent(form: ConsentForm) -> list[str]:
 
 
 class VoiceService:
+    """Business rules for cloned voices. No HTTP and no SQL in here."""
+
     def __init__(
         self,
         voices: VoiceRepository,
@@ -77,6 +102,13 @@ class VoiceService:
         *,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
+        """Create the service.
+
+        Args:
+            voices: Where voices and their consent records are stored.
+            store: Where recordings are stored.
+            now: Returns the current time; replaced in tests.
+        """
         self._voices = voices
         self._store = store
         self._now = now
@@ -84,7 +116,28 @@ class VoiceService:
     def register(
         self, owner: UUID, form: ConsentForm, *, source: VoiceSource, data: bytes
     ) -> VoiceRead:
-        """Keep a recording as a cloneable voice, with its consent record."""
+        """Keep a recording as a cloneable voice, with its consent record.
+
+        The recording must be 24 kHz mono 16-bit WAV, 5 to 90 seconds long and not silent (below
+        that level it is a muted microphone), and an account holds at most 10 voices. The signed
+        consent statement and its version are stored verbatim with the recording.
+
+        Args:
+            owner: The user registering the voice.
+            form: The consent form.
+            source: Whether the audio was recorded in the browser or uploaded.
+            data: The recording's WAV bytes.
+
+        Returns:
+            The registered voice.
+
+        Raises:
+            InvalidInputError: The consent form is incomplete, or the recording is the wrong length
+                or silent.
+            PayloadTooLargeError: The file is larger than the limit.
+            UnsupportedMediaTypeError: The file is not 24 kHz mono 16-bit WAV.
+            ConflictError: The account already has the most voices allowed.
+        """
         problems = check_consent(form)
         if problems:
             raise InvalidInputError("consent form: " + "; ".join(problems))
@@ -137,23 +190,67 @@ class VoiceService:
         )
 
     def list_page(self, owner: UUID, *, limit: int, offset: int) -> Paged[VoiceRead]:
+        """Return one page of the owner's voices, newest first.
+
+        Args:
+            owner: The user asking.
+            limit: Most voices to return.
+            offset: Voices to skip before this page.
+
+        Returns:
+            The page of voices and the total.
+        """
         return self._voices.list_page(owner, limit=limit, offset=offset)
 
     def get(self, voice_id: UUID, owner: UUID) -> VoiceRead:
+        """Return one of the owner's voices.
+
+        Args:
+            voice_id: The voice.
+            owner: The user asking.
+
+        Returns:
+            The voice and its consent record.
+
+        Raises:
+            NotFoundError: The owner has no such voice.
+        """
         voice = self._voices.get(voice_id, owner)
         if voice is None:
             raise NotFoundError("voice", voice_id)
         return voice
 
     def audio(self, voice_id: UUID, owner: UUID) -> bytes:
+        """Return a voice's original recording.
+
+        Args:
+            voice_id: The voice.
+            owner: The user asking.
+
+        Returns:
+            The recording as WAV bytes.
+
+        Raises:
+            NotFoundError: The owner has no such voice, or its recording is missing.
+        """
         voice = self.get(voice_id, owner)
         if not self._store.exists(voice.object_key):
             raise NotFoundError("recording of voice", voice_id)
         return self._store.get(voice.object_key)
 
     def delete(self, voice_id: UUID, owner: UUID) -> None:
-        """Withdraw a voice: its record, its recording and the speech clips made with it go, and
-        no host of a show uses it. Finished episodes keep their audio (the form says so)."""
+        """Withdraw a voice.
+
+        Its record, its recording and the speech clips made with it go, and no host of a show uses
+        it. Finished episodes keep their audio (the form says so).
+
+        Args:
+            voice_id: The voice.
+            owner: The user asking.
+
+        Raises:
+            NotFoundError: The owner has no such voice.
+        """
         voice = self.get(voice_id, owner)
         clips = self._voices.clip_keys(voice_id, owner)
         self._voices.delete(voice_id, owner)

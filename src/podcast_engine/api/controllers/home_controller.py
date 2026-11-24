@@ -1,5 +1,3 @@
-"""HTTP-facing orchestration for the home document and API catalog."""
-
 from typing import Any
 
 from fastapi import Request, Response
@@ -12,14 +10,20 @@ from podcast_engine.api.models.home_model import (
 )
 from podcast_engine.api.services.home_service import bearer_auth, build_catalog, build_home
 
-CACHE = "public, max-age=300"  # it changes only when the API is redeployed
+CACHE = "public, max-age=300"
 
 
 def public_base(request: Request) -> str:
-    """The API's base URL as the client sees it, including a proxy's path prefix.
+    """Return the API's base URL as the client sees it, including a proxy's path prefix.
 
-    nginx serves the API under ``/api`` and says so in ``X-Forwarded-Prefix``; scheme and host
-    come from uvicorn's proxy-header handling.
+    nginx serves the API under ``/api`` and says so in ``X-Forwarded-Prefix``; scheme and host come
+    from uvicorn's proxy-header handling.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The base URL, without a trailing slash.
     """
     prefix = request.headers.get("x-forwarded-prefix", "").rstrip("/")
     root = str(request.base_url).rstrip("/")
@@ -27,7 +31,15 @@ def public_base(request: Request) -> str:
 
 
 def discovery_links(base: str) -> str:
-    """A ``Link`` header (RFC 8288) with the RFC 8631 and RFC 9727 relations."""
+    """Build a ``Link`` header (RFC 8288) with the RFC 8631 and RFC 9727 relations.
+
+    Args:
+        base: The API's public base URL.
+
+    Returns:
+        The header value: the API catalog, the OpenAPI description, the docs and the status
+        endpoint.
+    """
     return ", ".join(
         [
             f'<{base}/.well-known/api-catalog>; rel="api-catalog"',
@@ -39,11 +51,32 @@ def discovery_links(base: str) -> str:
 
 
 class HomeController:
+    """Serves the API's home document and catalog.
+
+    Both are cached for five minutes: they change only when the API is redeployed.
+    """
+
     def __init__(self, *, token_days: int) -> None:
+        """Create the controller.
+
+        Args:
+            token_days: How long a login token lasts, shown in the auth description.
+        """
         self._token_days = token_days
 
     def home(self, request: Request, schema: dict[str, Any]) -> Response:
-        """The home document, as ``application/json-home`` when the client asks for it."""
+        """Return the home document, as ``application/json-home`` when the client asks for it.
+
+        Null fields are left out (a resource has ``href`` or ``hrefTemplate``, never both), but
+        ``login`` is always given, because "no login" is worth saying explicitly.
+
+        Args:
+            request: The incoming request.
+            schema: The app's OpenAPI schema, which lists the resources.
+
+        Returns:
+            The home document with discovery links and caching headers.
+        """
         base = public_base(request)
         document = build_home(
             schema, base=base, auth=bearer_auth(base=base, token_days=self._token_days)
@@ -51,8 +84,6 @@ class HomeController:
         accept = request.headers.get("accept", "")
         media_type = JSON_HOME_MEDIA_TYPE if JSON_HOME_MEDIA_TYPE in accept else "application/json"
         body = document.model_dump(mode="json", by_alias=True, exclude_none=True)
-        # Nulls are left out (a resource has href or hrefTemplate, never both), but "no login" is
-        # worth saying explicitly.
         body["api"]["auth"]["login"] = document.api.auth.login
         return JSONResponse(
             body,
@@ -61,7 +92,18 @@ class HomeController:
         )
 
     def catalog(self, request: Request, title: str, *, with_body: bool = True) -> Response:
-        """The RFC 9727 catalog; HEAD answers with the headers only, as the RFC requires."""
+        """Return the RFC 9727 API catalog.
+
+        A HEAD request gets the headers only, as the RFC requires.
+
+        Args:
+            request: The incoming request.
+            title: The API's title.
+            with_body: False for a HEAD request.
+
+        Returns:
+            The catalog as a linkset, or an empty response with its headers.
+        """
         base = public_base(request)
         headers = {
             "Link": f'<{base}/.well-known/api-catalog>; rel="api-catalog"',

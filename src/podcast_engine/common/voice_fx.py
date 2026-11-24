@@ -1,13 +1,3 @@
-"""Voice effects for a show's hosts: deepen, warmth and a broadcast ("radio voice") chain.
-
-The settings live on the show (``shows.host_effects``), per host. They are applied when an episode
-is assembled and when a type-to-speech clip is made, never at synthesis, so the TTS cache keeps
-the raw voices and changing an effect never voices anything again.
-
-pedalboard (Spotify) is imported only when audio is processed, so the API, which only validates
-the settings, does not need it.
-"""
-
 from typing import Literal
 
 import numpy as np
@@ -22,8 +12,11 @@ WARMTH_HIGH_DB = -3.0  # and a gentle high shelf cut at 7 kHz
 
 
 class VoiceEffects(BaseModel):
-    """How one host's voice is processed. All off by default. Frozen, so equal settings compare
-    (and hash) equal: a clip shared by two hosts is processed only if theirs are the same."""
+    """How one host's voice is processed. All off by default.
+
+    Frozen, so equal settings compare (and hash) equal: a clip shared by two hosts is processed only
+    if theirs are the same.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -33,6 +26,7 @@ class VoiceEffects(BaseModel):
 
     @property
     def active(self) -> bool:
+        """Whether any effect is on."""
         return self.deepen > 0 or self.warmth > 0 or self.broadcast
 
 
@@ -48,6 +42,21 @@ PRESETS: dict[str, VoiceEffects] = {
 
 
 def _chain(fx: VoiceEffects) -> list[object]:
+    """Build the pedalboard plugins for a host's effects.
+
+    - Deepen lowers the pitch by up to 5 semitones and adds up to 3 dB of low end at 150 Hz, so a
+      lower voice also sounds bigger.
+    - Warmth boosts a low shelf at 250 Hz by up to 4 dB and cuts a high shelf at 7 kHz by up to 3
+      dB.
+    - Broadcast is a radio-voice chain: an 80 Hz high-pass, 3:1 compression, a 3 kHz presence boost,
+      a 6.5 kHz de-esser and a limiter at -1 dBFS.
+
+    Args:
+        fx: The host's effect settings.
+
+    Returns:
+        The plugins, in processing order.
+    """
     from pedalboard import (
         Compressor,
         HighpassFilter,
@@ -75,15 +84,30 @@ def _chain(fx: VoiceEffects) -> list[object]:
         plugins += [
             HighpassFilter(cutoff_frequency_hz=80),
             Compressor(threshold_db=-18, ratio=3, attack_ms=3, release_ms=60),
-            PeakFilter(cutoff_frequency_hz=3000, gain_db=2, q=0.9),  # presence
-            PeakFilter(cutoff_frequency_hz=6500, gain_db=-3, q=2.0),  # de-ess
+            PeakFilter(cutoff_frequency_hz=3000, gain_db=2, q=0.9),
+            PeakFilter(cutoff_frequency_hz=6500, gain_db=-3, q=2.0),
             Limiter(threshold_db=-1, release_ms=50),
         ]
     return plugins
 
 
 def apply_effects(audio: np.ndarray, fx: VoiceEffects | None) -> np.ndarray:
-    """``audio`` (mono, float32, at SR) with ``fx`` applied; the same array when all are off."""
+    """Apply a host's voice effects to mono audio.
+
+    The settings live on the show (``shows.host_effects``), per host. They are applied when an
+    episode is assembled and when a type-to-speech clip is made, never at synthesis, so the TTS
+    cache keeps the raw voices and changing an effect never voices anything again.
+
+    pedalboard (Spotify) is imported only when audio is processed, so the API, which only validates
+    the settings, does not need it.
+
+    Args:
+        audio: Mono float32 samples at the engine's sample rate.
+        fx: The host's effect settings, or None.
+
+    Returns:
+        The processed audio, the same length; the input array itself when every effect is off.
+    """
     if fx is None or not fx.active or len(audio) == 0:
         return audio
     from pedalboard import Pedalboard  # type: ignore[attr-defined]

@@ -1,5 +1,3 @@
-"""Routes for the API's entry points: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -26,6 +24,14 @@ LINK_HEADER = {
 
 
 def _schema(request: Request) -> dict[str, Any]:
+    """Return the app's OpenAPI schema, which lists the resources.
+
+    Args:
+        request: The incoming request, whose app builds the schema.
+
+    Returns:
+        The OpenAPI document.
+    """
     schema: dict[str, Any] = request.app.openapi()
     return schema
 
@@ -45,21 +51,41 @@ def _schema(request: Request) -> dict[str, Any]:
     },
 )
 def home(request: Request, controller: Controller) -> Response:
-    """Start here. Lists every resource of the API with its URI or URI template, the methods it
-    allows, the formats it returns and accepts, whether it supports byte ranges or paging, and a
-    link to its documentation. Also says how authentication works (at present: it is not
-    required), where the liveness and readiness checks are, and the conventions every endpoint
-    follows.
+    """Start here.
 
-    The format is a JSON home document (draft-nottingham-json-home). Ask for
-    `application/json-home` to get that media type; otherwise it is served as `application/json`.
+    Lists every resource of the API with its URI or URI template, the methods it allows, the formats
+    it returns and accepts, whether it supports byte ranges or paging, and a link to its
+    documentation. Also says how authentication works (at present: it is not required), where the
+    liveness and readiness checks are, and the conventions every endpoint follows.
+
+    The format is a JSON home document (draft-nottingham-json-home). Ask for `application/json-home`
+    to get that media type; otherwise it is served as `application/json`.
+
+    \f
+
+    Args:
+        request: The incoming request.
+        controller: The home controller, injected by FastAPI.
+
+    Returns:
+        The home document.
     """
     return controller.home(request, _schema(request))
 
 
 @router.get("/", include_in_schema=False)
 def root(request: Request, controller: Controller) -> Response:
-    """The same home document at the root, where API clients conventionally look first."""
+    """The same home document at the root, where API clients conventionally look first.
+
+    \f
+
+    Args:
+        request: The incoming request.
+        controller: The home controller, injected by FastAPI.
+
+    Returns:
+        The home document.
+    """
     return controller.home(request, _schema(request))
 
 
@@ -80,9 +106,20 @@ def root(request: Request, controller: Controller) -> Response:
     },
 )
 def api_catalog(request: Request, controller: Controller) -> Response:
-    """The API catalog at its well-known address (RFC 9727), for tools that discover APIs
-    automatically: a Linkset (RFC 9264) pointing to this API's home document, OpenAPI
-    description, interactive documentation and status."""
+    """The API catalog at its well-known address (RFC 9727), for tools that discover APIs.
+
+    A Linkset (RFC 9264) pointing to this API's home document, OpenAPI description, interactive
+    documentation and status.
+
+    \f
+
+    Args:
+        request: The incoming request.
+        controller: The home controller, injected by FastAPI.
+
+    Returns:
+        The catalog.
+    """
     return controller.catalog(request, request.app.title)
 
 
@@ -94,4 +131,17 @@ def api_catalog(request: Request, controller: Controller) -> Response:
     responses={200: {"headers": LINK_HEADER}},
 )
 def api_catalog_head(request: Request, controller: Controller) -> Response:
+    """Answer HEAD for the API catalog with its headers only, as RFC 9727 requires.
+
+    The route's OpenAPI description is set in its decorator.
+
+    \f
+
+    Args:
+        request: The incoming request.
+        controller: The home controller, injected by FastAPI.
+
+    Returns:
+        An empty response with the catalog's headers.
+    """
     return controller.catalog(request, request.app.title, with_body=False)

@@ -1,5 +1,3 @@
-"""Routes for liveness and readiness: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
@@ -20,8 +18,18 @@ Controller = Annotated[OpsController, Depends(get_ops_controller)]
     response_description="The process is up",
 )
 def health(controller: Controller) -> Health:
-    """Answers while the process is serving. Does not check the database, queue or storage: use
-    the readiness check for that."""
+    """Answers while the process is serving.
+
+    Does not check the database, queue or storage: use the readiness check for that.
+
+    \f
+
+    Args:
+        controller: The ops controller, injected by FastAPI.
+
+    Returns:
+        Status ``ok`` and the API version.
+    """
     return controller.health()
 
 
@@ -38,8 +46,19 @@ def health(controller: Controller) -> Health:
     },
 )
 def ready(controller: Controller, response: Response) -> Readiness:
-    """Checks that the database, the job queue and object storage answer, so a load balancer
-    sends traffic only to an API that can do its work."""
+    """Checks that the database, the job queue and object storage answer.
+
+    A load balancer then sends traffic only to an API that can do its work.
+
+    \f
+
+    Args:
+        controller: The ops controller, injected by FastAPI.
+        response: The response, whose status is set to 503 when a check fails.
+
+    Returns:
+        ``ready`` or ``not ready``, with each dependency's result.
+    """
     result = controller.readiness()
     if result.status != "ready":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

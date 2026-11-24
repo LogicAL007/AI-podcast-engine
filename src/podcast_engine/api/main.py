@@ -1,5 +1,3 @@
-"""FastAPI application entrypoint: ``uvicorn podcast_engine.api.main:app``."""
-
 from fastapi import Depends, FastAPI
 
 from podcast_engine import __version__
@@ -30,6 +28,19 @@ PROTECTED = errors(
 
 
 def create_app() -> FastAPI:
+    """Build the FastAPI application served by ``uvicorn podcast_engine.api.main:app``.
+
+    Routes are mounted in four groups:
+
+    - Discovery and health stay at the root; the API itself is versioned under ``/v1``.
+    - Open: login, and what podcast apps fetch (feeds, audio, notes, PDFs).
+    - Everything else needs a login (cookie or token) or an API key.
+    - Feed and audio URLs published before ``/v1`` existed are already in podcast apps, so they are
+      kept too, outside the published schema.
+
+    Returns:
+        The configured app, with request metrics and ``/metrics``.
+    """
     configure_logging(get_settings().log_level)
     app = FastAPI(
         title="Oasis",
@@ -41,13 +52,10 @@ def create_app() -> FastAPI:
         generate_unique_id_function=operation_id,
     )
     add_metrics(app)
-    # Discovery and health stay at the root; the API itself is versioned under /v1.
     for root in (home_router, ops_router):
         app.include_router(root)
-    # Open: login, and what podcast apps fetch (feeds, audio, notes, PDFs).
     for public in (auth_router, media_router, feeds_router):
         app.include_router(public, prefix=V1)
-    # Everything else needs a login (cookie or token) or an API key.
     protected_routers = (
         shows_router,
         episodes_router,
@@ -63,7 +71,6 @@ def create_app() -> FastAPI:
         app.include_router(
             protected, prefix=V1, dependencies=[Depends(get_current_user)], responses=PROTECTED
         )
-    # Feed and audio URLs published before /v1 existed are already in podcast apps: keep them.
     for legacy in (media_router, feeds_router):
         app.include_router(legacy, include_in_schema=False)
 

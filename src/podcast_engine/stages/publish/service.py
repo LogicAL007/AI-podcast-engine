@@ -1,5 +1,3 @@
-"""Publish: RSS feed, show notes and the mandatory AI disclosure."""
-
 from typing import Any
 from uuid import UUID
 
@@ -22,10 +20,29 @@ PRODUCT = "Oasis"
 
 
 def _writer(backend: str | None) -> str:
+    """Name what wrote the script, for the show notes.
+
+    Show notes name the product, not the hosted model behind it; the manifest still records the
+    exact model.
+
+    Args:
+        backend: The script backend from the manifest, or None.
+
+    Returns:
+        The product's name, marked when the offline writer wrote it.
+    """
     return f"{PRODUCT} (offline writer)" if backend == "offline-extractive" else PRODUCT
 
 
 def _branded(credit: str) -> str:
+    """Credit a voice to the product instead of Gemini TTS.
+
+    Args:
+        credit: The voice's credit line.
+
+    Returns:
+        The credit with the product's name.
+    """
     return credit.replace("Gemini TTS", PRODUCT)
 
 
@@ -33,17 +50,40 @@ log = get_logger("publish")
 
 
 def with_disclosure(show_notes: str) -> str:
-    """FR13: ensure show notes carry the AI-generated label exactly once, at the top."""
+    """Make sure show notes carry the AI-generated label exactly once, at the top (FR13).
+
+    Args:
+        show_notes: The notes.
+
+    Returns:
+        The notes with the disclosure first.
+    """
     if AI_DISCLOSURE in show_notes:
         return show_notes
     return f"{AI_DISCLOSURE}\n\n{show_notes}"
 
 
 def notes_key(episode_id: UUID) -> str:
+    """Return the object key of an episode's show notes.
+
+    Args:
+        episode_id: The episode.
+
+    Returns:
+        The notes' key in object storage.
+    """
     return f"notes/{episode_id}.md"
 
 
 def clock(seconds: float) -> str:
+    """Format seconds as a chapter start time.
+
+    Args:
+        seconds: Seconds from the start.
+
+    Returns:
+        ``MM:SS``.
+    """
     return f"{int(seconds // 60):02d}:{int(seconds % 60):02d}"
 
 
@@ -60,8 +100,28 @@ def build_show_notes(
     note: str = "",
     music_credits: list[str] | None = None,
 ) -> str:
-    """Chapters with each claim and its citation numbers, then the numbered sources (FR5)."""
-    numbers: dict[UUID, int] = {}  # sources numbered in order of first citation
+    """Write an episode's show notes (FR5).
+
+    Chapters with each claim and its citation numbers, then the sources, numbered in order of first
+    citation, the show's attribution, and how the episode was made: writer, voices in host order,
+    music credits, prompts and seed.
+
+    Args:
+        show: The show.
+        episode_id: The episode.
+        revision: The episode's revision of the show.
+        script: The script's lines, by segment.
+        chapters: Each segment's (start in seconds, title).
+        item_of_chunk: The source item each cited chunk belongs to.
+        items: The show's source items, by id.
+        manifest: How the episode was made.
+        note: A line to show under the title, such as which segments a refresh updated.
+        music_credits: Credit lines for the music used.
+
+    Returns:
+        The notes as Markdown.
+    """
+    numbers: dict[UUID, int] = {}
     for position in sorted(script):
         for line in script[position]:
             for claim in line.claims:
@@ -88,7 +148,7 @@ def build_show_notes(
     if show.attribution:
         lines += ["", show.attribution]
     voices = manifest.get("voices", {})
-    order = {host: n for n, host in enumerate(HOST_NAMES)}  # jsonb does not keep key order
+    order = {host: n for n, host in enumerate(HOST_NAMES)}
     lines += [
         "",
         "## How this episode was made",
@@ -109,9 +169,18 @@ def build_show_notes(
 
 
 def build_feed(show: ShowRecord, entries: list[dict[str, Any]], base_url: str) -> bytes:
-    """The show's RSS feed.
+    """Build the show's RSS feed.
 
     Every title is labelled AI-generated and every description carries the disclosure (FR13).
+    Entries are added oldest first, because feedgen lists the last added first.
+
+    Args:
+        show: The show.
+        entries: Each published episode's id, revision, date, notes and audio size.
+        base_url: The public base URL that feed links start with.
+
+    Returns:
+        The RSS 2.0 document with iTunes tags.
     """
     from feedgen.feed import FeedGenerator
 
@@ -122,9 +191,7 @@ def build_feed(show: ShowRecord, entries: list[dict[str, Any]], base_url: str) -
     feed.description(with_disclosure(f"An AI-generated show about {show.topic}."))
     feed.language(show.language)
     feed.podcast.itunes_category("Technology")
-    for item in sorted(
-        entries, key=lambda e: e["published_at"]
-    ):  # feedgen lists the last added first
+    for item in sorted(entries, key=lambda e: e["published_at"]):
         entry = feed.add_entry()
         entry.id(str(item["episode_id"]))
         entry.guid(str(item["episode_id"]), permalink=False)
@@ -141,7 +208,21 @@ def build_feed(show: ShowRecord, entries: list[dict[str, Any]], base_url: str) -
 
 
 def publish_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """FR10: write show notes with citations, then rebuild the show's feed with this episode."""
+    """Write the show notes with citations, then rebuild the show's feed (stage 8, FR10).
+
+    The manifest records the exact script model, prompts, embedder, seed and ranking profile. A
+    refresh's notes say which segments it updated. A remix keeps its original date in the feed.
+
+    Args:
+        episode_id: The episode to publish.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        None: publishing ends the pipeline.
+
+    Raises:
+        ValueError: The episode has no assembled audio.
+    """
     from podcast_engine.stages.script.service import script_lines
 
     ctx = ctx or get_context()
@@ -200,7 +281,7 @@ def publish_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> Sta
         notes_key=notes_key(episode_id),
         manifest=manifest,
         status=EpisodeStatus.PUBLISHED,
-        published_at=episode.published_at or ctx.now(),  # a remix keeps its date in the feed
+        published_at=episode.published_at or ctx.now(),
         error=None,
     )
     entries = rebuild_feed(show.show_id, ctx)
@@ -214,10 +295,17 @@ def publish_episode(episode_id: UUID, ctx: PipelineContext | None = None) -> Sta
 
 
 def rebuild_feed(show_id: UUID, ctx: PipelineContext | None = None) -> int:
-    """Rewrite the show's feed from its published episodes; returns how many it lists.
+    """Rewrite the show's feed from its published episodes.
 
-    Called after each publish, and after a published episode is deleted. With nothing published
-    the feed is removed, so podcast apps see the show as empty rather than a stale entry.
+    Called after each publish, and after a published episode is deleted. With nothing published the
+    feed is removed, so podcast apps see the show as empty rather than a stale entry.
+
+    Args:
+        show_id: The show.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        How many episodes the feed lists.
     """
     ctx = ctx or get_context()
     show = ctx.repo.get_show(show_id)

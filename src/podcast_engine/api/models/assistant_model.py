@@ -1,5 +1,3 @@
-"""Request and response schemas for the in-app assistant (the companion bot's chat)."""
-
 from typing import Literal
 from uuid import UUID
 
@@ -8,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
 AssistantPage = Literal[
     "shows", "show", "new_show", "episode", "voices", "new_voice", "companion", "welcome", "other"
 ]
-# What the bot may suggest. The page turns each into a button; nothing runs until it is pressed.
 ActionId = Literal[
     "open_script",
     "open_factcheck",
@@ -40,6 +37,17 @@ class Question(BaseModel):
     @field_validator("question")
     @classmethod
     def _tidy(cls, value: str) -> str:
+        """Collapse runs of whitespace in the question and refuse a blank one.
+
+        Args:
+            value: The question as sent.
+
+        Returns:
+            The question on one line, with single spaces.
+
+        Raises:
+            ValueError: The question is only whitespace.
+        """
         text = " ".join(value.split())
         if not text:
             raise ValueError("ask a question")

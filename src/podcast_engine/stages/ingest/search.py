@@ -1,15 +1,3 @@
-"""Search results as a source (FR2): the top results for a show's searches, read as pages.
-
-Each time an episode is made, ingest runs the show's searches and reads the top results like the
-show's own URLs, so every section is citable and change-detected; a refresh that finds new results
-regenerates the segments they feed. Two providers:
-
-- ``wikipedia`` (the default, no key): Wikipedia's search API, in the show's language. A result is
-  read through the API as plain text, so it carries no menus or reference markers, and dated by
-  its last edit (a page's own date is when it was created, which would rank it as stale).
-- ``brave`` (needs ``SEARCH_API_KEY``, paid): Brave's web search; results are fetched as pages.
-"""
-
 import re
 from collections.abc import Callable, Mapping
 from html import escape
@@ -41,6 +29,8 @@ GetJson = Callable[[str, Mapping[str, Any], Mapping[str, str]], Any]
 
 
 class SearchHit(BaseModel):
+    """One search result: its URL and title."""
+
     model_config = ConfigDict(frozen=True)
 
     url: str
@@ -48,15 +38,55 @@ class SearchHit(BaseModel):
 
 
 class SearchProvider(Protocol):
-    def search(self, query: str, *, language: str, count: int) -> list[SearchHit]: ...
+    """Search results as a source (FR2): the top results for a show's searches.
+
+    Each time an episode is made, ingest runs the show's searches and reads the top results like the
+    show's own URLs, so every section is citable and change-detected; a refresh that finds new
+    results regenerates the segments they feed. Two providers:
+
+    - ``wikipedia`` (the default, no key): Wikipedia's search API, in the show's language.
+    - ``brave`` (needs ``SEARCH_API_KEY``, paid): Brave's web search; results are fetched as pages.
+    """
+
+    def search(self, query: str, *, language: str, count: int) -> list[SearchHit]:
+        """Return the top results for a query.
+
+        Args:
+            query: What to search for.
+            language: The show's language, such as ``en`` or ``fr-CA``.
+            count: Most results to return.
+
+        Returns:
+            The results, best first.
+        """
+        ...
 
     def page(self, hit: SearchHit) -> str:
-        """The result as HTML, for the page extractor."""
+        """Return a result as HTML, for the page extractor.
+
+        Args:
+            hit: The result.
+
+        Returns:
+            The result's HTML.
+        """
         ...
 
 
 def get_json(url: str, params: Mapping[str, Any], headers: Mapping[str, str]) -> Any:
-    """GET a JSON API. Raises for network errors and non-2xx responses."""
+    """GET a JSON API.
+
+    Args:
+        url: The endpoint.
+        params: The query parameters.
+        headers: The request headers.
+
+    Returns:
+        The decoded JSON.
+
+    Raises:
+        httpx.HTTPError: A network error or a non-2xx response.
+    """
     import httpx
 
     response = httpx.get(url, params=params, headers=dict(headers), timeout=30.0)
@@ -65,14 +95,44 @@ def get_json(url: str, params: Mapping[str, Any], headers: Mapping[str, str]) ->
 
 
 class WikipediaSearch:
+    """Wikipedia's search, with articles read through its API.
+
+    A result is read as plain text, so it carries no menus or reference markers, and is dated by its
+    last edit (a page's own date is when it was created, which would rank it as stale). Wikimedia
+    asks API clients to say who they are, so requests carry a descriptive User-Agent.
+    """
+
     def __init__(self, get: GetJson = get_json) -> None:
+        """Create the provider.
+
+        Args:
+            get: Fetches JSON; replaced in tests.
+        """
         self._get = get
 
     @staticmethod
     def _site(language: str) -> str:
+        """Return the Wikipedia for a language.
+
+        Args:
+            language: A language code, such as ``en`` or ``fr-CA``.
+
+        Returns:
+            The site's base URL.
+        """
         return f"https://{language.split('-')[0]}.wikipedia.org"
 
     def search(self, query: str, *, language: str, count: int) -> list[SearchHit]:
+        """Search Wikipedia in the show's language.
+
+        Args:
+            query: What to search for.
+            language: The show's language.
+            count: Most results to return.
+
+        Returns:
+            The matching articles, best first.
+        """
         site = self._site(language)
         found = self._get(
             f"{site}/w/rest.php/v1/search/page",
@@ -85,6 +145,14 @@ class WikipediaSearch:
         ]
 
     def page(self, hit: SearchHit) -> str:
+        """Read an article through the API, as plain text with its headings and last edit.
+
+        Args:
+            hit: The article.
+
+        Returns:
+            The article as HTML, from ``article_html``.
+        """
         parts = urlsplit(hit.url)
         found = self._get(
             f"{parts.scheme}://{parts.netloc}/w/api.php",
@@ -107,8 +175,19 @@ class WikipediaSearch:
 
 
 def article_html(title: str, text: str, edited: str | None) -> str:
-    """Wikipedia's plain text (``== Heading ==`` lines) as a page the extractor splits into
-    sections, each with the anchor Wikipedia gives that heading, minus the reference lists."""
+    """Turn Wikipedia's plain text into a page the extractor splits into sections.
+
+    Each ``== Heading ==`` line becomes a heading with the anchor Wikipedia gives it. Sections that
+    list other works rather than say anything (references, further reading) are left out.
+
+    Args:
+        title: The article's title.
+        text: The article's plain text.
+        edited: When it was last edited, or None.
+
+    Returns:
+        The article as HTML, with its edit date as a meta tag.
+    """
     head = f'<meta property="article:modified_time" content="{escape(edited)}">' if edited else ""
     body: list[str] = []
     skipping = False
@@ -132,9 +211,21 @@ def article_html(title: str, text: str, edited: str | None) -> str:
 
 
 class BraveSearch:
+    """Brave's web search (paid, needs ``SEARCH_API_KEY``); results are fetched as pages."""
+
     def __init__(
         self, api_key: str, get: GetJson = get_json, fetch: Callable[[str], str] = fetch_html
     ) -> None:
+        """Create the provider.
+
+        Args:
+            api_key: The Brave Search API key.
+            get: Fetches JSON; replaced in tests.
+            fetch: Fetches a page's HTML; replaced in tests.
+
+        Raises:
+            ValueError: No API key is set.
+        """
         if not api_key:
             raise ValueError("SEARCH_PROVIDER is brave, but SEARCH_API_KEY is not set")
         self._key = api_key
@@ -142,6 +233,16 @@ class BraveSearch:
         self._fetch = fetch
 
     def search(self, query: str, *, language: str, count: int) -> list[SearchHit]:
+        """Search the web with Brave.
+
+        Args:
+            query: What to search for.
+            language: The show's language; only its primary subtag is sent.
+            count: Most results to return.
+
+        Returns:
+            The results, best first.
+        """
         found = self._get(
             "https://api.search.brave.com/res/v1/web/search",
             {"q": query, "count": count, "search_lang": language.split("-")[0]},
@@ -151,26 +252,58 @@ class BraveSearch:
         return [SearchHit(url=r["url"], title=r.get("title", "")) for r in results[:count]]
 
     def page(self, hit: SearchHit) -> str:
+        """Fetch a result's page.
+
+        Args:
+            hit: The result.
+
+        Returns:
+            The page's HTML.
+        """
         return self._fetch(hit.url)
 
 
 def is_wikipedia_article(url: str) -> bool:
+    """Tell whether a URL is a Wikipedia article.
+
+    Args:
+        url: The URL.
+
+    Returns:
+        True for ``https://<lang>.wikipedia.org/wiki/<title>``.
+    """
     parts = urlsplit(url)
     title = parts.path.removeprefix("/wiki/")
     return parts.netloc.endswith(".wikipedia.org") and title not in ("", parts.path)
 
 
 def read_page(url: str, *, wikipedia: WikipediaSearch | None = None) -> str:
-    """A show URL's HTML. A Wikipedia article is read through the API, as a search result is, so
-    a page the creator pasted carries no menus or reference markers either and is dated by its
-    last edit, not its creation."""
+    """Fetch a show URL's HTML.
+
+    A Wikipedia article is read through the API, as a search result is, so a page the creator pasted
+    carries no menus or reference markers either and is dated by its last edit, not its creation.
+
+    Args:
+        url: The page.
+        wikipedia: The Wikipedia reader to use; a new one when None.
+
+    Returns:
+        The page's HTML.
+    """
     if is_wikipedia_article(url):
         return (wikipedia or WikipediaSearch()).page(SearchHit(url=url, title=""))
     return fetch_html(url)
 
 
 def make_search(settings: Settings) -> SearchProvider | None:
-    """The configured provider, or None when searches are off."""
+    """Return the configured search provider.
+
+    Args:
+        settings: The search provider setting and its API key.
+
+    Returns:
+        The provider, or None when searches are off.
+    """
     if settings.search_provider == "wikipedia":
         return WikipediaSearch()
     if settings.search_provider == "brave":

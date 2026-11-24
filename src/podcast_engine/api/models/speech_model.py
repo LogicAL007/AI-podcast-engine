@@ -1,5 +1,3 @@
-"""Request and response schemas for type-to-speech (the voice studio's "type and hear it")."""
-
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -82,10 +80,13 @@ class SpeechClipRead(BaseModel):
     @computed_field(description="Where to play or download it, once done")  # type: ignore[prop-decorator]
     @property
     def audio(self) -> str | None:
+        """Path in the API to play or download the clip, once it is done."""
         return f"{V1}/speech/{self.clip_id}/audio.wav" if self.status == "done" else None
 
 
 class EngineVoiceOption(BaseModel):
+    """One of the engine's own voices, as a picker offers it."""
+
     host: HostName = Field(description="Use as EngineVoice.host")
     label: str = Field(description="What to call it in a picker")
 

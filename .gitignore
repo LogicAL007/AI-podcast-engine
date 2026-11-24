@@ -246,3 +246,5 @@ assets/voices/*
 # Research material, kept locally only: the PRD and proposal decks, the presentation, reports,
 # the notebooks, and the RQ1-RQ3 evaluation code, results and participant data
 research/
+# macOS Finder metadata
+.DS_Store

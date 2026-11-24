@@ -1,11 +1,3 @@
-"""Business rules for type-to-speech. No HTTP and no SQL in here.
-
-A clip is a job for the voice worker: it is stored as queued, sent to the voice queue, and voiced
-by whichever worker has the voices (Chatterbox with the recordings on the Mac, or Gemini). The web
-app polls it until it is done. Each person may make ``per_hour`` clips an hour, and with Gemini,
-clips may use only half of the day's voice budget, so episodes keep the rest.
-"""
-
 from collections.abc import Callable
 from uuid import UUID, uuid4
 
@@ -37,6 +29,15 @@ Enqueue = Callable[[str], str]
 
 
 class SpeechService:
+    """Business rules for type-to-speech. No HTTP and no SQL in here.
+
+    A clip is a job for the voice worker: it is stored as queued, sent to the voice queue, and
+    voiced by whichever worker has the voices (Chatterbox with the recordings on the Mac, or
+    Gemini). The web app polls it until it is done. Each person may make ``speech_clips_per_hour``
+    clips an hour, and with Gemini, clips may use only half of the day's voice budget, so episodes
+    keep the rest.
+    """
+
     def __init__(
         self,
         clips: SpeechRepository,
@@ -47,6 +48,17 @@ class SpeechService:
         settings: Settings,
         budget: DailyBudget | None,
     ) -> None:
+        """Create the service.
+
+        Args:
+            clips: Where clips are stored.
+            voices: Where registered voices are stored, to check ownership.
+            store: Where the clips' audio is stored.
+            usage: The per-person hourly clip counter.
+            enqueue: Sends a clip id to the voice queue.
+            settings: Which voice backend runs, the hourly limit and the daily TTS budget.
+            budget: The shared daily Gemini budget, or None when there is no cap.
+        """
         self._clips = clips
         self._voices = voices
         self._store = store
@@ -55,18 +67,33 @@ class SpeechService:
         self._settings = settings
         self._budget = budget
 
-    # ---- what this server can say ----------------------------------------------------------
     def _reserve(self) -> int:
-        """Gemini voice requests kept back for episodes: half the day's budget."""
+        """Return how many Gemini voice requests are kept back for episodes.
+
+        Returns:
+            Half the day's TTS budget, rounded up.
+        """
         return (self._settings.tts_requests_per_day + 1) // 2
 
     def _clips_left(self) -> int | None:
+        """Return how many clips today's Gemini budget still allows.
+
+        Returns:
+            The budget left after the episodes' reserve, or None when Gemini does not voice here or
+            nothing is capped.
+        """
         if self._settings.tts_backend != "gemini" or self._budget is None:
             return None
         left = self._budget.available(self._settings.tts_model)
         return None if left is None else max(left - self._reserve(), 0)
 
     def engine(self) -> SpeechEngine:
+        """Describe what this server's voice engine can say.
+
+        Returns:
+            The backend, whether recorded voices work, the engine's own voices, the budget left, the
+            deliveries and the effect presets.
+        """
         backend = self._settings.tts_backend
         if backend == "gemini":
             options = [
@@ -86,9 +113,24 @@ class SpeechService:
             presets=PRESETS,
         )
 
-    # ---- clips -----------------------------------------------------------------------------
     def create(self, owner: UUID, data: SpeechCreate) -> SpeechClipRead:
-        """Queue a clip. A recorded voice must be the caller's own."""
+        """Queue a clip to be voiced.
+
+        A recorded voice must be the caller's own. If the job queue cannot be reached, the clip is
+        stored as failed with a reason, rather than lost.
+
+        Args:
+            owner: The user asking.
+            data: The text, voice, delivery and effects.
+
+        Returns:
+            The clip, queued (or failed when the queue was unavailable).
+
+        Raises:
+            NotFoundError: The recorded voice is not the caller's.
+            TooManyRequestsError: Today's Gemini budget for clips, or the caller's hourly limit, is
+                used up.
+        """
         if isinstance(data.voice, RecordedVoice) and not self._voices.owned(
             {data.voice.voice_id}, owner
         ):
@@ -125,21 +167,62 @@ class SpeechService:
         return clip
 
     def recent(self, owner: UUID) -> list[SpeechClipRead]:
+        """Return the owner's 20 most recent clips, as listed in the studio.
+
+        Args:
+            owner: The user asking.
+
+        Returns:
+            The clips, newest first.
+        """
         return self._clips.recent(owner, RECENT)
 
     def get(self, clip_id: UUID, owner: UUID) -> SpeechClipRead:
+        """Return one of the owner's clips.
+
+        Args:
+            clip_id: The clip.
+            owner: The user asking.
+
+        Returns:
+            The clip and its status.
+
+        Raises:
+            NotFoundError: The owner has no such clip.
+        """
         clip = self._clips.get(clip_id, owner)
         if clip is None:
             raise NotFoundError("speech clip", clip_id)
         return clip
 
     def audio(self, clip_id: UUID, owner: UUID) -> bytes:
+        """Return a finished clip's audio.
+
+        Args:
+            clip_id: The clip.
+            owner: The user asking.
+
+        Returns:
+            The clip as WAV bytes.
+
+        Raises:
+            NotFoundError: The owner has no such clip, or it has no audio yet.
+        """
         key = self._clips.object_key(clip_id, owner)
         if key is None or not self._store.exists(key):
             raise NotFoundError("audio of speech clip", clip_id)
         return self._store.get(key)
 
     def delete(self, clip_id: UUID, owner: UUID) -> None:
+        """Delete one of the owner's clips and its audio.
+
+        Args:
+            clip_id: The clip.
+            owner: The user asking.
+
+        Raises:
+            NotFoundError: The owner has no such clip.
+        """
         key = self._clips.object_key(clip_id, owner)
         if not self._clips.delete(clip_id, owner):
             raise NotFoundError("speech clip", clip_id)

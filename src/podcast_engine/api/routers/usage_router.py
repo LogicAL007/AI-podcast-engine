@@ -1,5 +1,3 @@
-"""Routes for today's Gemini usage: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -20,7 +18,18 @@ Controller = Annotated[UsageController, Depends(get_usage_controller)]
     response_description="Requests used and left today, per Gemini model in use",
 )
 def usage_today(controller: Controller) -> UsageRead:
-    """How much of today's Gemini budget is spent. The free tier caps requests per model per day,
-    resetting at midnight Pacific time; `LLM_REQUESTS_PER_DAY` and `TTS_REQUESTS_PER_DAY` set the
-    caps here. The budget is shared by every account and the bot, so this is the same for all."""
+    """How much of today's Gemini budget is spent.
+
+    The free tier caps requests per model per day, resetting at midnight Pacific time;
+    `LLM_REQUESTS_PER_DAY` and `TTS_REQUESTS_PER_DAY` set the caps here. The budget is shared by
+    every account and the bot, so this is the same for all.
+
+    \f
+
+    Args:
+        controller: The usage controller, injected by FastAPI.
+
+    Returns:
+        Requests used and left today, per Gemini model in use.
+    """
     return controller.today()

@@ -1,5 +1,3 @@
-"""Routes for a show's sources: paths, status codes and OpenAPI metadata only."""
-
 from typing import Annotated
 from uuid import UUID
 
@@ -32,8 +30,23 @@ def list_show_sources(
     paging: Paging,
     request: Request,
 ) -> Page[SourceRead]:
-    """The sections the pipeline read from the show's pages, feeds and uploads, as last ingested:
-    each one's heading, link, reliability tier, size and content hash. A section whose hash changes
-    is what a refresh regenerates. Empty until the show's first episode has been ingested."""
+    """The sections the pipeline read from the show's pages, feeds and uploads.
+
+    As last ingested: each one's heading, link, reliability tier, size and content hash. A section
+    whose hash changes is what a refresh regenerates. Empty until the show's first episode has been
+    ingested.
+
+    \f
+
+    Args:
+        show_id: The show whose sources to list.
+        me: The signed-in user.
+        controller: The source controller, injected by FastAPI.
+        paging: The page size and offset from the query string.
+        request: The request, used to build the next page's link.
+
+    Returns:
+        A page of source sections, in source order.
+    """
     result = controller.list_for_show(show_id, me.user_id, limit=paging.limit, offset=paging.offset)
     return to_page(result, paging, request)

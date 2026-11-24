@@ -1,13 +1,9 @@
-"""Index: clean, chunk and embed ingested items."""
-
 from uuid import UUID
 
 from podcast_engine.common.context import PipelineContext, get_context
 from podcast_engine.common.logging import get_logger
 from podcast_engine.common.queue import Stage
 
-# The overlap must be at least as long as the longest sentence, so every sentence sits whole inside
-# at least one chunk (the offline writer quotes whole sentences and cites the chunk they came from).
 CHUNK_WORDS, CHUNK_OVERLAP = 80, 40
 
 log = get_logger("index")
@@ -17,6 +13,17 @@ def chunk_words(text: str, *, max_words: int = 200, overlap: int = 40) -> list[s
     """Split text into overlapping word windows for embedding.
 
     Overlap keeps a claim that straddles a boundary retrievable from either chunk.
+
+    Args:
+        text: The text to split.
+        max_words: Most words in a chunk.
+        overlap: Words each chunk shares with the one before it.
+
+    Returns:
+        The chunks, in order; a text shorter than one window gives a single chunk.
+
+    Raises:
+        ValueError: ``max_words`` is not positive, or ``overlap`` is not in ``[0, max_words)``.
     """
     if max_words <= 0:
         raise ValueError("max_words must be positive")
@@ -31,9 +38,20 @@ def chunk_words(text: str, *, max_words: int = 200, overlap: int = 40) -> list[s
 
 
 def index_items(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """Embed new or changed items into pgvector with source, date and reliability metadata.
+    """Embed the show's new or changed items into pgvector (stage 2, index).
 
-    Chunks whose text is unchanged keep their stored vectors, so a refresh embeds only what changed.
+    Items are chunked into 80-word windows with a 40-word overlap. The overlap must be at least as
+    long as the longest sentence, so every sentence sits whole inside at least one chunk: the
+    offline writer quotes whole sentences and cites the chunk they came from. Chunks whose text is
+    unchanged keep their stored vectors, so a refresh embeds only what changed. Each chunk keeps its
+    source, date and reliability metadata.
+
+    Args:
+        episode_id: The episode being made.
+        ctx: Shared clients (database, embedder); built from settings when omitted.
+
+    Returns:
+        The next stage, retrieve and plan.
     """
     ctx = ctx or get_context()
     episode = ctx.repo.get_episode(episode_id)

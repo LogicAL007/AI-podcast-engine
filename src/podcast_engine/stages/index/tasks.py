@@ -1,5 +1,3 @@
-"""Queue entrypoint for the index stage."""
-
 from uuid import UUID
 
 from podcast_engine.common.context import PipelineContext
@@ -10,4 +8,16 @@ from podcast_engine.stages.index.service import index_items
 
 @stage_task(Stage.INDEX)
 def run(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
+    """Index the episode's ingested items: the queue entry point of the index stage.
+
+    Registered as a Celery task by ``stage_task``, which records the stage run, handles retries and
+    queues the next stage.
+
+    Args:
+        episode_id: The episode to work on.
+        ctx: Shared clients (database, storage, LLM); built from settings when omitted.
+
+    Returns:
+        The stage to queue next, or None when the pipeline stops here.
+    """
     return index_items(episode_id, ctx)

@@ -1,5 +1,3 @@
-"""Voice: per-host text-to-speech with a segment cache."""
-
 import hashlib
 import time
 from typing import Any
@@ -19,10 +17,19 @@ log = get_logger("voice")
 
 
 def segment_cache_key(provider: str, voice_id: str, text: str, delivery: str = "neutral") -> str:
-    """Key for a synthesised line. Unchanged lines hit the cache on regeneration.
+    """Return the cache key of a synthesised line, so unchanged lines are reused.
 
-    Includes the provider, voice and delivery, so changing any of them never serves stale audio.
-    (A neutral line keeps the key it had before lines carried a delivery.)
+    It includes the provider, voice and delivery, so changing any of them never serves stale audio.
+    A neutral line keeps the key it had before lines carried a delivery.
+
+    Args:
+        provider: The TTS provider.
+        voice_id: The voice's id, which changes with its recording.
+        text: What is said.
+        delivery: How it is said.
+
+    Returns:
+        The clip's key in object storage.
     """
     said = text if delivery == "neutral" else f"{delivery}\x00{text}"
     digest = hashlib.sha256(f"{provider}\x00{voice_id}\x00{said}".encode()).hexdigest()
@@ -32,10 +39,18 @@ def segment_cache_key(provider: str, voice_id: str, text: str, delivery: str = "
 def episode_lines(
     topic: str, hosts: list[str], script: dict[int, list[ScriptLine]]
 ) -> list[dict[str, Any]]:
-    """Everything spoken, in order: AI disclosure (FR13), opening, each segment, closing.
+    """List everything spoken, in order: AI disclosure (FR13), opening, each segment, closing.
 
     Each line keeps how it is said (``delivery``) and whether it states a fact (``claim``), which
-    the assembly uses to pace the conversation.
+    the assembly uses to pace the conversation. A one-host show's narrator does not greet a co-host.
+
+    Args:
+        topic: The show's topic.
+        hosts: The host names, in speaking order.
+        script: The script's lines, by segment.
+
+    Returns:
+        Each spoken line: its part, segment, speaker, text, delivery and whether it is a claim.
     """
     first, second = hosts[0], hosts[-1]
 
@@ -47,6 +62,19 @@ def episode_lines(
         delivery: str = "neutral",
         claim: bool = False,
     ) -> dict[str, Any]:
+        """Describe one spoken line.
+
+        Args:
+            kind: The part of the episode: ``disclosure``, ``opening``, ``segment`` or ``closing``.
+            position: The segment's number, or None outside segments.
+            speaker: Who says it.
+            text: What is said.
+            delivery: How it is said.
+            claim: Whether it states a fact.
+
+        Returns:
+            The line as a dict.
+        """
         return {
             "kind": kind,
             "position": position,
@@ -59,7 +87,7 @@ def episode_lines(
     return [
         spoken("disclosure", None, first, AI_DISCLOSURE),
         spoken("opening", None, first, f"Welcome to the show. Today: {topic}.", "warm"),
-        *(  # a narrator does not greet themself
+        *(
             [spoken("opening", None, second, "Glad to be here. Let's get into it.", "warm")]
             if second != first
             else []
@@ -81,11 +109,18 @@ def episode_lines(
 
 
 def voice_groups(lines: list[dict[str, Any]], max_chars: int) -> list[list[int]]:
-    """The lines voiced together in one request, as indexes into ``lines``.
+    """Group the lines voiced together in one request.
 
     A group is consecutive lines of one part of the episode (the disclosure, the opening, one
     segment, the closing), so chapters and pauses between parts stay exact. A group holds at most
     two speakers and about ``max_chars`` of text; a longer part is split.
+
+    Args:
+        lines: The episode's lines.
+        max_chars: About the most text one request may hold.
+
+    Returns:
+        The groups, as indexes into ``lines``.
     """
     groups: list[list[int]] = []
     for index, line in enumerate(lines):
@@ -102,7 +137,17 @@ def voice_groups(lines: list[dict[str, Any]], max_chars: int) -> list[list[int]]
 
 
 def dialogue_cache_key(backend: TtsBackend, lines: list[dict[str, Any]]) -> str:
-    """Key for lines voiced together: the provider, each speaker's voice and every word."""
+    """Return the cache key of lines voiced together.
+
+    It covers the provider, each speaker's voice and every word, with deliveries.
+
+    Args:
+        backend: The TTS backend.
+        lines: The lines in the group, with what each says.
+
+    Returns:
+        The clip's key in object storage.
+    """
     voices = "|".join(
         f"{speaker}={backend.voice_id(speaker)}"
         for speaker in dict.fromkeys(line["speaker"] for line in lines)
@@ -122,11 +167,20 @@ _BACKENDS: dict[tuple[str, tuple[str, ...], str, tuple[tuple[str, str], ...]], T
 def registered_voices(
     ctx: PipelineContext, host_voices: dict[str, str], hosts: list[str]
 ) -> dict[str, ClonedVoice]:
-    """The voices a show's hosts were given in the web app, as cloneable registry entries.
+    """Return the voices a show's hosts were given in the web app, as cloneable registry entries.
 
-    Each recording is copied once (by content hash) into the voice worker's cache, where
-    Chatterbox reads it. A voice deleted since it was assigned is skipped: that host keeps the
-    default voice. Only the Chatterbox backend clones; the others ignore these.
+    Each recording is copied once (by content hash) into the voice worker's cache, where Chatterbox
+    reads it; the copy's path is absolute, so the registry's root does not apply. A voice deleted
+    since it was assigned is skipped: that host keeps the default voice. Only the Chatterbox backend
+    clones; the others ignore these.
+
+    Args:
+        ctx: The pipeline context.
+        host_voices: Each host's voice id, from the show.
+        hosts: The hosts that will speak.
+
+    Returns:
+        Each host's cloned voice, for the hosts that have one.
     """
     wanted = {host: voice for host, voice in host_voices.items() if host in hosts}
     if not wanted or ctx.settings.tts_backend != "chatterbox":
@@ -145,7 +199,7 @@ def registered_voices(
             path.write_bytes(ctx.store.get(record.object_key))
         consent = record.consent
         voices[host] = ClonedVoice(
-            reference_audio=str(path),  # absolute, so the registry's root does not apply
+            reference_audio=str(path),
             speaker=record.speaker,
             consent=(
                 f"signed in Oasis by {consent.get('signed_by', '?')} on "
@@ -158,8 +212,17 @@ def registered_voices(
 
 
 def prune_withdrawn_voices(ctx: PipelineContext) -> int:
-    """Delete this worker's copies of recordings whose voice has been deleted (consent
-    withdrawn). The consent form promises this happens the next time episodes are voiced."""
+    """Delete this worker's copies of recordings whose voice has been deleted.
+
+    Deleting a voice withdraws consent; the consent form promises the copies go the next time
+    episodes are voiced.
+
+    Args:
+        ctx: The pipeline context.
+
+    Returns:
+        How many copies were deleted.
+    """
     folder = ctx.settings.data_dir / "tts_cache" / "voices"
     if not folder.is_dir():
         return 0
@@ -177,7 +240,18 @@ def prune_withdrawn_voices(ctx: PipelineContext) -> int:
 def _backend(
     ctx: PipelineContext, hosts: tuple[str, ...], overrides: dict[str, ClonedVoice]
 ) -> TtsBackend:
-    """One backend per worker process and configuration: loading Chatterbox takes a while."""
+    """Return the TTS backend for a configuration, one per worker process.
+
+    Loading Chatterbox takes a while, so each configuration's backend is kept and reused.
+
+    Args:
+        ctx: The pipeline context.
+        hosts: The hosts that will speak.
+        overrides: Voices registered in the app, by host.
+
+    Returns:
+        The backend.
+    """
     chosen = tuple(sorted((host, str(voice.reference_audio)) for host, voice in overrides.items()))
     key = (ctx.settings.tts_backend, hosts, str(ctx.voices_file), chosen)
     if key not in _BACKENDS:
@@ -188,7 +262,27 @@ def _backend(
 
 
 def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """FR6: voice each line with its host's voice. Lines already voiced are reused from storage."""
+    """Voice each line with its host's voice (stage 6, FR6).
+
+    Lines already voiced are reused from storage. What each voice says is the line with the
+    pronunciation lexicon applied; the line's own text stays as written for transcripts, and the
+    cache key follows what is said. A dialogue backend voices a group of lines in one request; the
+    lines after the first are spoken in its clip.
+
+    With Gemini, the whole step is checked against today's budget first, so a run never stops at the
+    cap half voiced. The manifest records each host's voice, credit and consent record.
+
+    Args:
+        episode_id: The episode being made.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        The next stage, assemble.
+
+    Raises:
+        ValueError: Two hosts would share a voice.
+        GeminiQuotaError: Today's TTS budget cannot cover the step.
+    """
     from podcast_engine.stages.script.service import script_lines
 
     ctx = ctx or get_context()
@@ -202,8 +296,6 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     if len({backend.voice_id(h) for h in hosts}) != len(hosts):
         raise ValueError("Each host needs a distinct voice (FR6); check the voice configuration.")
     lines = episode_lines(show.topic, hosts, script_lines(episode.script))
-    # What each voice says: the line with the pronunciation lexicon applied. The line's own text
-    # stays as written for transcripts; the cache key follows what is said.
     rules = rules_for(ctx.settings.config_dir)
     said = [spoken(line["text"], rules) for line in lines]
     dialogue = isinstance(backend, DialogueBackend)
@@ -225,7 +317,6 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     ]
     cached = [ctx.store.exists(key) for key in keys]
     if ctx.budget is not None and ctx.settings.tts_backend == "gemini":
-        # Check the whole step fits first, so a run never stops at today's cap half voiced.
         missing = cached.count(False)
         ctx.budget.require({ctx.settings.tts_model: missing}, f"voicing {missing} part(s)")
     synthesised = reused = 0
@@ -248,7 +339,7 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
             synthesised += 1
         first["key"] = key
         for line in members[1:]:
-            line["key"] = None  # spoken in the clip of the group's first line
+            line["key"] = None
     voices = {
         host: {
             "voice_id": backend.voice_id(host),

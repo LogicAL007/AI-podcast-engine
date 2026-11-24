@@ -1,5 +1,3 @@
-"""Scheduler process: ``python -m podcast_engine.scheduler``."""
-
 import time
 
 from podcast_engine.common.config import get_settings
@@ -13,10 +11,14 @@ log = get_logger("scheduler")
 
 
 def tick() -> list[str]:
-    """FR8: start a refresh for every published show that is due. Returns the new episode ids.
+    """Start a refresh for every published show that is due (FR8).
 
     A refresh is an ordinary episode: ingest compares content hashes and either stops (nothing
-    changed, status ``unchanged``) or regenerates only the segments whose sources changed.
+    changed, status ``unchanged``) or regenerates only the segments whose sources changed. Nothing
+    starts when ``REFRESH_INTERVAL_HOURS`` is 0.
+
+    Returns:
+        The ids of the episodes started.
     """
     ctx = get_context()
     hours = ctx.settings.refresh_interval_hours
@@ -33,11 +35,16 @@ def tick() -> list[str]:
 
 
 def main() -> None:
+    """Run the scheduler: ``python -m podcast_engine.scheduler``.
+
+    Checks for due shows every five minutes, forever. A failed check (a database or queue outage) is
+    logged and retried on the next tick, so it never stops the scheduler.
+    """
     configure_logging(get_settings().log_level)
     while True:
         try:
             tick()
-        except Exception:  # a database or queue outage must not kill the scheduler
+        except Exception:
             log.exception("tick_failed")
         time.sleep(POLL_INTERVAL_SECONDS)
 

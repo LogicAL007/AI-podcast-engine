@@ -1,23 +1,41 @@
-"""How type-to-speech text is split and where its audio is stored, kept apart from the voice
-worker so the API can find a voice's clips when the voice is withdrawn."""
-
 import re
 from uuid import UUID
 
 from podcast_engine.stages.voice.backends import ChatterboxBackend
 from podcast_engine.stages.voice.service import segment_cache_key
 
-MAX_PIECE_CHARS = 250  # Chatterbox reads a sentence or two well; longer text is split
+MAX_PIECE_CHARS = 250
 
 
 def speech_key(owner: UUID, clip_id: UUID) -> str:
-    """Object key of a type-to-speech clip. Private: only its owner, through the API, plays it."""
+    """Return the object key of a type-to-speech clip.
+
+    Kept apart from the voice worker so the API can find a voice's clips when the voice is
+    withdrawn. The clip is private: only its owner, through the API, plays it.
+
+    Args:
+        owner: The user who made the clip.
+        clip_id: The clip's id.
+
+    Returns:
+        The clip's key in object storage.
+    """
     return f"speech/{owner}/{clip_id}.wav"
 
 
 def pieces(text: str, limit: int = MAX_PIECE_CHARS) -> list[str]:
-    """``text`` as sentences, joined while they fit in ``limit`` characters; a longer sentence is
-    split at commas, then between words."""
+    """Split text into pieces short enough for the voice model to read well.
+
+    Chatterbox reads a sentence or two well, so longer text is split: sentences are joined while
+    they fit in ``limit`` characters, and a longer sentence is split at commas, then between words.
+
+    Args:
+        text: The text to split; runs of whitespace count as one space.
+        limit: Most characters in a piece.
+
+    Returns:
+        The pieces, in reading order.
+    """
     units: list[str] = []
     for sentence in re.split(r"(?<=[.!?])\s+", " ".join(text.split())):
         parts = [sentence]
@@ -41,8 +59,19 @@ def pieces(text: str, limit: int = MAX_PIECE_CHARS) -> list[str]:
 
 
 def raw_speech_keys(sha256: str, text: str, delivery: str) -> list[str]:
-    """The cached raw speech of a clip read by Chatterbox in the recording with this checksum,
-    to delete when that voice is withdrawn (the same keys the voice worker wrote)."""
+    """Return the cache keys of a clip's raw speech in one recorded voice.
+
+    These are the keys the voice worker wrote when Chatterbox read the clip in the recording with
+    this checksum, to delete when that voice is withdrawn.
+
+    Args:
+        sha256: The checksum of the voice's recording.
+        text: The clip's text.
+        delivery: The delivery it was read with, such as ``neutral``.
+
+    Returns:
+        One object key per piece of the text.
+    """
     voice_id = f"chatterbox:{sha256[:12]}:styles{ChatterboxBackend.STYLES_VERSION}"
     return [
         segment_cache_key(ChatterboxBackend.provider, voice_id, piece, delivery)

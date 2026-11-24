@@ -1,10 +1,3 @@
-"""Business rules for the music library. No HTTP and no SQL in here.
-
-Built-in tracks are made in code (``podcast_engine.common.music``) and belong to everyone. Uploaded
-tracks belong to their owner, who confirms they have the right to use them; the web app converts
-any audio file to the pipeline's 24 kHz mono WAV before it is sent.
-"""
-
 import hashlib
 import wave
 from collections.abc import Callable
@@ -34,11 +27,26 @@ SILENT_RMS = 0.002
 
 
 def music_key(owner: UUID, track_id: UUID) -> str:
-    """Object key of an uploaded track. Private: played only through the API, by its owner."""
+    """Return the object key of an uploaded track.
+
+    Private: played only through the API, by its owner.
+
+    Args:
+        owner: The user who uploaded it.
+        track_id: The track.
+
+    Returns:
+        The track's key in object storage.
+    """
     return f"music/{owner}/{track_id}.wav"
 
 
 def builtin_tracks() -> list[MusicTrackRead]:
+    """List the built-in tracks, which are made in code and belong to everyone.
+
+    Returns:
+        Each built-in track with its length, rendered once per process.
+    """
     return [
         MusicTrackRead(
             track_id=track.track_id,
@@ -53,6 +61,13 @@ def builtin_tracks() -> list[MusicTrackRead]:
 
 
 class MusicService:
+    """Business rules for the music library. No HTTP and no SQL in here.
+
+    Built-in tracks are made in code (``podcast_engine.common.music``) and belong to everyone.
+    Uploaded tracks belong to their owner, who confirms they have the right to use them; the web app
+    converts any audio file to the pipeline's 24 kHz mono WAV before it is sent.
+    """
+
     def __init__(
         self,
         tracks: MusicRepository,
@@ -60,17 +75,55 @@ class MusicService:
         *,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
+        """Create the service.
+
+        Args:
+            tracks: Where uploaded tracks' details are stored.
+            store: Where the audio is stored.
+            now: Returns the current time; replaced in tests.
+        """
         self._tracks = tracks
         self._store = store
         self._now = now
 
     def list_all(self, owner: UUID) -> list[MusicTrackRead]:
-        """The built-in tracks, then yours, newest first."""
+        """Return the built-in tracks, then the owner's, newest first.
+
+        Args:
+            owner: The user asking.
+
+        Returns:
+            Every track the owner's shows can use.
+        """
         return builtin_tracks() + self._tracks.list_all(owner)
 
     def upload(
         self, owner: UUID, *, name: str, role: Role, credit: str, rights: bool, data: bytes
     ) -> MusicTrackRead:
+        """Check and store an uploaded track.
+
+        The name (up to 80 characters) and credit (up to 200) are tidied. The audio must be 24 kHz
+        mono 16-bit WAV, 1 second to 6 minutes long and not silent, and an account holds at most 20
+        tracks. When the owner confirmed their rights is recorded.
+
+        Args:
+            owner: The user uploading.
+            name: The track's name.
+            role: What it is for: bed, intro, outro, sting or any.
+            credit: Credit line for the show notes, or empty.
+            rights: Whether the owner confirmed they may use the music.
+            data: The track's WAV bytes.
+
+        Returns:
+            The stored track.
+
+        Raises:
+            InvalidInputError: Rights not confirmed, a bad name or credit, the wrong length, or
+                silence.
+            PayloadTooLargeError: The file is larger than the limit.
+            UnsupportedMediaTypeError: The file is not 24 kHz mono 16-bit WAV.
+            ConflictError: The account already has the most tracks allowed.
+        """
         name, credit = " ".join(name.split()), " ".join(credit.split())
         if not rights:
             raise InvalidInputError(
@@ -117,6 +170,18 @@ class MusicService:
         )
 
     def _uploaded(self, track_id: str, owner: UUID) -> MusicTrackRead:
+        """Return one of the owner's uploaded tracks.
+
+        Args:
+            track_id: The track's id, as text.
+            owner: The user asking.
+
+        Returns:
+            The track.
+
+        Raises:
+            NotFoundError: The id is not a UUID, or the owner has no such track.
+        """
         try:
             track = self._tracks.get(UUID(track_id), owner)
         except ValueError:
@@ -126,6 +191,18 @@ class MusicService:
         return track
 
     def audio(self, track_id: str, owner: UUID) -> bytes:
+        """Return a track's audio: a built-in one, or one of the owner's.
+
+        Args:
+            track_id: ``builtin:...`` or an upload's id.
+            owner: The user asking.
+
+        Returns:
+            The track as WAV bytes.
+
+        Raises:
+            NotFoundError: There is no such track, or its audio is missing from storage.
+        """
         if is_builtin(track_id):
             if track_id not in BUILTIN_TRACKS:
                 raise NotFoundError("music track", track_id)
@@ -136,8 +213,19 @@ class MusicService:
         return self._store.get(track.object_key)
 
     def delete(self, track_id: str, owner: UUID) -> None:
-        """Delete an uploaded track; shows that used it go back to the default for that slot.
-        Episodes already made keep their audio."""
+        """Delete an uploaded track and its audio.
+
+        Shows that used it go back to the default for that slot; episodes already made keep their
+        audio.
+
+        Args:
+            track_id: The track to delete.
+            owner: The user asking.
+
+        Raises:
+            ConflictError: The track is built in.
+            NotFoundError: The owner has no such track.
+        """
         if is_builtin(track_id):
             raise ConflictError("built-in tracks cannot be deleted")
         track = self._uploaded(track_id, owner)

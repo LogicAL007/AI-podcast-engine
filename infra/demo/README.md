@@ -1,15 +1,15 @@
 # The engine on AWS, for a live demo
 
-One GPU server (g4dn.xlarge: an NVIDIA T4, 4 vCPUs, 16 GB of memory) runs the same Docker Compose
-stack as the Mac. The voice worker uses the GPU, with Chatterbox and the cloned voices, and Caddy
-serves the web app over HTTPS. The server runs in ca-central-1 and is managed through AWS Systems
+One server (m7i-flex.large: 2 vCPUs, 8 GB of memory) runs the same Docker Compose stack as the Mac.
+The voice worker uses Gemini TTS with prebuilt voices; the cloned voices (Chatterbox) run on the
+Mac only. Caddy serves the web app over HTTPS. The server runs in ca-central-1 and is managed through AWS Systems
 Manager (SSM), with no SSH.
 
 | Piece | Where |
 |---|---|
 | Server, IP, firewall (80 and 443 only), role, private bucket | `main.tf` (Terraform) |
-| First boot: Docker, GPU runtime, the server's deploy script | `user_data.sh.tftpl` |
-| GPU voice worker, Caddy, nothing else published | `docker-compose.aws.yml`, `Caddyfile` |
+| First boot: Docker and the server's deploy script | `user_data.sh.tftpl` |
+| Caddy, nothing else published | `docker-compose.aws.yml`, `Caddyfile` |
 | Shipping code, settings and (optionally) data from the Mac | `deploy.sh` |
 | What `podcast-user` may do (study and demo, one inline policy) | `deployer-policy.json` |
 | GitHub's sign-in to AWS for CD: the OIDC provider and a deploy role for this one server | `github.tf` |
@@ -19,26 +19,22 @@ Manager (SSM), with no SSH.
 
 | State | About |
 |---|---|
-| Running | $0.58 an hour for the server, plus about $0.02 for the disk and IP |
-| Stopped (`make aws-demo-stop`) | $0.50 a day: the 120 GB disk and the IP |
+| Running | about $0.11 an hour for the server, plus about $0.01 for the disk and IP |
+| Stopped (`make aws-demo-stop`) | about $0.25 a day: the 40 GB disk and the IP |
 | Destroyed (`make aws-demo-destroy`) | nothing |
 
 A rehearsal day (the first build takes 20–40 minutes), a stop, and a 3-hour demo day come to
-about $10.
+about $3.
 
 ## Once
 
-1. **GPU quota.** New AWS accounts often have 0 vCPUs for G instances. In the AWS console go to
-   Service Quotas → Amazon EC2, region Canada (Central), and open "Running On-Demand G and VT
-   instances". The value must be at least 4. If it isn't, request 4 (or 8). Approval can take
-   from minutes to a few days. After step 2, `make aws-demo-quota` shows the value.
-2. **Permissions for `podcast-user`.** It deploys both the study and the demo, and a user's inline
+1. **Permissions for `podcast-user`.** It deploys both the study and the demo, and a user's inline
    policies share 2,048 characters. So it has one inline policy, `deployer-policy.json` (951
    characters), covering both: EC2, SSM commands, snapshots and quotas in ca-central-1, plus
    buckets, roles and settings named `podcast-*`. In IAM → Users → `podcast-user` → Permissions,
    edit its existing inline policy → JSON, replace everything with this file, and save. Check
    with `make aws-demo-whoami`.
-3. **Rotate the keys first.** The Gemini key and the Google client secret go to the server, so
+2. **Rotate the keys first.** The Gemini key and the Google client secret go to the server, so
    rotate them before the demo if they were ever shared. Put the new values in
    `secrets/*.txt`.
 
@@ -117,8 +113,8 @@ with "EntityAlreadyExists". Then pass its ARN:
 
 - **The Gemini key and its quota are shared with the Mac.** Both stacks count against the same
   Google limits, so leave a day's quota for the demo.
-- **Voicing on the T4 is faster than on the Mac**, but a 2-minute episode still takes several
-  minutes. For the demo, start an episode early, show the pipeline running, and play one that is
+- **Voicing uses the Gemini TTS quota** (about 12 episodes a day on the free tier), and a
+  2-minute episode still takes a few minutes. For the demo, start an episode early, show the pipeline running, and play one that is
   already published.
 - **Vault starts fresh on the server**, with its own unseal key and root token, in
   `/opt/demo/secrets` on the server. Those never leave it, and they are deleted with it. After

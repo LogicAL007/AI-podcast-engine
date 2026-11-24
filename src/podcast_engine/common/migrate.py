@@ -1,10 +1,3 @@
-"""Apply db/migrations/*.sql in order, once each: ``python -m podcast_engine.common.migrate``.
-
-Postgres runs db/init only when its volume is first created, so schema changes after that live here.
-Each file is applied in its own transaction and recorded in ``schema_migrations``. An advisory lock
-makes concurrent starts safe. Compose runs this as the one-shot ``db-migrate`` service.
-"""
-
 import argparse
 from pathlib import Path
 
@@ -14,11 +7,27 @@ from podcast_engine.common.config import get_settings
 from podcast_engine.common.db import get_engine
 from podcast_engine.common.logging import configure_logging, get_logger
 
-_LOCK_ID = 727_164_000  # any constant; shared by every migrator
+_LOCK_ID = 727_164_000
 
 
 def apply_migrations(engine: Engine, directory: Path) -> list[str]:
-    """Apply every not-yet-applied ``*.sql`` file in name order and return the names applied."""
+    """Apply every not-yet-applied ``*.sql`` migration, in name order.
+
+    Postgres runs db/init only when its volume is first created, so schema changes after that live
+    in migrations. Each file is applied once and recorded in ``schema_migrations``, all in one
+    transaction. A Postgres advisory lock (one fixed id shared by every migrator) makes concurrent
+    starts safe.
+
+    Args:
+        engine: The database to migrate.
+        directory: The folder of ``*.sql`` files.
+
+    Returns:
+        The names of the files applied now; empty when the database was up to date.
+
+    Raises:
+        FileNotFoundError: The folder holds no ``*.sql`` files.
+    """
     files = sorted(directory.glob("*.sql"))
     if not files:
         raise FileNotFoundError(f"no migrations in {directory}")
@@ -44,8 +53,15 @@ def apply_migrations(engine: Engine, directory: Path) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Migrate the configured database: ``python -m podcast_engine.common.migrate``.
+
+    Docker Compose runs this as the one-shot ``db-migrate`` service.
+
+    Args:
+        argv: Command-line arguments (``--dir``); the process's own when None.
+    """
     settings = get_settings()
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Apply db/migrations/*.sql in order, once each.")
     parser.add_argument("--dir", type=Path, default=settings.migrations_dir)
     args = parser.parse_args(argv)
     configure_logging(settings.log_level)

@@ -1,9 +1,3 @@
-"""OpenAPI documentation shared by the routers: tag descriptions, error and file responses.
-
-Every route documents its errors with the ``ErrorDetail`` schema (the ``{"detail": ...}`` body that
-FastAPI's ``HTTPException`` produces), so clients and generated SDKs see one error shape.
-"""
-
 from typing import Any
 
 from fastapi.routing import APIRoute
@@ -93,7 +87,18 @@ class ErrorDetail(BaseModel):
 
 
 def errors(**descriptions: str) -> Responses:
-    """Error responses by status code, with the ``ErrorDetail`` schema: ``errors(e404="...")``."""
+    """Build error responses by status code, all with the ``ErrorDetail`` schema.
+
+    Every route documents its errors with ``ErrorDetail`` (the ``{"detail": ...}`` body that
+    FastAPI's ``HTTPException`` produces), so clients and generated SDKs see one error shape. Use it
+    as ``errors(e404="Show not found")``.
+
+    Args:
+        **descriptions: Each status code, written ``e<code>``, and what it means for the route.
+
+    Returns:
+        The ``responses`` mapping for a route decorator.
+    """
     return {
         int(code.removeprefix("e")): {"model": ErrorDetail, "description": text}
         for code, text in descriptions.items()
@@ -101,12 +106,30 @@ def errors(**descriptions: str) -> Responses:
 
 
 def file_response(media_type: str, description: str, *, binary: bool) -> Responses:
-    """A 200 response whose body is a file, documented with its media type and schema."""
+    """Document a 200 response whose body is a file.
+
+    Args:
+        media_type: The file's media type.
+        description: What the file is.
+        binary: Whether the body is binary (audio, PDF) rather than text (XML, Markdown).
+
+    Returns:
+        The ``responses`` entry for a route decorator.
+    """
     schema = {"type": "string", "format": "binary"} if binary else {"type": "string"}
     return {200: {"description": description, "content": {media_type: {"schema": schema}}}}
 
 
 def operation_id(route: APIRoute) -> str:
-    """Name operations after their route functions (``get_episode_audio``), not FastAPI's default
-    ``get_audio_episodes__episode_id__audio_wav_get``, so generated clients read naturally."""
+    """Name an operation after its route function.
+
+    ``get_episode_audio`` rather than FastAPI's default
+    ``get_audio_episodes__episode_id__audio_wav_get``, so generated clients read naturally.
+
+    Args:
+        route: The route being named.
+
+    Returns:
+        The route function's name.
+    """
     return route.name

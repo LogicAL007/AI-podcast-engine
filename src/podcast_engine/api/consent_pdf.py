@@ -1,10 +1,3 @@
-"""The voice consent form as a PDF, rendered from the same sections the web app shows.
-
-The PDF can be downloaded, read in full, and printed: for someone else's voice, the speaker can
-sign the printed copy, and the account holder keeps it as the written permission the form asks
-about. Rendered once per process; the text changes only with CONSENT_VERSION.
-"""
-
 from functools import lru_cache
 from io import BytesIO
 from typing import Any
@@ -18,6 +11,15 @@ FILENAME = f"voice-consent-form-{CONSENT_VERSION}.pdf"
 
 @lru_cache(maxsize=1)
 def consent_pdf() -> bytes:
+    """Render the voice consent form as a PDF, from the same sections the web app shows.
+
+    The PDF can be downloaded, read in full, and printed: for someone else's voice, the speaker can
+    sign the printed copy, and the account holder keeps it as the written permission the form asks
+    about. Rendered once per process; the text changes only with ``CONSENT_VERSION``.
+
+    Returns:
+        The PDF's bytes.
+    """
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
@@ -82,6 +84,12 @@ def consent_pdf() -> bytes:
     ]
 
     def footer(canvas: Any, doc: Any) -> None:
+        """Draw the form's title, version and page number at the foot of a page.
+
+        Args:
+            canvas: The page's ReportLab canvas.
+            doc: The document being built.
+        """
         canvas.saveState()
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.grey)

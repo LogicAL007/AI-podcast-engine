@@ -92,6 +92,7 @@ select = [
     "ARG",   # unused arguments
     "B",     # bugbear
     "C4",    # comprehensions
+    "D",     # docstrings (Google style)
     "E",
     "F",
     "I",     # isort
@@ -106,12 +107,24 @@ select = [
     "W",
 ]
 
+# No module docstrings: each file's functions and classes carry the documentation.
+ignore = ["D100", "D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "ARG"]  # test passwords and tokens are fixtures
-"research/**/tests/**" = ["S101", "S105", "S106", "ARG"]
+# Test functions are named for what they check, so they need no docstrings. Test passwords and
+# tokens are fixtures.
+"tests/**" = ["D", "S101", "S105", "S106", "ARG"]
+"research/**/tests/**" = ["D", "S101", "S105", "S106", "ARG"]
+# Route docstrings are the OpenAPI descriptions: FastAPI cuts them at "\f", which keeps the Args
+# and Returns sections out of the published API docs.
+"src/podcast_engine/api/routers/**" = ["D301"]
 # research/ is git-ignored, so ruff skips it unless run inside it (make -C research lint).
 # Evaluation scripts are command-line tools that print their reports.
-"research/evaluation/**" = ["T201"]
+"research/evaluation/**" = ["D", "T201"]
+"research/study/**" = ["D"]
 "research/study/make_*.py" = ["T201"]
 # Notebooks print, assert, and use IPython's `display`. `say` is called with fixed arguments (the
 # text goes in on stdin, never through a shell). The RNG only picks banter lines.

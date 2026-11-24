@@ -1,5 +1,3 @@
-"""Ingest: fetch sources and detect which items changed."""
-
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -24,7 +22,15 @@ log = get_logger("ingest")
 
 
 def has_changed(previous_hash: str | None, text: str) -> bool:
-    """True for a new item (no previous hash) or one whose content hash differs."""
+    """Tell whether an item is new or its content changed.
+
+    Args:
+        previous_hash: The content hash stored last time, or None for a new item.
+        text: The item's text now.
+
+    Returns:
+        True for a new item or one whose content hash differs.
+    """
     return previous_hash != content_hash(text)
 
 
@@ -35,14 +41,23 @@ def _add_search_results(
     add: Callable[[str, "Section", datetime | None, ReliabilityTier], None],
     tiers: Mapping[str, object],
 ) -> None:
-    """Read the top results of each of the show's searches like its own pages, skipping URLs it
-    already lists and results that cannot be read."""
+    """Read the top results of each of the show's searches like its own pages.
+
+    URLs the show already lists are skipped, and so is one unreadable result, which must not sink
+    the episode. A failed search raises, so the stage retries: carrying on would make a refresh see
+    every result as removed and drop their segments.
+
+    Args:
+        show: The show, with its search queries and language.
+        search: The search provider.
+        count: How many top results to read per search.
+        add: Adds one section as a source document.
+        tiers: The reliability tiers file's contents.
+    """
     from podcast_engine.stages.ingest.extract import extract_page, source_tier
 
     read = set(show.sources)
     for query in show.search_queries:
-        # A failed search raises, so the stage retries: carrying on would make a refresh see
-        # every result as removed and drop their segments.
         hits = search.search(query, language=show.language, count=count)
         used = 0
         for hit in hits:
@@ -51,7 +66,7 @@ def _add_search_results(
             read.add(hit.url)
             try:
                 page = extract_page(search.page(hit))
-            except Exception as error:  # one unreadable result must not sink the episode
+            except Exception as error:
                 log.warning("search_result_skipped", url=hit.url, reason=str(error)[:200])
                 continue
             for section in page.sections:
@@ -61,15 +76,36 @@ def _add_search_results(
 
 
 def _search(ctx: PipelineContext) -> "SearchProvider | None":
+    """Return the search provider: the context's own (tests), else the configured one.
+
+    Args:
+        ctx: The pipeline context.
+
+    Returns:
+        The provider, or None when search is off.
+    """
     from podcast_engine.stages.ingest.search import make_search
 
     return getattr(ctx, "search", None) or make_search(ctx.settings)
 
 
 def load_docs(show: ShowRecord, ctx: PipelineContext) -> list[SourceDoc]:
-    """Every section of the show's sources, in order: its URLs (web pages or RSS/Atom feeds),
-    the top results of its searches, then its uploaded PDFs. Each section can change and be
-    cited on its own."""
+    """Read every section of the show's sources, in order.
+
+    Its URLs (web pages or RSS/Atom feeds), the top results of its searches, then its uploaded PDFs.
+    Each section can change and be cited on its own. Uploaded PDFs are cited through the API, at the
+    page the passage is on, and rank as established sources because the creator supplied them.
+
+    Args:
+        show: The show.
+        ctx: The pipeline context: settings, storage, and the fetch function.
+
+    Returns:
+        Every section as a source document, numbered in order.
+
+    Raises:
+        ValueError: A page, feed or PDF has no usable text.
+    """
     from podcast_engine.stages.ingest.extract import extract_page, source_tier
     from podcast_engine.stages.ingest.feeds import feed_sections, looks_like_feed
     from podcast_engine.stages.ingest.search import read_page
@@ -79,11 +115,20 @@ def load_docs(show: ShowRecord, ctx: PipelineContext) -> list[SourceDoc]:
     fetch = ctx.fetch or read_page
     docs: list[SourceDoc] = []
 
-    # "Section" is quoted: it is imported only for type checking, and Python 3.12 (the images)
-    # evaluates a nested function's annotations when it is defined, unlike 3.14.
     def add(
         url: str, section: "Section", published: datetime | None, tier: ReliabilityTier
     ) -> None:
+        """Add one section as a source document, linking to its anchor when it has one.
+
+        ``Section`` is quoted in the signature: it is imported only for type checking, and Python
+        3.12 (the images) evaluates a nested function's annotations when it is defined, unlike 3.14.
+
+        Args:
+            url: Where the section comes from.
+            section: The section.
+            published: The source's own date, if it gives one.
+            tier: The source's reliability tier.
+        """
         docs.append(
             SourceDoc(
                 url=f"{url}#{section.anchor}" if section.anchor and "#" not in url else url,
@@ -122,24 +167,33 @@ def load_docs(show: ShowRecord, ctx: PipelineContext) -> list[SourceDoc]:
         pdf = extract_pdf(ctx.store.get(upload.object_key), filename=upload.filename)
         if not pdf.sections:
             raise ValueError(f"No usable text found in the upload {upload.filename}")
-        # Citations link to the file through the API, at the page the passage is on.
         file_url = (
             f"{ctx.settings.public_feed_base_url}/api/v1/shows/{show.show_id}"
             f"/uploads/{upload.upload_id}/file"
         )
         for section in pdf.sections:
-            # The creator supplied it, so it ranks as an established source.
             add(f"{file_url}#{section.anchor}", section, None, ReliabilityTier.ESTABLISHED)
         log.info("upload_ingested", upload=upload.filename, sections=len(pdf.sections))
     return docs
 
 
-# Not ingested: pages behind authentication.
 def ingest_sources(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """FR2: fetch the show's pages, store their sections, and record which ones changed.
+    """Fetch the show's sources, store their sections, and record which changed (stage 1, FR2).
 
     The first episode of a show uses every section. A later one (a refresh, FR8) only regenerates
-    segments whose sections changed; if nothing changed it stops here: there is nothing new to say.
+    segments whose sections changed; if nothing changed it stops here, as ``unchanged``: there is
+    nothing new to say. A rebuild regenerates every segment, so it goes on even when nothing
+    changed. Pages behind authentication are not ingested.
+
+    Args:
+        episode_id: The episode being made.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        The next stage, index; or None when nothing changed.
+
+    Raises:
+        ValueError: The show has no sources, or one has no usable text.
     """
     ctx = ctx or get_context()
     episode = ctx.repo.get_episode(episode_id)
@@ -156,7 +210,6 @@ def ingest_sources(episode_id: UUID, ctx: PipelineContext | None = None) -> Stag
         unchanged=len(result.unchanged),
         previous_episode=str(previous[0].episode_id) if previous else None,
     )
-    # A rebuild regenerates every segment, so it goes on even when nothing changed.
     if previous and not episode.rebuild and not result.changed and not result.removed:
         ctx.repo.update_episode(
             episode_id,

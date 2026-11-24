@@ -1,19 +1,15 @@
 # The whole podcast engine on one server, for a live demo, independent of the Mac. Docker Compose
 # runs the same stack as on the Mac, with Caddy in front for HTTPS. The voice worker uses Gemini
-# TTS on a regular server (voice_backend = "gemini"), or Chatterbox with the cloned voices on an
-# NVIDIA GPU ("chatterbox-gpu"). No SSH: the server is managed and deployed through Systems Manager
+# TTS (prebuilt voices); the cloned voices need Chatterbox, which runs on the Mac only. No SSH: the server is managed and deployed through Systems Manager
 # (SSM). Releases, and the optional copy of the Mac's data, go through a private S3 bucket.
 # Secrets are SSM SecureString parameters written by deploy.sh, so they never enter this state.
 #
 # Stop the server between rehearsal and demo (make aws-demo-stop): a stopped server costs only its
 # disk and IP. Destroy it afterwards (make aws-demo-destroy).
 
-# Ubuntu 22.04 either way: AWS's GPU base image (NVIDIA driver, Docker, NVIDIA Container Toolkit)
-# for Chatterbox on the GPU, else Canonical's standard image (the bootstrap installs Docker).
+# Canonical's standard Ubuntu 22.04 image (the bootstrap installs Docker).
 data "aws_ssm_parameter" "ami" {
-  name = var.voice_backend == "chatterbox-gpu" ? (
-    "/aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id"
-  ) : "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
+  name = "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
 }
 
 data "aws_vpc" "default" {
@@ -52,8 +48,6 @@ resource "random_id" "suffix" {
 }
 
 locals {
-  gpu          = var.voice_backend == "chatterbox-gpu"
-  volume_gb    = var.root_volume_gb > 0 ? var.root_volume_gb : (local.gpu ? 120 : 40)
   ssm_prefix   = "/${var.project}"
   site_address = var.domain_name != "" ? var.domain_name : "${replace(aws_eip.demo.public_ip, ".", "-")}.sslip.io"
   offering_subnets = sort([
@@ -209,7 +203,6 @@ resource "aws_instance" "demo" {
     bucket     = aws_s3_bucket.demo.id
     region     = var.region
     ssm_prefix = local.ssm_prefix
-    gpu        = local.gpu
   })
 
   metadata_options {
@@ -228,7 +221,7 @@ resource "aws_instance" "demo" {
 
   root_block_device {
     volume_type           = "gp3"
-    volume_size           = local.volume_gb
+    volume_size           = var.root_volume_gb
     encrypted             = true
     delete_on_termination = true
     tags = {
@@ -247,10 +240,6 @@ resource "aws_instance" "demo" {
       condition     = length(local.offering_subnets) > 0
       error_message = "No default subnet is in a zone that offers ${var.instance_type}."
     }
-    precondition {
-      condition     = !local.gpu || startswith(var.instance_type, "g")
-      error_message = "chatterbox-gpu needs a GPU instance type, such as g4dn.xlarge."
-    }
   }
 }
 
@@ -262,16 +251,10 @@ resource "aws_eip" "demo" {
   }
 }
 
-# Read by the server's deploy script for Caddy's address and the app's public URLs, and for how it
-# voices episodes (not secrets).
+# Read by the server's deploy script for Caddy's address and the app's public URLs (not a secret).
 resource "aws_ssm_parameter" "site_address" {
   name  = "${local.ssm_prefix}/site_address"
   type  = "String"
   value = local.site_address
 }
 
-resource "aws_ssm_parameter" "voice_backend" {
-  name  = "${local.ssm_prefix}/voice_backend"
-  type  = "String"
-  value = var.voice_backend
-}

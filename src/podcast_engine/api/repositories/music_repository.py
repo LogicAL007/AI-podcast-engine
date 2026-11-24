@@ -1,5 +1,3 @@
-"""Persistence for uploaded music: the only API module that knows ``music_tracks``."""
-
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -15,30 +13,119 @@ _COLUMNS = (
 
 
 class MusicRepository(Protocol):
-    """Every method is scoped to one owner: another user's track does not exist for them."""
+    """Stores uploaded music tracks.
 
-    def add(self, owner_id: UUID, values: dict[str, Any]) -> MusicTrackRead: ...
+    Every method is scoped to one owner: another user's track does not exist for them.
+    """
 
-    def get(self, track_id: UUID, owner_id: UUID) -> MusicTrackRead | None: ...
+    def add(self, owner_id: UUID, values: dict[str, Any]) -> MusicTrackRead:
+        """Record an uploaded track.
 
-    def list_all(self, owner_id: UUID) -> list[MusicTrackRead]: ...
+        Args:
+            owner_id: The user uploading.
+            values: The track's id, name, role, credit, storage key, size, length, checksum and when
+                its rights were confirmed.
 
-    def count(self, owner_id: UUID) -> int: ...
+        Returns:
+            The stored track.
+        """
+        ...
 
-    def owned(self, track_ids: set[str], owner_id: UUID) -> set[str]: ...
+    def get(self, track_id: UUID, owner_id: UUID) -> MusicTrackRead | None:
+        """Return one of the user's tracks.
 
-    def delete(self, track_id: UUID, owner_id: UUID) -> bool: ...
+        Args:
+            track_id: The track.
+            owner_id: The user asking.
 
-    def object_keys(self, owner_id: UUID) -> list[str]: ...
+        Returns:
+            The track, or None when the user has no such track.
+        """
+        ...
+
+    def list_all(self, owner_id: UUID) -> list[MusicTrackRead]:
+        """Return all of the user's tracks.
+
+        Args:
+            owner_id: The user asking.
+
+        Returns:
+            The user's tracks, newest first.
+        """
+        ...
+
+    def count(self, owner_id: UUID) -> int:
+        """Count the user's tracks, for the per-account limit.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            How many tracks the user has uploaded.
+        """
+        ...
+
+    def owned(self, track_ids: set[str], owner_id: UUID) -> set[str]:
+        """Return which of some track ids are the user's uploads.
+
+        Args:
+            track_ids: Upload ids to check.
+            owner_id: The user.
+
+        Returns:
+            The ids among them that are the user's uploads.
+        """
+        ...
+
+    def delete(self, track_id: UUID, owner_id: UUID) -> bool:
+        """Delete a track and take it out of the user's shows.
+
+        Args:
+            track_id: The track to delete.
+            owner_id: The user asking.
+
+        Returns:
+            True if a track was deleted.
+        """
+        ...
+
+    def object_keys(self, owner_id: UUID) -> list[str]:
+        """Return where every one of the user's tracks is stored, to delete them all.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            Where each of the user's tracks is stored.
+        """
+        ...
 
 
 class PostgresMusicRepository:
-    """Each write commits on its own."""
+    """Tracks in the ``music_tracks`` table, the only API code that knows it.
+
+    Each write commits on its own.
+    """
 
     def __init__(self, session: Session) -> None:
+        """Create the repository.
+
+        Args:
+            session: The database session for this request.
+        """
         self._session = session
 
     def add(self, owner_id: UUID, values: dict[str, Any]) -> MusicTrackRead:
+        """Record an uploaded track.
+
+        Args:
+            owner_id: The user uploading.
+            values: The track's id, name, role, credit, storage key, size, length, checksum and when
+                its rights were confirmed.
+
+        Returns:
+            The stored track.
+        """
         row = (
             self._session.execute(
                 text(
@@ -57,6 +144,15 @@ class PostgresMusicRepository:
         return MusicTrackRead.model_validate(row)
 
     def get(self, track_id: UUID, owner_id: UUID) -> MusicTrackRead | None:
+        """Return one of the user's tracks.
+
+        Args:
+            track_id: The track.
+            owner_id: The user asking.
+
+        Returns:
+            The track, or None when the user has no such track.
+        """
         row = (
             self._session.execute(
                 text(
@@ -71,6 +167,14 @@ class PostgresMusicRepository:
         return MusicTrackRead.model_validate(row) if row else None
 
     def list_all(self, owner_id: UUID) -> list[MusicTrackRead]:
+        """Return all of the user's tracks.
+
+        Args:
+            owner_id: The user asking.
+
+        Returns:
+            The user's tracks, newest first.
+        """
         rows = self._session.execute(
             text(
                 f"SELECT {_COLUMNS} FROM music_tracks WHERE owner_id = :owner_id"  # noqa: S608
@@ -81,6 +185,14 @@ class PostgresMusicRepository:
         return [MusicTrackRead.model_validate(row) for row in rows]
 
     def count(self, owner_id: UUID) -> int:
+        """Count the user's tracks, for the per-account limit.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            How many tracks the user has uploaded.
+        """
         return int(
             self._session.execute(
                 text("SELECT count(*) FROM music_tracks WHERE owner_id = :owner_id"),
@@ -89,6 +201,15 @@ class PostgresMusicRepository:
         )
 
     def owned(self, track_ids: set[str], owner_id: UUID) -> set[str]:
+        """Return which of some track ids are the user's uploads.
+
+        Args:
+            track_ids: Upload ids to check.
+            owner_id: The user.
+
+        Returns:
+            The ids among them that are the user's uploads.
+        """
         if not track_ids:
             return set()
         rows = self._session.execute(
@@ -101,7 +222,15 @@ class PostgresMusicRepository:
         return set(rows)
 
     def delete(self, track_id: UUID, owner_id: UUID) -> bool:
-        """Remove the track, and take it out of every show of the owner's that used it."""
+        """Remove the track, and take it out of every show of the owner's that used it.
+
+        Args:
+            track_id: The track to delete.
+            owner_id: The user asking.
+
+        Returns:
+            True if a track was deleted.
+        """
         self._session.execute(
             text(
                 "UPDATE shows SET music = (SELECT coalesce(jsonb_object_agg(k, v), '{}')"
@@ -118,6 +247,14 @@ class PostgresMusicRepository:
         return bool(result.rowcount)  # type: ignore[attr-defined]
 
     def object_keys(self, owner_id: UUID) -> list[str]:
+        """Return where every one of the user's tracks is stored, to delete them all.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            Where each of the user's tracks is stored.
+        """
         rows = self._session.execute(
             text("SELECT object_key FROM music_tracks WHERE owner_id = :owner_id"),
             {"owner_id": owner_id},

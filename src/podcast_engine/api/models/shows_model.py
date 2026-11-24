@@ -1,5 +1,3 @@
-"""Request and response schemas for the shows API."""
-
 from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -45,6 +43,17 @@ SourceUrls = Annotated[
 
 
 def _tidy_queries(value: list[str]) -> list[str]:
+    """Tidy a show's search queries: collapse whitespace and drop repeats.
+
+    Args:
+        value: The queries as sent.
+
+    Returns:
+        The tidied queries, in their order.
+
+    Raises:
+        ValueError: A query is shorter than 2 characters.
+    """
     queries = list(dict.fromkeys(" ".join(q.split()) for q in value))
     if any(len(q) < 2 for q in queries):
         raise ValueError("a search needs at least 2 characters")
@@ -94,6 +103,17 @@ ReviewBeforeVoice = Annotated[
 
 
 def _known_hosts[V](value: dict[str, V]) -> dict[str, V]:
+    """Check that a mapping is keyed by known host names.
+
+    Args:
+        value: Settings by host name.
+
+    Returns:
+        The same mapping.
+
+    Raises:
+        ValueError: A key is not Alex, Sam, Jordan or Riley.
+    """
     unknown = sorted(set(value) - set(HOST_NAMES))
     if unknown:
         raise ValueError(f"hosts are named {', '.join(HOST_NAMES)}; not {', '.join(unknown)}")
@@ -174,7 +194,7 @@ class ShowCreate(BaseModel):
     ranking_profile: RankingProfile = "explainer"
     review_before_voice: ReviewBeforeVoice = False
     host_voices: HostVoices = {}
-    host_effects: HostEffects = Field(default_factory=dict)  # optional for clients
+    host_effects: HostEffects = Field(default_factory=dict)
     music: Music = Field(default_factory=ShowMusic)
 
 

@@ -1,5 +1,3 @@
-"""Domain errors raised by services and translated to HTTP by controllers."""
-
 from collections.abc import Callable
 
 from fastapi import HTTPException, status
@@ -10,7 +8,15 @@ class DomainError(Exception):
 
 
 class NotFoundError(DomainError):
+    """The resource does not exist, or belongs to someone else."""
+
     def __init__(self, resource: str, identifier: object) -> None:
+        """Create the error.
+
+        Args:
+            resource: What was looked for, such as ``show``.
+            identifier: Its id.
+        """
         super().__init__(f"{resource} {identifier} not found")
 
 
@@ -34,6 +40,12 @@ class TooManyRequestsError(DomainError):
     """Too many attempts from this address; try again after ``retry_after`` seconds."""
 
     def __init__(self, message: str, retry_after: int) -> None:
+        """Create the error.
+
+        Args:
+            message: What the client should be told.
+            retry_after: Seconds until the client may try again.
+        """
         super().__init__(message)
         self.retry_after = retry_after
 
@@ -55,7 +67,17 @@ class UnsupportedMediaTypeError(DomainError):
 
 
 def to_http(error: DomainError) -> HTTPException:
-    """Map a domain error to the HTTP error the client should see."""
+    """Map a domain error to the HTTP error the client should see.
+
+    401 adds a ``WWW-Authenticate`` header and 429 a ``Retry-After`` header. An error with no
+    mapping becomes a 500 that says nothing about it.
+
+    Args:
+        error: The error a service raised.
+
+    Returns:
+        The HTTP exception to raise.
+    """
     if isinstance(error, UnauthenticatedError):
         return HTTPException(
             status.HTTP_401_UNAUTHORIZED, str(error), headers={"WWW-Authenticate": "Bearer"}
@@ -86,7 +108,17 @@ def to_http(error: DomainError) -> HTTPException:
 
 
 def http_errors[T](call: Callable[[], T]) -> T:
-    """Run a service call, turning a domain error into the HTTP error the client should see."""
+    """Run a service call, turning a domain error into the HTTP error the client should see.
+
+    Args:
+        call: The service call to run.
+
+    Returns:
+        Whatever the call returns.
+
+    Raises:
+        HTTPException: The call raised a domain error.
+    """
     try:
         return call()
     except DomainError as error:

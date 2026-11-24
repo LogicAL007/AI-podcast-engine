@@ -1,10 +1,3 @@
-"""Public routes: what podcast apps and listeners fetch without logging in.
-
-The RSS feed points podcast apps at an episode's audio, and the show notes link to their sources
-(uploaded PDFs included). Podcast apps send no credentials, so these stay open. Their URLs carry
-random ids and reveal nothing else.
-"""
-
 from typing import Annotated
 from urllib.parse import quote
 from uuid import UUID
@@ -84,8 +77,22 @@ def get_episode_audio(
     """The finished episode audio, the same file the RSS feed points to.
 
     Supports HTTP range requests, so it plays and seeks in a browser `<audio>` element and in
-    podcast apps. The AI-generated disclosure is the first thing spoken. Available once the
-    assemble stage has run; 404 before then.
+    podcast apps. The AI-generated disclosure is the first thing spoken. Available once the assemble
+    stage has run; 404 before then.
+
+    Open without login, like the feed, notes and uploaded PDFs: podcast apps send no credentials,
+    and the URL's random id reveals nothing else.
+
+    \f
+
+    Args:
+        episode_id: The episode.
+        controller: The episode controller, injected by FastAPI.
+        byte_range: The ``Range`` header, if the client sent one.
+        download: Whether to save the audio as a file instead of playing it.
+
+    Returns:
+        The whole file, or the requested range with status 206.
     """
     response = controller.get_audio(episode_id, byte_range=byte_range, download=download)
     response.headers.setdefault("Accept-Ranges", "bytes")
@@ -118,9 +125,21 @@ get_episode_audio_head = router.api_route(
     },
 )
 def get_episode_notes(episode_id: EpisodeId, controller: Controller) -> Response:
-    """Markdown show notes: the AI-generated disclosure first, then chapters with their start times,
-    each claim with its citation numbers, the numbered sources, the source attribution, and how the
-    episode was made (models, prompts, voices, seed). Available once the episode is published."""
+    """Markdown show notes, available once the episode is published.
+
+    The AI-generated disclosure first, then chapters with their start times, each claim with its
+    citation numbers, the numbered sources, the source attribution, and how the episode was made
+    (models, prompts, voices, seed).
+
+    \f
+
+    Args:
+        episode_id: The episode.
+        controller: The episode controller, injected by FastAPI.
+
+    Returns:
+        The notes as Markdown.
+    """
     return Response(content=controller.get_notes(episode_id), media_type=NOTES_MEDIA_TYPE)
 
 
@@ -132,8 +151,21 @@ def get_episode_notes(episode_id: EpisodeId, controller: Controller) -> Response
     responses={**file_response(PDF_MEDIA_TYPE, "The PDF", binary=True), **NOT_FOUND},
 )
 def download_upload(show_id: ShowId, upload_id: UploadId, controller: Uploads) -> Response:
-    """The uploaded PDF, as it was uploaded. Show-note citations of uploaded sources link here,
-    with `#page=N` so a PDF viewer opens at the cited page."""
+    """The uploaded PDF, as it was uploaded.
+
+    Show-note citations of uploaded sources link here, with `#page=N` so a PDF viewer opens at the
+    cited page.
+
+    \f
+
+    Args:
+        show_id: The show it belongs to.
+        upload_id: The upload.
+        controller: The upload controller, injected by FastAPI.
+
+    Returns:
+        The PDF, shown inline with its original file name.
+    """
     content = controller.get_file(show_id, upload_id)
     return Response(
         content.data,

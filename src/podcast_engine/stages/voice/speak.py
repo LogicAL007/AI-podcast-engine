@@ -1,12 +1,3 @@
-"""Type-to-speech: voice one line typed in the voice studio, in a recorded voice or the voice
-engine's own, with the host effects applied.
-
-The API stores the request (``speech_clips``) and queues ``SPEAK_TASK`` on the voice queue; this
-runs in the voice worker, which has the voices (Chatterbox with the recordings, or Gemini). The
-raw speech is cached like an episode's lines, so trying other effects on the same words, or
-using them in an episode later, voices nothing again.
-"""
-
 from uuid import UUID
 
 import numpy as np
@@ -39,6 +30,26 @@ class SpeakError(Exception):
 
 
 def _voiced(clip: SpeechClipRecord, ctx: PipelineContext) -> np.ndarray:
+    """Voice a clip's text, from the cache where possible.
+
+    A recorded voice is lent to the host Alex for the clip and needs the Chatterbox engine. The text
+    goes through the pronunciation lexicon first. Gemini reads the whole text in one request (one of
+    the day's few); Chatterbox does best a sentence or two at a time, so its text is split. Each
+    piece's raw speech is cached like an episode's lines, and the pieces are joined with short
+    pauses.
+
+    Args:
+        clip: The queued clip.
+        ctx: Shared clients (settings, storage, budget, TTS).
+
+    Returns:
+        The raw speech, before effects.
+
+    Raises:
+        SpeakError: The voice backend cannot run here, a recorded voice was asked for on a server
+            that cannot speak it, or the voice was deleted.
+        GeminiQuotaError: Today's Gemini TTS budget cannot cover the clip.
+    """
     settings = ctx.settings
     problem = backend_unavailable(settings)
     if problem:
@@ -60,9 +71,7 @@ def _voiced(clip: SpeechClipRecord, ctx: PipelineContext) -> np.ndarray:
         host = str(voice.get("host", SPEAKER))
         overrides = {}
     backend = _backend(ctx, (host,), overrides)
-    # Gemini reads the whole text in one request (one of the day's few); Chatterbox does best a
-    # sentence or two at a time.
-    text = spoken(clip.text, rules_for(settings.config_dir))  # the pronunciation lexicon
+    text = spoken(clip.text, rules_for(settings.config_dir))
     texts = [text] if settings.tts_backend == "gemini" else pieces(text)
     keys = [
         segment_cache_key(backend.provider, backend.voice_id(host), text, clip.delivery)
@@ -85,13 +94,32 @@ def _voiced(clip: SpeechClipRecord, ctx: PipelineContext) -> np.ndarray:
 
 
 def speak_clip(clip_id: UUID, ctx: PipelineContext | None = None) -> str:
-    """Voice a queued clip and store it; returns the clip's status (done or failed)."""
+    """Voice a queued type-to-speech clip and store it.
+
+    Voices one line typed in the voice studio, in a recorded voice or the voice engine's own, with
+    the host effects applied. The API stores the request (``speech_clips``) and queues
+    ``SPEAK_TASK`` on the voice queue; this runs in the voice worker, which has the voices
+    (Chatterbox with the recordings, or Gemini). The raw speech is cached like an episode's lines,
+    so trying other effects on the same words, or using them in an episode later, voices nothing
+    again.
+
+    A clip redelivered after it finished is left as it is. A refusal is recorded with its reason;
+    any other failure with a general message.
+
+    Args:
+        clip_id: The clip to voice.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        The clip's status afterwards: ``done``, ``failed``, or its earlier status if it had already
+        finished.
+    """
     ctx = ctx or get_context()
     clip = ctx.repo.get_speech_clip(clip_id)
     if clip is None:
         log.warning("speech_clip_gone", clip_id=str(clip_id))
         return "failed"
-    if clip.status not in {"queued", "working"}:  # redelivered after it finished
+    if clip.status not in {"queued", "working"}:
         return clip.status
     ctx.repo.finish_speech_clip(clip_id, status="working")
     try:

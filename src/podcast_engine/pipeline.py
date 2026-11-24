@@ -1,11 +1,3 @@
-"""Run the whole pipeline for one episode in this process, without the queue.
-
-The Celery workers are the normal path. This one is for tests and for running a stage the containers
-cannot, such as the Chatterbox voice-cloning backend on a host with a GPU:
-
-    python -m podcast_engine.pipeline --show <show_id>
-"""
-
 import argparse
 import json
 from collections.abc import Sequence
@@ -33,6 +25,13 @@ STAGE_FUNCTIONS: dict[Stage, StageFunction] = {
     Stage.ASSEMBLE: assemble_episode,
     Stage.PUBLISH: publish_episode,
 }
+DESCRIPTION = """Run the whole pipeline for one episode in this process, without the queue.
+
+The Celery workers are the normal path. This one is for tests and for running a stage the containers
+cannot, such as the Chatterbox voice-cloning backend on a host with a GPU:
+
+    python -m podcast_engine.pipeline --show <show_id>
+"""
 MAX_HOPS = 40  # far more than 8 stages plus every allowed rewrite; guards against a routing loop
 
 
@@ -44,7 +43,24 @@ def run_inline(
     stop_after: Stage | None = None,
     stop_before: Stage | None = None,
 ) -> list[str]:
-    """Run stages in order (following the fact-check loop) and return the route taken."""
+    """Run an episode's stages in this process, following the fact-check loop.
+
+    The Celery workers are the normal path; this is for tests and for a stage the containers cannot
+    run, such as Chatterbox on a host with a GPU.
+
+    Args:
+        episode_id: The episode to run.
+        ctx: Shared clients for the stages.
+        start: The first stage to run.
+        stop_after: Stop once this stage has run, or None to go on.
+        stop_before: Stop before running this stage, or None to go on.
+
+    Returns:
+        The stages run, in order.
+
+    Raises:
+        RuntimeError: The route grew past 40 stages, which means a routing loop.
+    """
     route: list[str] = []
     stage: Stage | None = start
     while stage is not None and stage is not stop_before:
@@ -58,8 +74,19 @@ def run_inline(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run one episode from the command line: ``python -m podcast_engine.pipeline``.
+
+    Creates an episode for ``--show`` or runs ``--episode``, starting at ``--from-stage``, and
+    prints the episode's id, status, error and route as JSON.
+
+    Args:
+        argv: The command-line arguments; the process's own when None.
+
+    Returns:
+        0 when the episode was published or unchanged, else 1.
+    """
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--show", type=UUID, help="create a new episode for this show and run it")

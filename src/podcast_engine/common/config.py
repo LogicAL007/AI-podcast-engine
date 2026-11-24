@@ -1,5 +1,3 @@
-"""Runtime settings, read from the environment, HashiCorp Vault and secret files."""
-
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -9,12 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Process-wide configuration.
+    """Process-wide configuration, from the environment, Vault and secret files.
 
-    Secrets are never read from plain environment variables in deployment. With ``vault_addr``
-    set, they come from Vault (KV v2 at ``secret/<vault_kv_path>``), read once at start with the
-    token in ``vault_token_file``. Without Vault, each ``<name>_file`` field's contents populate
-    the matching secret (for host runs and tests). A secret set in Vault wins over its file.
+    Secrets are never read from plain environment variables in deployment. With ``vault_addr`` set,
+    they come from Vault (KV v2 at ``secret/<vault_kv_path>``), read once at start with the token in
+    ``vault_token_file``. Without Vault, each ``<name>_file`` field's contents populate the matching
+    secret (for host runs and tests). A secret set in Vault wins over its file.
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -126,6 +124,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _load_secrets(self) -> "Settings":
+        """Fill the secrets from their files, then from Vault.
+
+        Returns:
+            The settings, with every secret found.
+
+        Raises:
+            ValueError: ``VAULT_ADDR`` is set without ``VAULT_TOKEN_FILE``.
+            VaultError: Vault could not be reached or refused the token.
+        """
         for name in VAULT_SECRETS:
             path: Path | None = getattr(self, f"{name}_file")
             if path is not None:
@@ -155,10 +162,22 @@ VAULT_SECRETS = (
 
 
 def _read_secret(path: Path) -> SecretStr:
+    """Read a secret from a file.
+
+    Args:
+        path: The file.
+
+    Returns:
+        Its contents, trimmed.
+    """
     return SecretStr(path.read_text(encoding="utf-8").strip())
 
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return the cached settings instance."""
+    """Return the process's settings, read once and cached.
+
+    Returns:
+        The settings.
+    """
     return Settings()

@@ -1,5 +1,3 @@
-"""Response schemas for a show's ingested sources."""
-
 from datetime import datetime
 from uuid import UUID
 

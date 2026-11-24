@@ -1,5 +1,3 @@
-"""Retrieve and plan: freshness-aware ranking, then the segment outline."""
-
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -31,9 +29,21 @@ OUTLINE_PASSAGES = 24  # how many top passages the LLM sees when planning
 
 
 def recency_score(published_at: datetime | None, *, now: datetime, half_life_days: float) -> float:
-    """Exponential decay in (0, 1]: 1.0 for brand-new items, 0.5 after one half-life.
+    """Score how fresh an item is, by exponential decay.
 
-    Items with no publish date score 0 so they never outrank dated ones on recency alone.
+    1.0 for a brand-new item, 0.5 after one half-life. Items with no publish date score 0, so they
+    never outrank dated ones on recency alone.
+
+    Args:
+        published_at: When the item was published, or None.
+        now: The current time.
+        half_life_days: Days for the score to halve.
+
+    Returns:
+        The score, in [0, 1].
+
+    Raises:
+        ValueError: ``half_life_days`` is not positive.
     """
     if published_at is None:
         return 0.0
@@ -44,18 +54,37 @@ def recency_score(published_at: datetime | None, *, now: datetime, half_life_day
 
 
 def combined_score(relevance: float, recency: float, *, recency_weight: float) -> float:
-    """Blend relevance and recency: a daily show uses a high weight, an explainer a low one."""
+    """Blend relevance and recency: a daily show uses a high weight, an explainer a low one.
+
+    Args:
+        relevance: How well the passage matches the topic.
+        recency: How fresh it is.
+        recency_weight: The share given to recency, in [0, 1].
+
+    Returns:
+        The blended score.
+
+    Raises:
+        ValueError: The weight is outside [0, 1].
+    """
     if not 0.0 <= recency_weight <= 1.0:
         raise ValueError("recency_weight must be in [0, 1]")
     return (1 - recency_weight) * relevance + recency_weight * recency
 
 
 def utc_now() -> datetime:
+    """Return the current time in UTC.
+
+    Returns:
+        The current time, timezone-aware.
+    """
     return datetime.now(UTC)
 
 
 @dataclass(frozen=True)
 class Ranked:
+    """A passage with its recency, authority and final ranking score."""
+
     chunk: RankedChunk
     recency: float
     authority: float
@@ -65,7 +94,23 @@ class Ranked:
 def rank(
     chunks: list[RankedChunk], *, profile: str, now: datetime, threshold: float
 ) -> list[Ranked]:
-    """Drop chunks below the topic threshold; rank the rest by relevance, recency and authority."""
+    """Rank passages for a show's topic.
+
+    Passages below the topic threshold are dropped; the rest are ranked by relevance, recency and
+    authority, weighted by the show's ranking profile.
+
+    Args:
+        chunks: The show's passages, with their relevance to the topic.
+        profile: The show's ranking profile, such as ``explainer``.
+        now: The current time.
+        threshold: The lowest relevance kept; below it a passage is off-topic.
+
+    Returns:
+        The passages kept, best first.
+
+    Raises:
+        ValueError: The ranking profile is unknown.
+    """
     if profile not in RANKING_PROFILES:
         raise ValueError(
             f"ranking profile must be one of {sorted(RANKING_PROFILES)}, not {profile!r}"
@@ -86,27 +131,58 @@ def rank(
 
 
 class OutlineSegment(BaseModel):
+    """One segment the outline model plans: its title and the passages it draws on."""
+
     title: str
     passage_ids: list[str]
 
 
 class Outline(BaseModel):
+    """What the outline model returns: the episode's segments."""
+
     segments: list[OutlineSegment]
 
 
 def passages_per_segment(ctx: PipelineContext) -> int:
+    """Return how many passages each segment's script gets.
+
+    Args:
+        ctx: The pipeline context.
+
+    Returns:
+        The configured number, else 3 offline and 6 with an LLM.
+    """
     configured = ctx.settings.passages_per_segment
     return configured or (6 if ctx.settings.llm_enabled else 3)
 
 
 def passages_for(pool: list[Ranked], item_ids: list[UUID], limit: int) -> list[UUID]:
-    """The best chunks for one segment, drawn only from that segment's sources."""
+    """Pick the best passages for one segment, drawn only from that segment's sources.
+
+    Args:
+        pool: The ranked passages.
+        item_ids: The segment's source items.
+        limit: Most passages to pick.
+
+    Returns:
+        The chosen passages' ids, best first.
+    """
     wanted = set(item_ids)
     return [r.chunk.chunk_id for r in pool if r.chunk.item_id in wanted][:limit]
 
 
 def plan_offline(pool: list[Ranked], max_segments: int) -> list[tuple[str, list[UUID]]]:
-    """One segment per source section: the best-ranked sections, told in the page's order."""
+    """Plan one segment per source section, offline.
+
+    The best-ranked sections are chosen and told in the page's order.
+
+    Args:
+        pool: The ranked passages.
+        max_segments: Most segments to plan.
+
+    Returns:
+        Each segment's title and source items.
+    """
     best: dict[UUID, Ranked] = {}
     for ranked in pool:
         best.setdefault(ranked.chunk.item_id, ranked)
@@ -118,6 +194,24 @@ def plan_offline(pool: list[Ranked], max_segments: int) -> list[tuple[str, list[
 def plan_llm(
     pool: list[Ranked], show: ShowRecord, ctx: PipelineContext
 ) -> list[tuple[str, list[UUID]]]:
+    """Ask the LLM to plan the episode's segments from the top passages.
+
+    The model sees the top passages, labelled with their source and date, and names the passages
+    each segment uses. The segments are then told in the page's order, whatever order the model
+    chose.
+
+    Args:
+        pool: The ranked passages.
+        show: The show: its topic and most segments.
+        ctx: The pipeline context, with an LLM client.
+
+    Returns:
+        Each segment's title and source items.
+
+    Raises:
+        RuntimeError: There is no LLM client.
+        ValueError: A segment cites no known passage.
+    """
     from podcast_engine.stages.script.service import load_prompt
 
     if ctx.llm is None:
@@ -147,13 +241,21 @@ def plan_llm(
                 f"segment {segment.title!r} cites no known passage: {segment.passage_ids}"
             )
         planned.append((segment.title, items))
-    # Tell the page's story in the page's order, whatever order the model chose.
     first_position = {r.chunk.item_id: r.chunk.item_position for r in pool}
     planned.sort(key=lambda seg: min(first_position[i] for i in seg[1]))
     return planned
 
 
 def _previous_episode(ctx: PipelineContext, episode: EpisodeRecord) -> EpisodeRecord | None:
+    """Return the show's latest published episode other than this one.
+
+    Args:
+        ctx: The pipeline context.
+        episode: The episode being made.
+
+    Returns:
+        That episode, or None for a show's first episode.
+    """
     earlier = [
         e for e in ctx.repo.list_published(episode.show_id) if e.episode_id != episode.episode_id
     ]
@@ -167,9 +269,20 @@ def _carry_over(
     pool: list[Ranked],
     limit: int,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """FR8: keep the previous plan. Re-retrieve and re-script only segments whose sources changed.
+    """Keep the previous episode's plan, re-scripting only segments whose sources changed (FR8).
 
-    Returns the segments and the script carried over for the unchanged ones.
+    A segment whose every source is gone from the page is dropped. A segment is re-retrieved and
+    re-scripted when a source changed or went away; the others keep their passages and their script.
+
+    Args:
+        ctx: The pipeline context.
+        episode: The episode being made.
+        previous: The episode it refreshes.
+        pool: The ranked passages.
+        limit: Most passages per re-retrieved segment.
+
+    Returns:
+        The segments, and the script carried over for the unchanged ones.
     """
     from podcast_engine.stages.script.service import with_episode_claim_ids
 
@@ -181,7 +294,7 @@ def _carry_over(
     old: SegmentRecord
     for old in ctx.repo.list_segments(previous.episode_id):
         items = [i for i in old.source_item_ids if i in existing]
-        if not items:  # every source of this segment is gone from the page
+        if not items:
             continue
         position = len(segments) + 1
         affected = bool(changed & set(old.source_item_ids)) or items != old.source_item_ids
@@ -202,7 +315,23 @@ def _carry_over(
 
 
 def retrieve_and_plan(episode_id: UUID, ctx: PipelineContext | None = None) -> Stage | None:
-    """FR3: rank passages for the topic and build the segment outline tagged with sources."""
+    """Rank passages for the topic and build the outline, tagged with sources (stage 3, FR3).
+
+    A refresh carries over the previous plan; otherwise the LLM, or the offline planner, plans
+    afresh. Only an episode today's Gemini budget can finish is started, and its requests are set
+    aside so the bot or another episode cannot spend them first.
+
+    Args:
+        episode_id: The episode being made.
+        ctx: Shared clients; built from settings when omitted.
+
+    Returns:
+        The next stage, script.
+
+    Raises:
+        ValueError: No passage matched the topic.
+        GeminiQuotaError: Today's budget cannot cover the episode.
+    """
     ctx = ctx or get_context()
     episode = ctx.repo.get_episode(episode_id)
     show = ctx.repo.get_show(episode.show_id)
@@ -221,8 +350,6 @@ def retrieve_and_plan(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     previous = _previous_episode(ctx, episode)
     incremental = previous is not None and episode.changed_item_ids is not None
     if ctx.budget is not None:
-        # Start only an episode today's Gemini budget can finish, and set those requests aside so
-        # the bot or another episode cannot spend them before this one is done.
         reserve_episode(
             ctx.budget, ctx.settings, str(episode_id), show.max_segments, plan=not incremental
         )

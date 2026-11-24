@@ -1,5 +1,3 @@
-"""Persistence for type-to-speech clips: the only API module that knows ``speech_clips``."""
-
 import json
 from typing import Any, Protocol
 from uuid import UUID
@@ -15,30 +13,116 @@ _COLUMNS = (
 
 
 class SpeechRepository(Protocol):
-    """Every method is scoped to one owner: another user's clip does not exist for them."""
+    """Stores type-to-speech clips.
 
-    def add(self, owner_id: UUID, values: dict[str, Any]) -> SpeechClipRead: ...
+    Every method is scoped to one owner: another user's clip does not exist for them.
+    """
 
-    def get(self, clip_id: UUID, owner_id: UUID) -> SpeechClipRead | None: ...
+    def add(self, owner_id: UUID, values: dict[str, Any]) -> SpeechClipRead:
+        """Record a new clip, queued.
 
-    def recent(self, owner_id: UUID, limit: int) -> list[SpeechClipRead]: ...
+        Args:
+            owner_id: The user making the clip.
+            values: The clip's id, voice, text, delivery and effects.
 
-    def object_key(self, clip_id: UUID, owner_id: UUID) -> str | None: ...
+        Returns:
+            The queued clip.
+        """
+        ...
 
-    def fail(self, clip_id: UUID, error: str) -> None: ...
+    def get(self, clip_id: UUID, owner_id: UUID) -> SpeechClipRead | None:
+        """Return one of the user's clips.
 
-    def delete(self, clip_id: UUID, owner_id: UUID) -> bool: ...
+        Args:
+            clip_id: The clip.
+            owner_id: The user asking.
 
-    def object_keys(self, owner_id: UUID) -> list[str]: ...
+        Returns:
+            The clip, or None when the user has no such clip.
+        """
+        ...
+
+    def recent(self, owner_id: UUID, limit: int) -> list[SpeechClipRead]:
+        """Return the user's most recent clips.
+
+        Args:
+            owner_id: The user asking.
+            limit: Most clips to return.
+
+        Returns:
+            The clips, newest first.
+        """
+        ...
+
+    def object_key(self, clip_id: UUID, owner_id: UUID) -> str | None:
+        """Return where a clip's audio is stored.
+
+        Args:
+            clip_id: The clip.
+            owner_id: The user asking.
+
+        Returns:
+            Where the clip's audio is stored, or None when it has none yet.
+        """
+        ...
+
+    def fail(self, clip_id: UUID, error: str) -> None:
+        """Mark a still-queued clip as failed, such as when it could not be queued.
+
+        Args:
+            clip_id: The clip.
+            error: Why it could not be queued.
+        """
+        ...
+
+    def delete(self, clip_id: UUID, owner_id: UUID) -> bool:
+        """Delete one of the user's clips.
+
+        Args:
+            clip_id: The clip.
+            owner_id: The user asking.
+
+        Returns:
+            True if a clip was deleted.
+        """
+        ...
+
+    def object_keys(self, owner_id: UUID) -> list[str]:
+        """Return where every one of the user's clips is stored, to delete them all.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            Where each of the user's clips' audio is stored.
+        """
+        ...
 
 
 class PostgresSpeechRepository:
-    """Each write commits on its own."""
+    """Clips in the ``speech_clips`` table, the only API code that knows it.
+
+    Each write commits on its own.
+    """
 
     def __init__(self, session: Session) -> None:
+        """Create the repository.
+
+        Args:
+            session: The database session for this request.
+        """
         self._session = session
 
     def add(self, owner_id: UUID, values: dict[str, Any]) -> SpeechClipRead:
+        """Record a new clip, queued.
+
+        Args:
+            owner_id: The user making the clip.
+            values: The clip's id, voice, text, delivery and effects.
+
+        Returns:
+            The queued clip.
+        """
         row = (
             self._session.execute(
                 text(
@@ -60,6 +144,15 @@ class PostgresSpeechRepository:
         return SpeechClipRead.model_validate(row)
 
     def get(self, clip_id: UUID, owner_id: UUID) -> SpeechClipRead | None:
+        """Return one of the user's clips.
+
+        Args:
+            clip_id: The clip.
+            owner_id: The user asking.
+
+        Returns:
+            The clip, or None when the user has no such clip.
+        """
         row = (
             self._session.execute(
                 text(
@@ -74,6 +167,15 @@ class PostgresSpeechRepository:
         return SpeechClipRead.model_validate(row) if row else None
 
     def recent(self, owner_id: UUID, limit: int) -> list[SpeechClipRead]:
+        """Return the user's most recent clips.
+
+        Args:
+            owner_id: The user asking.
+            limit: Most clips to return.
+
+        Returns:
+            The clips, newest first.
+        """
         rows = self._session.execute(
             text(
                 f"SELECT {_COLUMNS} FROM speech_clips WHERE owner_id = :owner_id"  # noqa: S608
@@ -84,6 +186,15 @@ class PostgresSpeechRepository:
         return [SpeechClipRead.model_validate(row) for row in rows]
 
     def object_key(self, clip_id: UUID, owner_id: UUID) -> str | None:
+        """Return where a clip's audio is stored.
+
+        Args:
+            clip_id: The clip.
+            owner_id: The user asking.
+
+        Returns:
+            Where the clip's audio is stored, or None when it has none yet.
+        """
         return self._session.execute(
             text(
                 "SELECT object_key FROM speech_clips WHERE clip_id = :id AND owner_id = :owner_id"
@@ -92,6 +203,12 @@ class PostgresSpeechRepository:
         ).scalar_one_or_none()
 
     def fail(self, clip_id: UUID, error: str) -> None:
+        """Mark a still-queued clip as failed, such as when it could not be queued.
+
+        Args:
+            clip_id: The clip.
+            error: Why it could not be queued.
+        """
         self._session.execute(
             text(
                 "UPDATE speech_clips SET status = 'failed', error = :error, finished_at = now()"
@@ -102,6 +219,15 @@ class PostgresSpeechRepository:
         self._session.commit()
 
     def delete(self, clip_id: UUID, owner_id: UUID) -> bool:
+        """Delete one of the user's clips.
+
+        Args:
+            clip_id: The clip.
+            owner_id: The user asking.
+
+        Returns:
+            True if a clip was deleted.
+        """
         result = self._session.execute(
             text("DELETE FROM speech_clips WHERE clip_id = :id AND owner_id = :owner_id"),
             {"id": clip_id, "owner_id": owner_id},
@@ -110,6 +236,14 @@ class PostgresSpeechRepository:
         return bool(result.rowcount)  # type: ignore[attr-defined]
 
     def object_keys(self, owner_id: UUID) -> list[str]:
+        """Return where every one of the user's clips is stored, to delete them all.
+
+        Args:
+            owner_id: The user.
+
+        Returns:
+            Where each of the user's clips' audio is stored.
+        """
         rows = self._session.execute(
             text(
                 "SELECT object_key FROM speech_clips"

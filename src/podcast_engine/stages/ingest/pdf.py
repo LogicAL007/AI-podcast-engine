@@ -1,11 +1,3 @@
-"""Turn an uploaded PDF into titled sections of speakable text, like a web page (FR2, PDF sources).
-
-Headings are found by type size: a short line set noticeably larger than the body text starts a
-section. A PDF with no such lines (a scan with OCR, or one set in a single size) becomes one section
-per page. Each section's anchor is ``page=N``, which PDF viewers open at that page, so a citation
-lands where the passage is.
-"""
-
 import re
 import statistics
 from collections import Counter
@@ -21,15 +13,34 @@ MAX_PAGES = 500  # refuse to read more; an upload this long is unlikely to be on
 
 
 def _clean(text: str) -> str:
+    """Remove soft hyphens and collapse whitespace.
+
+    Args:
+        text: Text from the PDF.
+
+    Returns:
+        The text on one line.
+    """
     return " ".join(text.replace("­", "").split())
 
 
 def _lines(document: Any) -> list[tuple[int, float, str]]:
-    """Every text line as (page number from 1, type size, text), in reading order."""
+    """Read every text line of a PDF, in reading order.
+
+    Only text blocks are read; images and drawings carry no text. An empty line marks the end of
+    each block, where a paragraph ends.
+
+    Args:
+        document: The open PyMuPDF document.
+
+    Returns:
+        (page number from 1, type size, text) for each line, with (page, 0.0, "") at each block
+        boundary.
+    """
     out: list[tuple[int, float, str]] = []
     for number, page in enumerate(document, start=1):
         for block in page.get_text("dict")["blocks"]:
-            if block.get("type") != 0:  # 0 is text; images and drawings carry none
+            if block.get("type") != 0:
                 continue
             for line in block["lines"]:
                 spans = [span for span in line["spans"] if span["text"].strip()]
@@ -38,12 +49,19 @@ def _lines(document: Any) -> list[tuple[int, float, str]]:
                 text = _clean("".join(span["text"] for span in spans))
                 size = max(span["size"] for span in spans)
                 out.append((number, round(size, 1), text))
-            out.append((number, 0.0, ""))  # a block boundary: the paragraph ends here
+            out.append((number, 0.0, ""))
     return out
 
 
 def _paragraphs(lines: list[str]) -> list[str]:
-    """Join a block's lines into paragraphs, mending words hyphenated across a line break."""
+    """Join a section's lines into paragraphs, mending words hyphenated across a line break.
+
+    Args:
+        lines: The lines, with empty strings at block boundaries.
+
+    Returns:
+        The paragraphs.
+    """
     paragraphs, current = [], ""
     for line in lines:
         if not line:
@@ -61,12 +79,30 @@ def _paragraphs(lines: list[str]) -> list[str]:
 
 
 def extract_pdf(data: bytes, *, filename: str = "") -> ExtractedPage:
-    """Sections of an uploaded PDF. Raises ValueError for a file PyMuPDF cannot open."""
+    """Turn an uploaded PDF into titled sections of speakable text, like a web page (FR2).
+
+    Headings are found by type size: a short line set at least 1.2 times larger than the body text,
+    not ending in punctuation, starts a section. A PDF with no such lines (a scan with OCR, or one
+    set in a single size) becomes one section per page. Each section's anchor is ``page=N``, which
+    PDF viewers open at that page, so a citation lands where the passage is. Sections with too few
+    speakable sentences are dropped and listed.
+
+    Args:
+        data: The PDF's bytes.
+        filename: The name it was uploaded with, for the title and error messages.
+
+    Returns:
+        The document's title and its sections.
+
+    Raises:
+        ValueError: PyMuPDF cannot open the file (it raises its own types for damaged files), it is
+            password-protected, or it has more than 500 pages.
+    """
     import pymupdf
 
     try:
         document: Any = pymupdf.open(stream=data, filetype="pdf")  # type: ignore[no-untyped-call]
-    except Exception as error:  # PyMuPDF raises its own types for damaged or encrypted files
+    except Exception as error:
         raise ValueError(f"{filename or 'upload'}: not a readable PDF ({error})") from error
     with document:
         if document.needs_pass:
@@ -85,6 +121,15 @@ def extract_pdf(data: bytes, *, filename: str = "") -> ExtractedPage:
     body = statistics.median_high(list(weights.elements())) if weights else 0.0
 
     def is_heading(size: float, text: str) -> bool:
+        """Tell whether a line looks like a heading.
+
+        Args:
+            size: The line's type size.
+            text: The line's text.
+
+        Returns:
+            True for a short line, larger than the body, with letters and no closing punctuation.
+        """
         return (
             size >= body * HEADING_SCALE
             and len(text.split()) <= MAX_HEADING_WORDS
@@ -92,7 +137,7 @@ def extract_pdf(data: bytes, *, filename: str = "") -> ExtractedPage:
             and bool(re.search(r"[A-Za-z]", text))
         )
 
-    raw: list[tuple[str, int, list[str]]] = []  # (heading, page, lines)
+    raw: list[tuple[str, int, list[str]]] = []
     heading, page = title or "Introduction", 1
     buffer: list[str] = []
     found_heading = False
@@ -105,7 +150,7 @@ def extract_pdf(data: bytes, *, filename: str = "") -> ExtractedPage:
             buffer.append(text)
     raw.append((heading, page, buffer))
 
-    if not found_heading:  # no structure to follow: one section per page
+    if not found_heading:
         raw = []
         for number in sorted({n for n, _, _ in lines}):
             raw.append(

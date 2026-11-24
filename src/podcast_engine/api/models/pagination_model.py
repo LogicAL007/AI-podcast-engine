@@ -1,5 +1,3 @@
-"""The envelope every list endpoint returns."""
-
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field

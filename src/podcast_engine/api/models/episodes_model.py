@@ -1,5 +1,3 @@
-"""Response schemas for the episodes API."""
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -89,6 +87,7 @@ class EpisodeRead(BaseModel):
     @computed_field(description="Where to fetch what the episode produced")  # type: ignore[prop-decorator]
     @property
     def links(self) -> EpisodeLinks:
+        """Where to fetch what the episode produced; audio and notes once they exist."""
         base = f"{V1}/episodes/{self.episode_id}"
         return EpisodeLinks(
             self=base,
