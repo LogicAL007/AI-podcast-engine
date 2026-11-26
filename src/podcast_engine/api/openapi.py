@@ -1,0 +1,135 @@
+from typing import Any
+
+from fastapi.routing import APIRoute
+from pydantic import BaseModel, Field
+
+Responses = dict[int | str, dict[str, Any]]
+
+DESCRIPTION = """
+Turns web pages into podcast episodes: a scripted conversation between two AI hosts, grounded in
+the pages' content, with every factual claim tied to the passage it comes from.
+
+A **show** holds a topic, a speaking style and the pages to draw on. Each **episode** of a show is
+generated in the background. The pages are fetched and split into sections, the passages that fit
+the topic are selected, and a script is written in which each claim cites its passage. The script is
+fact-checked and rewritten if a claim is not supported, then voiced, mixed into a single audio file
+and published with show notes and an RSS feed.
+
+A new episode of an existing show is a refresh: only the segments whose source sections changed
+are regenerated, and nothing is regenerated if no source changed. Every episode is labelled as
+AI-generated in its audio, show notes and feed.
+"""
+
+TAGS: list[dict[str, Any]] = [
+    {
+        "name": "home",
+        "description": (
+            "Entry points: the home document listing every resource, and the API catalog for "
+            "automatic discovery."
+        ),
+    },
+    {
+        "name": "auth",
+        "description": (
+            "Accounts, login tokens and API keys. Tokens and keys are sent as "
+            "`Authorization: Bearer <token>` and last six months."
+        ),
+    },
+    {"name": "shows", "description": "A show: its topic, style, hosts and source pages."},
+    {
+        "name": "episodes",
+        "description": (
+            "Start an episode, follow its progress through the pipeline, and fetch what it "
+            "produced: audio, show notes, the script with citations, and per-stage run records."
+        ),
+    },
+    {
+        "name": "sources",
+        "description": "The sections read from a show's pages, feeds and uploads: what is cited.",
+    },
+    {"name": "uploads", "description": "PDFs a creator uploads as sources for a show."},
+    {
+        "name": "voices",
+        "description": "Recorded voices for the Chatterbox backend to clone, each kept with the "
+        "consent form its speaker signed. Private to their owner.",
+    },
+    {
+        "name": "speech",
+        "description": "Type-to-speech: a line voiced in one of your recorded voices or the voice "
+        "engine's own, with voice effects. Rate-limited per person.",
+    },
+    {
+        "name": "music",
+        "description": "The music library for shows' intros, outros, stings and beds: built-in "
+        "tracks made in the app, and tracks you upload with the right to use them.",
+    },
+    {
+        "name": "assistant",
+        "description": "The companion bot's answers, grounded in your own episode, with "
+        "suggested next steps. Rate-limited per person.",
+    },
+    {
+        "name": "usage",
+        "description": "Today's Gemini requests, used and left, against the daily free-tier caps.",
+    },
+    {"name": "feeds", "description": "Each show's RSS feed, for podcast apps."},
+    {
+        "name": "ops",
+        "description": "Liveness and readiness, for load balancers and container health checks.",
+    },
+]
+
+
+class ErrorDetail(BaseModel):
+    """The body of every error response."""
+
+    detail: str = Field(description="What went wrong", examples=["episode 3fa8... not found"])
+
+
+def errors(**descriptions: str) -> Responses:
+    """Build error responses by status code, all with the ``ErrorDetail`` schema.
+
+    Every route documents its errors with ``ErrorDetail`` (the ``{"detail": ...}`` body that
+    FastAPI's ``HTTPException`` produces), so clients and generated SDKs see one error shape. Use it
+    as ``errors(e404="Show not found")``.
+
+    Args:
+        **descriptions: Each status code, written ``e<code>``, and what it means for the route.
+
+    Returns:
+        The ``responses`` mapping for a route decorator.
+    """
+    return {
+        int(code.removeprefix("e")): {"model": ErrorDetail, "description": text}
+        for code, text in descriptions.items()
+    }
+
+
+def file_response(media_type: str, description: str, *, binary: bool) -> Responses:
+    """Document a 200 response whose body is a file.
+
+    Args:
+        media_type: The file's media type.
+        description: What the file is.
+        binary: Whether the body is binary (audio, PDF) rather than text (XML, Markdown).
+
+    Returns:
+        The ``responses`` entry for a route decorator.
+    """
+    schema = {"type": "string", "format": "binary"} if binary else {"type": "string"}
+    return {200: {"description": description, "content": {media_type: {"schema": schema}}}}
+
+
+def operation_id(route: APIRoute) -> str:
+    """Name an operation after its route function.
+
+    ``get_episode_audio`` rather than FastAPI's default
+    ``get_audio_episodes__episode_id__audio_wav_get``, so generated clients read naturally.
+
+    Args:
+        route: The route being named.
+
+    Returns:
+        The route function's name.
+    """
+    return route.name

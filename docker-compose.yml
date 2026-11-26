@@ -1,38 +1,90 @@
 name: podcast-engine
 
 # Pipeline: ingest -> index -> retrieve_plan -> script <-> factcheck -> voice -> assemble -> publish
-# Every stage is its own worker container consuming its own queue, so stages scale and retry
-# independently. State lives in Postgres, Redis and MinIO; workers are stateless.
+# Every stage has its own queue, so it retries on its own. Five worker containers serve them,
+# grouped by what they need installed:
+#   ingest_publish    ingest, publish          fetching and parsing; rendering and uploading feeds
+#   index_plan        index, retrieve_plan     both use the embedding model, loaded once
+#   script_factcheck  script, factcheck        both call the LLM
+#   voice             voice                    slow, and heavy with Chatterbox, so alone
+#   assemble          assemble                 needs ffmpeg
+# Scale a group with `docker compose up -d --scale <service>=N`. State lives in Postgres, Redis
+# and S3 storage; workers are stateless.
 #
 # Volume map
 #   Named volumes (managed by Docker):
 #     pgdata         postgres:/var/lib/postgresql/data      database files
 #     redisdata      redis:/data                            queue persistence (AOF)
-#     miniodata      minio:/data                            episode audio, feeds, cached objects
-#     uploads        api (rw) + ingest (ro):/data/uploads   private user uploads (PDFs)
-#     ingest_cache   ingest:/data/ingest                    raw fetch cache, ETags
-#     hf_cache       index, retrieve_plan                   embedding model weights
+#     s3data         s3:/data                               episode audio, feeds, cached objects
+#     uploads        api (rw) + ingest_publish (ro):/data/uploads   private user uploads (PDFs)
+#     ingest_cache   ingest_publish:/data/ingest            raw fetch cache, ETags
+#     hf_cache       index_plan, voice                      embedding (and Chatterbox) weights
 #     tts_cache      voice:/data/tts_cache                  synthesised lines, reused on regen
 #     audio_scratch  voice (rw) + assemble (rw):/data/audio working audio between stages
-#     feed_staging   publish:/data/feeds                    rendered RSS before upload
+#     feed_staging   ingest_publish:/data/feeds             rendered RSS before upload
 #     scheduler_state scheduler:/data/scheduler             last-seen hashes / run markers
+#     prometheus_data prometheus:/prometheus                metrics time series (15 days)
 #   Bind mounts (read-only, edited on the host):
-#     ./config, ./prompts, ./assets, ./db/init, ./web/nginx.conf
+#     ./config, ./prompts, ./assets, ./db/init, ./db/migrations, ./web/nginx.conf,
+#     ./monitoring/prometheus.yml
 
 x-app-env: &app-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB}
   REDIS_URL: redis://redis:6379/0
-  S3_ENDPOINT_URL: http://minio:9000
+  S3_ENDPOINT_URL: http://s3:9000
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
   S3_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
   S3_BUCKET: ${S3_BUCKET:-podcast-episodes}
-  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
-  LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5-5}
-  TTS_PROVIDER: ${TTS_PROVIDER:-hosted}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  # "hashing" runs offline; a sentence-transformers id (384 dimensions) needs the model download.
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-hashing}
+  # false: the offline extractive writer and word-overlap judge, no model calls and no key needed.
+  LLM_ENABLED: ${LLM_ENABLED:-false}
+  LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+  LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
+  LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+  LLM_EFFORT: ${LLM_EFFORT:-} # Claude only: thinking effort; blank = the model's default
+  # plain (fixed gaps) or natural (room tone, varied pauses, acknowledgements overlapping the line
+  # before) for published episodes; the study's clips are mixed by the research scripts.
+  ASSEMBLY_STYLE: ${ASSEMBLY_STYLE:-plain}
+  # placeholder (tones, for testing), gemini, or chatterbox (with the voice image's cloning extra,
+  # see the voice service). say runs on a macOS host only: see the README.
+  TTS_BACKEND: ${TTS_BACKEND:-placeholder}
+  TTS_MODEL: ${TTS_MODEL:-gemini-3.8-flash-tts}
+  TTS_REQUESTS_PER_MINUTE: ${TTS_REQUESTS_PER_MINUTE:-0} # gemini free tier: 3
+  # Gemini requests per model per Pacific day, shared through Redis; 0 = not counted.
+  LLM_REQUESTS_PER_DAY: ${LLM_REQUESTS_PER_DAY:-0}
+  TTS_REQUESTS_PER_DAY: ${TTS_REQUESTS_PER_DAY:-0}
   MAX_REWRITES: ${MAX_REWRITES:-2}
+  TOPIC_THRESHOLD: ${TOPIC_THRESHOLD:-0.0}
+  REFRESH_INTERVAL_HOURS: ${REFRESH_INTERVAL_HOURS:-0}
+  # Search results as a source (FR2): wikipedia (no key), brave (key in Vault as
+  # search_api_key) or off; how many top results each of a show's searches reads.
+  SEARCH_PROVIDER: ${SEARCH_PROVIDER:-wikipedia}
+  SEARCH_RESULTS: ${SEARCH_RESULTS:-3}
   EPISODE_COST_CAP_USD: ${EPISODE_COST_CAP_USD:-1.00}
   PUBLIC_FEED_BASE_URL: ${PUBLIC_FEED_BASE_URL:-http://localhost:8080}
+  # Application secrets (LLM and TTS keys, the login-token key) come from Vault, read once at start
+  # with the read-only token that vault-init issues.
+  VAULT_ADDR: https://vault:8200
+  VAULT_TOKEN_FILE: /run/secrets/vault_app_token
+  VAULT_CA_FILE: /run/secrets/vault_ca
+  AUTH_TOKEN_DAYS: ${AUTH_TOKEN_DAYS:-180}
+  # true: anyone can create their own creator account at /signup (each one can spend LLM/TTS quota)
+  SIGNUP_OPEN: ${SIGNUP_OPEN:-false}
+  # Sign in with Google: the OAuth client's id here, its secret in Vault as google_client_secret.
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  # Password-reset email. Mailpit catches it locally (inbox at http://localhost:8025); point these
+  # at a real mail service (password in Vault as smtp_password) to deliver for real.
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+  MAIL_FROM: ${MAIL_FROM:-Podcast Engine <no-reply@localhost>}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:8080}
+  # Lets uvicorn's and Celery's several processes report one merged set of metrics.
+  PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
 
 x-hardening: &hardening
   restart: unless-stopped
@@ -44,13 +96,24 @@ x-hardening: &hardening
     driver: json-file
     options: { max-size: "10m", max-file: "3" }
 
+# One image for the one-shot jobs and the scheduler: built once (by vault-certs, which runs first)
+# and reused by the others, which only name it.
+x-tools-image: &tools-image
+  image: podcast-engine-tools
+  build:
+    context: .
+    dockerfile: docker/stage.Dockerfile
+    args: { EXTRAS: tls }
+
 x-worker: &worker
   <<: *hardening
   depends_on:
-    postgres: { condition: service_healthy }
+    db-migrate: { condition: service_completed_successfully }
     redis: { condition: service_healthy }
-    minio-init: { condition: service_completed_successfully }
+    s3-init: { condition: service_completed_successfully }
   environment: *app-env
+  secrets: [vault_app_token, vault_ca]
+  expose: ["9100"] # /metrics, scraped by prometheus
   healthcheck:
     test: [CMD, python, -m, podcast_engine.worker, --healthcheck]
     interval: 30s
@@ -88,57 +151,189 @@ services:
       timeout: 3s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
+  # S3-compatible object store. MinIO no longer publishes images, so this is RustFS (Apache-2.0).
+  # Any S3 service works: only S3_ENDPOINT_URL and the keys change.
+  s3:
+    image: rustfs/rustfs:1.0.1
     restart: unless-stopped
-    command: ["server", "/data", "--console-address", ":9001"]
+    command: ["/data"]
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+      RUSTFS_ADDRESS: ":9000"
     ports:
       - "127.0.0.1:9001:9001" # console, local only
     volumes:
-      - miniodata:/data
+      - s3data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio: { condition: service_healthy }
+  # One-shot, before Vault: the stack's CA (once) and Vault's TLS certificate (renewed within
+  # 30 days of expiry). Runs as root only to hand the key to Vault's user.
+  vault-certs:
+    <<: *tools-image
     restart: "no"
+    user: "0"
+    command: ["python", "-m", "podcast_engine.common.vault_tls"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
     environment:
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_BUCKET: ${S3_BUCKET:-podcast-episodes}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - >
-        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
-        && mc mb --ignore-existing "local/$$S3_BUCKET"
+      SECRETS_DIR: /secrets
+      VAULT_TLS_DIR: /tls
+    volumes:
+      - ./secrets:/secrets
+      - vaulttls:/tls
+
+  # Secrets store, over HTTPS. Data persists in the vaultdata volume; vault-init unseals it at every
+  # start. UI: https://localhost:8200 (trust secrets/vault-ca.pem; root token in vault-init.json).
+  vault:
+    image: hashicorp/vault:2.1.2
+    restart: unless-stopped
+    command: ["server"]
+    depends_on:
+      vault-certs: { condition: service_completed_successfully }
+    environment:
+      SKIP_SETCAP: "true" # no memory locking (disable_mlock in vault.hcl)
+      VAULT_ADDR: https://127.0.0.1:8200
+      VAULT_CACERT: /vault/tls/ca.pem
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID] # the entrypoint chowns its data and drops to the vault user
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - vaultdata:/vault/file
+      - vaulttls:/vault/tls:ro
+      - ./docker/vault.hcl:/vault/config/vault.hcl:ro
+    healthcheck:
+      # Healthy once the server answers over verified TLS, sealed or not (exit 2 = sealed;
+      # vault-init then unseals it). Exit 1 means it is not answering.
+      test: ["CMD-SHELL", "vault status >/dev/null 2>&1; [ $$? -ne 1 ]"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: initialises (first run) and unseals Vault, seeds missing secrets, and issues the
+  # app's read-only token into ./secrets. Everything that reads secrets waits for it.
+  vault-init:
+    <<: [*hardening, *tools-image]
+    restart: "no"
+    command: ["python", "-m", "podcast_engine.common.vault_init"]
+    depends_on:
+      vault: { condition: service_healthy }
+    environment:
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /secrets/vault-ca.pem
+      SECRETS_DIR: /secrets
+    volumes:
+      - ./secrets:/secrets
+
+  # One-shot: creates the bucket (idempotent), then exits. Everything else waits for it.
+  s3-init:
+    <<: [*hardening, *tools-image]
+    restart: "no"
+    command: ["python", "-m", "podcast_engine.common.init_storage"]
+    depends_on:
+      s3: { condition: service_healthy }
+      vault-init: { condition: service_completed_successfully }
+    environment: *app-env
+    secrets: [vault_app_token, vault_ca]
+
+  # One-shot: applies db/migrations (idempotent, recorded in schema_migrations), then exits.
+  # db/init only runs on a brand-new volume; this also upgrades an existing one.
+  db-migrate:
+    <<: [*hardening, *tools-image]
+    restart: "no"
+    command: ["python", "-m", "podcast_engine.common.migrate"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      vault-init: { condition: service_completed_successfully }
+    environment: *app-env
+    secrets: [vault_app_token, vault_ca]
+    volumes:
+      - ./db/migrations:/app/db/migrations:ro
+
+  # Local mail catcher for password-reset email: SMTP on 1025 inside the stack, inbox UI on
+  # http://localhost:8025. Nothing is delivered to real addresses.
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # A fictional news page that changes on demand, as a show source for demonstrating refresh (FR8).
+  # Only with the demo profile: `make demo-site`. Shows use http://demo-site:8095/ as the source;
+  # the browser opens http://localhost:8095 to publish the next edition (demo/site/server.py).
+  demo-site:
+    <<: *hardening
+    profiles: [demo]
+    image: python:3.12-slim
+    user: "65534:65534"
+    command: ["python", "/app/server.py"]
+    working_dir: /app
+    ports:
+      - "127.0.0.1:8095:8095"
+    volumes:
+      - ./demo/site:/app:ro
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8095/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ---------------------------------------------------------------- observability
+  # Metrics only (request rates, latency, stage durations and failures). It does not store logs;
+  # those are JSON on each container's stdout (`docker compose logs`).
+  prometheus:
+    <<: *hardening
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   # ---------------------------------------------------------------- application
   api:
-    <<: *worker
+    <<: *hardening
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: api }
-    command: ["uvicorn", "podcast_engine.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+      target: api
+      args: { EXTRAS: "api,llm" } # llm: Gemini for the companion bot's answers
+    # CMD (uvicorn podcast_engine.api.main:app) and HEALTHCHECK come from the image's api target.
+    depends_on:
+      db-migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      s3-init: { condition: service_completed_successfully }
+    environment:
+      <<: *app-env
+      UVICORN_WORKERS: ${API_WORKERS:-2}
+    secrets: [vault_app_token, vault_ca]
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - uploads:/data/uploads
       - ./config:/app/config:ro
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
 
   web:
     <<: *hardening
@@ -154,10 +349,7 @@ services:
     cap_add: [CHOWN, SETGID, SETUID, NET_BIND_SERVICE]
 
   scheduler:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
+    <<: [*worker, *tools-image]
     command: ["python", "-m", "podcast_engine.scheduler"]
     healthcheck:
       disable: true
@@ -166,32 +358,22 @@ services:
       - ./config:/app/config:ro
 
   # ---------------------------------------------------------------- pipeline stages
-  ingest:
+  # Five workers for the eight stages (see the top of this file). Each runs WORKER_CONCURRENCY
+  # tasks at once (2 by default), so one episode's long stage does not hold up another's.
+  ingest_publish:
     <<: *worker
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: ingest }
-    command: [python, -m, podcast_engine.worker, ingest]
+      args: { EXTRAS: "ingest,publish" }
+    command: [python, -m, podcast_engine.worker, ingest, publish]
     volumes:
       - ingest_cache:/data/ingest
       - uploads:/data/uploads:ro
+      - feed_staging:/data/feeds
       - ./config:/app/config:ro
 
-  index:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args:
-        EXTRAS: embeddings
-        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
-    command: [python, -m, podcast_engine.worker, index]
-    volumes:
-      - hf_cache:/home/app/.cache/huggingface
-      - ./config:/app/config:ro
-
-  retrieve_plan:
+  index_plan:
     <<: *worker
     build:
       context: .
@@ -199,43 +381,21 @@ services:
       args:
         EXTRAS: embeddings,llm
         TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
-    command: [python, -m, podcast_engine.worker, retrieve_plan]
-    environment:
-      <<: *app-env
-      LLM_API_KEY_FILE: /run/secrets/llm_api_key
-    secrets: [llm_api_key]
+    command: [python, -m, podcast_engine.worker, index, retrieve_plan]
     volumes:
       - hf_cache:/home/app/.cache/huggingface
       - ./config:/app/config:ro
       - ./prompts:/app/prompts:ro
 
-  script:
+  script_factcheck:
     <<: *worker
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
       args: { EXTRAS: llm }
-    command: [python, -m, podcast_engine.worker, script]
-    environment:
-      <<: *app-env
-      LLM_API_KEY_FILE: /run/secrets/llm_api_key
-    secrets: [llm_api_key]
+    command: [python, -m, podcast_engine.worker, script, factcheck]
     volumes:
       - ./config:/app/config:ro
-      - ./prompts:/app/prompts:ro
-
-  factcheck:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: llm }
-    command: [python, -m, podcast_engine.worker, factcheck]
-    environment:
-      <<: *app-env
-      LLM_API_KEY_FILE: /run/secrets/llm_api_key
-    secrets: [llm_api_key]
-    volumes:
       - ./prompts:/app/prompts:ro
 
   voice:
@@ -243,16 +403,23 @@ services:
     build:
       context: .
       dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: voice }
+      # llm brings google-genai for TTS_BACKEND=gemini. For TTS_BACKEND=chatterbox set, in .env,
+      # VOICE_EXTRAS=voice,llm,cloning and VOICE_TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+      # (CPU only in a container, so slow; a host worker with MPS or CUDA is faster, see README).
+      args:
+        EXTRAS: ${VOICE_EXTRAS:-voice,llm}
+        TORCH_INDEX_URL: ${VOICE_TORCH_INDEX_URL:-}
     command: [python, -m, podcast_engine.worker, voice]
-    environment:
-      <<: *app-env
-      TTS_API_KEY_FILE: /run/secrets/tts_api_key
-    secrets: [tts_api_key]
+    # Without its backend (Chatterbox is not in this image by default, and Docker on macOS cannot
+    # use the Mac's GPU) the worker exits cleanly before taking a job, and stays stopped;
+    # `make voice-host` then voices on the Mac. It is restarted only if it crashes.
+    restart: on-failure
     volumes:
+      - hf_cache:/home/app/.cache/huggingface # Chatterbox's model weights, downloaded once
       - tts_cache:/data/tts_cache
       - audio_scratch:/data/audio
       - ./config:/app/config:ro
+      - ./assets:/app/assets:ro
 
   assemble:
     <<: *worker
@@ -267,26 +434,18 @@ services:
       - audio_scratch:/data/audio
       - ./assets:/app/assets:ro
 
-  publish:
-    <<: *worker
-    build:
-      context: .
-      dockerfile: docker/stage.Dockerfile
-      args: { EXTRAS: publish }
-    command: [python, -m, podcast_engine.worker, publish]
-    volumes:
-      - feed_staging:/data/feeds
-
 secrets:
-  llm_api_key:
-    file: ./secrets/llm_api_key.txt
-  tts_api_key:
-    file: ./secrets/tts_api_key.txt
+  vault_app_token: # written by vault-init; `make secrets` creates it empty before the first run
+    file: ./secrets/vault_app_token.txt
+  vault_ca: # the CA that signed Vault's certificate, written by vault-certs
+    file: ./secrets/vault-ca.pem
 
 volumes:
+  vaultdata:
+  vaulttls:
   pgdata:
   redisdata:
-  miniodata:
+  s3data:
   uploads:
   ingest_cache:
   hf_cache:
@@ -294,3 +453,4 @@ volumes:
   audio_scratch:
   feed_staging:
   scheduler_state:
+  prometheus_data:

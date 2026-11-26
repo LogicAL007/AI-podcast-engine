@@ -1,9 +1,3 @@
-"""Domain models passed between stages.
-
-Stages exchange only ids over the queue (workers are stateless); these models describe what
-each stage reads from and writes to Postgres and object storage.
-"""
-
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -12,24 +6,36 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class Tone(StrEnum):
+    """A show's speaking style."""
+
     CASUAL = "casual"
     NEUTRAL = "neutral"
     FORMAL = "formal"
 
 
 class ExpertiseLevel(StrEnum):
+    """Who a show is for: how much it may assume the listener knows."""
+
     BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"
     EXPERT = "expert"
 
 
 class ReliabilityTier(StrEnum):
+    """How far a source can be trusted; used in ranking passages."""
+
     PRIMARY = "primary"
     ESTABLISHED = "established"
     UNVERIFIED = "unverified"
 
 
 class _Model(BaseModel):
+    """Base of the domain models passed between stages: frozen, so they compare by value.
+
+    Stages exchange only ids over the queue (workers are stateless); these models describe what each
+    stage reads from and writes to Postgres and object storage.
+    """
+
     model_config = ConfigDict(frozen=True)
 
 
@@ -85,10 +91,29 @@ class Claim(_Model):
     chunk_ids: tuple[UUID, ...] = ()
 
 
+class Delivery(StrEnum):
+    """How a line is said.
+
+    The script writer picks one per line; the voice reads it that way (Chatterbox through its
+    expressiveness and pace, Gemini as a speaking style).
+    """
+
+    NEUTRAL = "neutral"
+    WARM = "warm"
+    CURIOUS = "curious"
+    EXCITED = "excited"
+    THOUGHTFUL = "thoughtful"
+    AMUSED = "amused"
+    SERIOUS = "serious"
+
+
 class ScriptLine(_Model):
+    """One spoken line of a script: who says it, what, how, and the claims it makes."""
+
     speaker: str
     text: str
     claims: tuple[Claim, ...] = ()
+    delivery: Delivery = Delivery.NEUTRAL
 
 
 class FactCheckReport(_Model):
@@ -100,10 +125,29 @@ class FactCheckReport(_Model):
 
     @property
     def passed(self) -> bool:
+        """Whether every claim was supported."""
         return not self.unsupported
 
     @property
     def support_rate(self) -> float:
+        """The share of claims supported; 1.0 when the script makes none."""
         if self.total_claims == 0:
             return 1.0
         return 1 - len(self.unsupported) / self.total_claims
+
+
+class EpisodeStatus(StrEnum):
+    """Lifecycle of an episode; the pipeline stages and the API both read and write it.
+
+    - ``needs_review``: the fact-check gate held it after the last rewrite.
+    - ``unchanged``: a refresh found no changed source, so no new revision was made.
+    - ``cancelled``: stopped on request; no further stage runs.
+    """
+
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    NEEDS_REVIEW = "needs_review"
+    PUBLISHED = "published"
+    UNCHANGED = "unchanged"
+    CANCELLED = "cancelled"
+    FAILED = "failed"

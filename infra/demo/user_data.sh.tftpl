@@ -1,0 +1,108 @@
+#!/bin/bash
+# First boot of the demo server (Ubuntu 22.04, Canonical's standard image). Installs Docker with
+# Compose and BuildKit if it is missing, then installs /opt/demo/deploy.sh, which
+# infra/demo/deploy.sh (or the GitHub deploy workflow) runs here through SSM for every release.
+set -euxo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+# Docker with Compose (2.24+ for `!reset`) and buildx (BuildKit, for the Dockerfile's pip cache).
+if ! docker compose version >/dev/null 2>&1 || ! docker buildx version >/dev/null 2>&1; then
+  # shellcheck source=/dev/null
+  CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+  echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $CODENAME stable" \
+    > /etc/apt/sources.list.d/docker.list
+  apt-get update
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+command -v aws >/dev/null || snap install aws-cli --classic
+
+systemctl enable docker
+
+mkdir -p /opt/demo/secrets
+cat > /opt/demo/deploy.sh <<'DEPLOY'
+#!/bin/bash
+# Install the release in s3://BUCKET/releases/current.tgz and (re)start the stack.
+#   /opt/demo/deploy.sh          deploy
+#   /opt/demo/deploy.sh restore  deploy, then replace the database and stored files with the
+#                                copy in s3://BUCKET/data/current.tgz (the Mac's data)
+set -euo pipefail
+exec 9>/var/lock/demo-deploy.lock
+flock 9  # one deploy at a time: first boot and a deploy from the Mac can otherwise overlap
+BUCKET=${bucket}
+PREFIX=${ssm_prefix}
+export AWS_DEFAULT_REGION=${region}
+param() { aws ssm get-parameter --with-decryption --name "$PREFIX/$1" --query Parameter.Value --output text 2>/dev/null || true; }
+APP_UID=10001  # the containers' user (docker/stage.Dockerfile)
+
+aws s3 cp --only-show-errors "s3://$BUCKET/releases/current.tgz" /tmp/release.tgz
+rm -rf /opt/demo/next && mkdir -p /opt/demo/next
+tar -xzf /tmp/release.tgz -C /opt/demo/next && rm -f /tmp/release.tgz
+
+# Secrets live outside the release, so Vault's unseal file and token survive every deploy.
+# The containers run as $APP_UID and must own them (vault-init writes here too).
+umask 077
+SECRETS=/opt/demo/secrets
+for name in llm_api_key tts_api_key google_client_secret; do
+  value=$(param "$name")
+  [ -n "$value" ] && [ "$value" != "None" ] && printf '%s' "$value" > "$SECRETS/$name.txt"
+done
+for f in llm_api_key.txt tts_api_key.txt vault_app_token.txt vault-ca.pem; do
+  [ -f "$SECRETS/$f" ] || : > "$SECRETS/$f"
+done
+chown -R "$APP_UID:$APP_UID" "$SECRETS" && chmod 700 "$SECRETS"
+rm -rf /opt/demo/next/secrets && ln -s "$SECRETS" /opt/demo/next/secrets
+
+# .env: the Mac's settings, with this server's addresses and its own voice worker (Gemini TTS).
+SITE=$(param site_address)
+param dotenv | grep -vE '^(COMPOSE_FILE|COMPOSE_PROJECT_NAME|TTS_BACKEND|PUBLIC_WEB_URL|PUBLIC_FEED_BASE_URL|SITE_ADDRESS|VOICE_EXTRAS|VOICE_TORCH_INDEX_URL)=' \
+  > /opt/demo/next/.env || true
+cat >> /opt/demo/next/.env <<ENV
+COMPOSE_FILE=docker-compose.yml:infra/demo/docker-compose.aws.yml
+COMPOSE_PROJECT_NAME=podcast-engine
+TTS_BACKEND=gemini
+SITE_ADDRESS=$SITE
+PUBLIC_WEB_URL=https://$SITE
+PUBLIC_FEED_BASE_URL=https://$SITE
+ENV
+umask 022
+
+rm -rf /opt/demo/previous
+[ -d /opt/demo/app ] && mv /opt/demo/app /opt/demo/previous
+mv /opt/demo/next /opt/demo/app
+cd /opt/demo/app
+
+docker compose build
+docker compose up -d --remove-orphans
+
+if [ "$${1:-}" = "restore" ]; then
+  echo "Restoring the Mac's data..."
+  aws s3 cp --only-show-errors "s3://$BUCKET/data/current.tgz" /tmp/data.tgz
+  rm -rf /tmp/data && mkdir -p /tmp/data && tar -xzf /tmp/data.tgz -C /tmp/data && rm -f /tmp/data.tgz
+  # Nothing may write while the database is replaced.
+  docker compose stop api web scheduler index_plan script_factcheck ingest_publish voice assemble
+  set -a
+  # shellcheck source=/dev/null
+  . ./.env
+  set +a
+  docker compose exec -T postgres dropdb -U "$POSTGRES_USER" --if-exists --force "$POSTGRES_DB"
+  docker compose exec -T postgres createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
+  docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner < /tmp/data/db.dump
+  # The stored files (audio, voices, uploads), into the stack's own object store. Its keys only
+  # for this one command, never the server's role.
+  AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$S3_SECRET_KEY" AWS_DEFAULT_REGION=us-east-1 \
+    aws --endpoint-url http://127.0.0.1:9010 s3 sync --only-show-errors /tmp/data/objects "s3://$${S3_BUCKET:-podcast-episodes}"
+  rm -rf /tmp/data
+  docker compose up -d
+  echo "Restored."
+fi
+
+docker image prune -f >/dev/null
+echo "Deployed $(date -u +%FT%TZ): https://$SITE"
+DEPLOY
+chmod 700 /opt/demo/deploy.sh
+
+# If a release was uploaded before this server existed, start it now.
+/opt/demo/deploy.sh || echo "No release yet: run infra/demo/deploy.sh from your machine."

@@ -1,0 +1,9 @@
+# Voices the pipeline may clone. Used by the notebook's Chatterbox backend (TTS_BACKEND = "chatterbox").
+chatterbox:
+  Alex:
+    reference_audio: assets/voices/ayomide.wav
+    speaker: "Ayomide"
+    consent: "Self: recorded by the speaker on 2026-10-08 for this project and approved by them for cloning"
+    license: "Own recording, used only for this project"
+  Sam:
+    reference_audio: null   # the default Chatterbox voice

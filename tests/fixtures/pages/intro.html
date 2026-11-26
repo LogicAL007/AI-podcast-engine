@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<title>What is Tidewater? - Tidewater Docs</title>
+<script>{"dateModified":"2026-08-23T23:41:24.000Z"}</script>
+</head>
+<body>
+<nav><p>Home. Guides. Reference. Community. Pricing. This menu is never read aloud.</p></nav>
+<main>
+<h1 id="page-title">What is Tidewater?</h1>
+<span data-as="p">Tidewater is a made-up storage engine used to test the podcast pipeline. It keeps
+every column of a table in its own file on disk. Teams use it to scan very large tables
+quickly.</span>
+<span data-as="p">Tidewater is a made-up, high-performance storage engine used to test the podcast
+pipeline.</span>
+<h2 id="why-columns">Why store columns separately?</h2>
+<span data-as="p">A report usually reads a few columns out of many. Storing columns apart means the
+engine reads only the files it needs. This avoids loading unrelated data from disk.</span>
+<span data-as="p">Row at a time</span>
+<span data-as="p">As the diagram below shows, a row store reads whole rows instead.</span>
+<h2 id="compression">Compression</h2>
+<span data-as="p">Values in one column tend to look alike. Similar values compress very well.
+Smaller files mean less data moves between disk and memory.</span>
+<pre>CREATE TABLE t (a INT) ENGINE = Tidewater;</pre>
+<h2 id="replication">Replication</h2>
+<span data-as="p">Each table can be copied to several servers. If one server fails the others keep
+serving queries. Copies stay in step through a shared log.</span>
+<h2>Was this page helpful?</h2>
+<span data-as="p">Yes. No. Tell us what to improve. We read every comment that arrives.</span>
+</main>
+</body>
+</html>

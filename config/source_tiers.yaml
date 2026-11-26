@@ -4,5 +4,6 @@ primary:
   - nature.com
 established:
   - bbc.co.uk
+  - wikipedia.org  # read through its API when a search finds it (FR2)
   - reuters.com
 default: unverified

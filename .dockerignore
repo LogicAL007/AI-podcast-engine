@@ -10,6 +10,6 @@ web/dist
 data
 secrets
 .env
-evaluation
+research
 docs
 tests

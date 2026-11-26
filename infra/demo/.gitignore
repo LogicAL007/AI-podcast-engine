@@ -1,0 +1,6 @@
+# Terraform's working files and state (the state names the server and bucket; keep it local).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log

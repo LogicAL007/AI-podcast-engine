@@ -211,6 +211,14 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# images
+*.svg
+*.jpg
+*.jpeg
+*.pdf
+# ...except the web app's own icons: the build and every deploy need them
+!web/public/*.svg
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
@@ -226,3 +234,16 @@ secrets/*
 !secrets/.gitkeep
 web/node_modules/
 web/dist/
+
+# Voice reference recordings are people's voices: never commit them
+assets/voices/*
+!assets/voices/.gitkeep
+
+# Separate environment for the voice-cloning backend (heavy pinned dependencies)
+.venv-cloning/
+
+# Research material, kept locally only: the PRD and proposal decks, the presentation, reports,
+# the notebooks, and the RQ1-RQ3 evaluation code, results and participant data
+research/
+# macOS Finder metadata
+.DS_Store

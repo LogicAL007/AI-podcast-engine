@@ -1,5 +1,3 @@
-"""Structured JSON logging, so per-episode logs can be queried by field."""
-
 import logging
 import sys
 
@@ -7,7 +5,13 @@ import structlog
 
 
 def configure_logging(level: str = "INFO") -> None:
-    """Route stdlib and structlog output to stdout as one JSON object per line."""
+    """Send stdlib and structlog output to stdout as one JSON object per line.
+
+    Structured logs let per-episode logs be queried by field (episode, stage, event).
+
+    Args:
+        level: The lowest level to log, such as ``INFO`` or ``debug`` (any case).
+    """
     logging.basicConfig(format="%(message)s", stream=sys.stdout, level=level.upper())
     structlog.configure(
         processors=[
@@ -23,6 +27,13 @@ def configure_logging(level: str = "INFO") -> None:
 
 
 def get_logger(name: str) -> structlog.typing.FilteringBoundLogger:
-    """Return a logger bound to a module or stage name."""
+    """Return a structured logger bound to a module or stage name.
+
+    Args:
+        name: The module or stage the log lines come from.
+
+    Returns:
+        A structlog logger that filters by the configured level.
+    """
     logger: structlog.typing.FilteringBoundLogger = structlog.get_logger(name)
     return logger

@@ -1,0 +1,60 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "MontrealServersCommandsSnapshotsQuotas",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "dlm:*",
+        "servicequotas:*",
+        "ssm:SendCommand",
+        "ssm:*CommandInvocation*",
+        "ssm:*Session",
+        "ssm:Describe*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ca-central-1"
+        }
+      }
+    },
+    {
+      "Sid": "ProjectBuckets",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "arn:aws:s3:::podcast-*"
+    },
+    {
+      "Sid": "ProjectSettingsAndPublicImageIds",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:*Parameter*",
+        "ssm:*Tags*"
+      ],
+      "Resource": [
+        "arn:aws:ssm:ca-central-1:*:parameter/podcast-*",
+        "arn:aws:ssm:ca-central-1::parameter/aws/service/*"
+      ]
+    },
+    {
+      "Sid": "ProjectRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:*Role*",
+        "iam:*InstanceProfile*"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/podcast-*",
+        "arn:aws:iam::*:instance-profile/podcast-*"
+      ]
+    },
+    {
+      "Sid": "GitHubSignIn",
+      "Effect": "Allow",
+      "Action": "iam:*OpenIDConnectProvider*",
+      "Resource": "arn:aws:iam::*:oidc-provider/token.actions.githubusercontent.com"
+    }
+  ]
+}

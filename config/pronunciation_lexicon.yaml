@@ -1,4 +1,71 @@
-# Spoken forms for terms TTS tends to mispronounce.
 lexicon:
-  pgvector: "P G vector"
-  LUFS: "loofs"
+  # Written abbreviations: said in full.
+  e.g.: for example
+  i.e.: that is
+  etc.: and so on
+  vs.: versus
+  approx.: approximately
+  cf.: compare
+  Dr.: Doctor
+  Mt.: Mount
+  U.S.: U S
+  U.K.: U K
+
+  # Symbols and units, usually right after a number.
+  "%": " percent"
+  "°C": " degrees Celsius"
+  "°F": " degrees Fahrenheit"
+  "°": " degrees"
+  "km²": " square kilometres"
+  "mi²": " square miles"
+  "&": " and "
+
+  # Acronyms said letter by letter.
+  AI: A I
+  API: A P I
+  APIs: A P Is
+  CPU: C P U
+  GPU: G P U
+  CSV: C S V
+  PDF: P D F
+  PDFs: P D Fs
+  URL: U R L
+  HTTP: H T T P
+  LLM: L L M
+  LLMs: L L Ms
+  GPT: G P T
+  NLP: N L P
+  ETL: E T L
+  RAM: ram
+  OLTP: O L T P
+  TPC-H: T P C H
+  TCP/IP: T C P I P
+  JWST: J W S T
+  ESA: E S A
+  CSA: C S A
+  L2: L two
+
+  # Acronyms said as a word.
+  SQL: sequel
+  JSON: jay-son
+  OLAP: oh-lap
+  CERN: sern
+  ARPANET: arpa-net
+  NIRCam: near-cam
+  NIRSpec: near-spec
+
+  # Product and project names.
+  pgvector: P G vector
+  LUFS: loofs
+  ClickHouse: Click House
+  PostgreSQL: post-gress Q L
+  PyMuPDF: pie mew P D F
+  pymupdf: pie mew P D F
+
+  # Places and names in the study topics.
+  Sault Ste. Marie: Soo Saint Marie
+  St. Marys River: Saint Marys River
+  Baikal: bye-kahl
+  Tanganyika: tan-gun-yee-ka
+  Ojibwe: oh-jib-way
+  Gichigami: gitchi-gah-mee
