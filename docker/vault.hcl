@@ -21,6 +21,5 @@ ui       = true
 # risk this leaves (Docker Desktop's VM has its own, unencrypted, swap).
 disable_mlock = true
 
-# The app's token lasts a year (vault-init renews it at every `compose up`).
 default_lease_ttl = "768h"
 max_lease_ttl     = "8760h"

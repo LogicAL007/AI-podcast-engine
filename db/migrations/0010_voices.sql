@@ -1,9 +1,4 @@
 -- Cloned voices: a recording of someone's voice, kept with the consent its speaker gave, and which
--- host of a show speaks with it. Idempotent, like 0003.
---
--- A voice is refused unless the consent form was completed (see the API's voices service); the
--- signed statement is stored verbatim with its version and time. Deleting a voice withdraws it:
--- the row and its recording go, and no show uses it any more.
 CREATE TABLE IF NOT EXISTS voices (
   voice_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id          uuid NOT NULL REFERENCES users ON DELETE CASCADE,

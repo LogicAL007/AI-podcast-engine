@@ -1,5 +1,3 @@
--- Review before voicing, episode lifecycle and uploaded sources. Idempotent, like 0003.
-
 -- Pause every episode of a show after the fact-check, until a person approves it.
 ALTER TABLE shows ADD COLUMN IF NOT EXISTS review_before_voice boolean NOT NULL DEFAULT false;
 

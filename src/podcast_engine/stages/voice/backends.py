@@ -128,6 +128,38 @@ class SayBackend(_NoConsentNeeded):
             return read_wav_bytes(path.read_bytes(), name=path.name)
 
 
+_CHATTERBOX_MODEL: list[Any] = []  # the one loaded model of this process, once loaded
+
+
+def _chatterbox_model() -> Any:
+    """Return this process's Chatterbox model, loading it on first use.
+
+    Every voice configuration (an episode's hosts, a voice studio clip) shares one model, since the
+    voice is chosen per line by its reference recording. Loading one per configuration would hold
+    several copies of about 3 GB each, more than a small CPU server has.
+
+    Returns:
+        The loaded ``ChatterboxTTS`` model, on the GPU when there is one.
+    """
+    if not _CHATTERBOX_MODEL:
+        os.environ["TQDM_DISABLE"] = "1"
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import torch
+            from chatterbox.tts import ChatterboxTTS
+
+            device = (
+                "mps"
+                if torch.backends.mps.is_available()
+                else "cuda"
+                if torch.cuda.is_available()
+                else "cpu"
+            )
+            log.info("chatterbox_loading", device=device)
+            _CHATTERBOX_MODEL.append(ChatterboxTTS.from_pretrained(device=device))
+    return _CHATTERBOX_MODEL[0]
+
+
 class ChatterboxBackend:
     """Open TTS model (MIT) that can imitate a voice from a short recording.
 
@@ -163,20 +195,9 @@ class ChatterboxBackend:
         # for their host; both go through the same consent check.
         registry = with_overrides(load_registry(voices_file), overrides or {})
         self.voices: dict[str, ClonedVoice] = resolve_voices(registry, hosts, root)
-        os.environ["TQDM_DISABLE"] = "1"
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            import torch
-            from chatterbox.tts import ChatterboxTTS
+        self.model = _chatterbox_model()
+        import torch
 
-            device = (
-                "mps"
-                if torch.backends.mps.is_available()
-                else "cuda"
-                if torch.cuda.is_available()
-                else "cpu"
-            )
-            self.model = ChatterboxTTS.from_pretrained(device=device)
         torch.manual_seed(seed)
 
     def voice_id(self, speaker: str) -> str:
@@ -400,6 +421,17 @@ def backend_unavailable(settings: Settings) -> str | None:
     needed, advice = NEEDS.get(choice, ((), ""))
     missing = [module for module in needed if find_spec(module.split(".")[0]) is None]
     return f"{advice} Missing: {', '.join(missing)}." if missing else None
+
+
+def speaks_recorded_voices(settings: Settings) -> bool:
+    """Tell whether this server's voice worker can speak voices recorded in the app.
+
+    Either Chatterbox is the voice engine, or it is the second engine for recorded voices
+    (``TTS_RECORDED_BACKEND``).
+    """
+    return settings.tts_backend == "chatterbox" or (
+        getattr(settings, "tts_recorded_backend", "") == "chatterbox"
+    )
 
 
 def make_backend(

@@ -1,6 +1,6 @@
 # The whole podcast engine on one server, for a live demo, independent of the Mac. Docker Compose
 # runs the same stack as on the Mac, with Caddy in front for HTTPS. The voice worker uses Gemini
-# TTS (prebuilt voices); the cloned voices need Chatterbox, which runs on the Mac only. No SSH: the server is managed and deployed through Systems Manager
+# TTS (prebuilt voices) and Chatterbox on the CPU for voices recorded in the app. No SSH: the server is managed and deployed through Systems Manager
 # (SSM). Releases, and the optional copy of the Mac's data, go through a private S3 bucket.
 # Secrets are SSM SecureString parameters written by deploy.sh, so they never enter this state.
 #

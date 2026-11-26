@@ -2,13 +2,34 @@
 #   - Caddy in front of the web app for HTTPS (Let's Encrypt);
 #   - nothing published on the internet except Caddy's 80 and 443. The security group allows
 #     only those two anyway.
-# The voice worker is the base file's, with TTS_BACKEND=gemini (the server's .env).
+#   - voices recorded in the app work: the voice worker voices with Gemini (TTS_BACKEND=gemini, the
+#     server's .env) and has Chatterbox too, CPU build, for any clip or episode with a recorded
+#     voice (TTS_RECORDED_BACKEND). The server has no GPU, so those take minutes, not seconds.
 # The server's deploy script sets COMPOSE_FILE in .env. Paths are relative to the repository root,
 # the project directory.
 
 services:
   web:
     ports: !reset [] # reached through Caddy only
+
+  # The API tells the voice studio that recorded voices can speak here.
+  api:
+    environment:
+      TTS_RECORDED_BACKEND: chatterbox
+
+  voice:
+    build:
+      args:
+        EXTRAS: voice,llm,cloning
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+    environment:
+      TTS_RECORDED_BACKEND: chatterbox
+      # One job at a time: each worker process would hold its own copy of the model (about 3 GB).
+      WORKER_CONCURRENCY: "1"
+      # The container's disk is read-only; the libraries' caches go to its /tmp.
+      NUMBA_CACHE_DIR: /tmp/numba
+      MPLCONFIGDIR: /tmp/matplotlib
+      TORCH_HOME: /home/app/.cache/huggingface/torch
 
   # Local only: deploy.sh's data restore copies objects into the store through this port.
   s3:

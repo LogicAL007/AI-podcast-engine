@@ -1,9 +1,4 @@
--- Voice studio 2: host voice effects, type-to-speech clips and music. Idempotent, like 0003.
---
--- shows.host_effects: how each host's voice is processed when an episode is assembled
--- ({"Alex": {"deepen": 40, "warmth": 20, "broadcast": false}}). Hosts not listed are left as voiced.
--- shows.music: the show's intro, outro, sting and bed (a track id each, a built-in "builtin:..." id
--- or an uploaded track's uuid) and how loud the bed sits under speech.
+-- Voice studio 2: host voice effects, type-to-speech clips and music.
 ALTER TABLE shows ADD COLUMN IF NOT EXISTS host_effects jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE shows ADD COLUMN IF NOT EXISTS music jsonb NOT NULL DEFAULT '{}';
 

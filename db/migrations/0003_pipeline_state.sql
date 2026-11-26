@@ -1,7 +1,6 @@
 -- State the pipeline workers share (the notebook kept it in memory). Idempotent: safe on a fresh
 -- database and on an existing volume, and recorded in schema_migrations by podcast_engine.common.migrate.
 
--- What a creator configures beyond FR1's basics.
 ALTER TABLE shows ADD COLUMN IF NOT EXISTS topic_keywords text NOT NULL DEFAULT '';
 ALTER TABLE shows ADD COLUMN IF NOT EXISTS attribution text NOT NULL DEFAULT '';
 ALTER TABLE shows ADD COLUMN IF NOT EXISTS max_segments integer NOT NULL DEFAULT 6;

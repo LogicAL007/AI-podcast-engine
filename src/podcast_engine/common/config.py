@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     llm_effort: Literal["", "low", "medium", "high", "xhigh", "max"] = ""
     llm_timeout_seconds: float = Field(default=180, gt=0)  # per Gemini request, then retried
     tts_backend: str = "placeholder"  # "placeholder", "say", "chatterbox" or "gemini"
+    # "chatterbox": voices recorded in the app are spoken by Chatterbox in this same voice worker
+    # (which then needs the cloning extra), while TTS_BACKEND keeps voicing everything else. For a
+    # server that voices with Gemini but has no Mac voice host (the AWS demo). "": no second engine.
+    tts_recorded_backend: Literal["", "chatterbox"] = ""
     # "natural": room tone, varied pauses and overlapping quick replies (assemble.mix_natural)
     assembly_style: Literal["plain", "natural"] = "plain"
     tts_model: str = "gemini-3.8-flash-tts"  # used by the "gemini" backend

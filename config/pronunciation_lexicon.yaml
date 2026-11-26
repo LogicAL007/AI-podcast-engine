@@ -1,14 +1,3 @@
-# Spoken forms for written terms the voice model misreads. Applied only to what a voice says
-# (src/podcast_engine/common/pronunciation.py), never to the script, transcripts or fact-check.
-#
-# - An entry with a capital letter matches only in that case ("SQL", not "sql"); an all-lowercase
-#   entry matches in any case. Words match whole, never inside another word.
-# - An entry starting with a symbol ("%", "°C") also matches right after a number ("40%").
-# - Spell letters out with spaces ("A P I"); spell sounds the way they are said ("sequel").
-# - Changing an entry re-voices only the lines it changes, on the next episode or refresh.
-#
-# Add a term when a voice gets it wrong. To find candidates, look for acronyms, product names and
-# words from other languages in a script before voicing it.
 lexicon:
   # Written abbreviations: said in full.
   e.g.: for example

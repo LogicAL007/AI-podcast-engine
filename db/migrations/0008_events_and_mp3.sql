@@ -1,8 +1,4 @@
--- Security event log, and MP3 audio. Idempotent, like 0003.
-
--- Who did what to an account and when: sign-ins, locks, resets, keys, account changes. Kept
--- after the user is deleted (user_id set null) so the trail survives; the email is never stored,
--- only its hash for failed sign-ins to unknown accounts.
+-- Security event log, and MP3 audio.
 CREATE TABLE IF NOT EXISTS security_events (
   event_id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid REFERENCES users ON DELETE SET NULL,

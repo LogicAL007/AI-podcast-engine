@@ -249,3 +249,23 @@ def test_a_remix_the_queue_cannot_take_leaves_the_episode_published(harness: Har
     harness.queue_down = True
     assert harness.client.post(f"/v1/episodes/{episode}/remix").status_code == 503
     assert harness.client.get(f"/v1/episodes/{episode}").json()["status"] == "published"
+
+
+def test_a_gemini_server_with_chatterbox_as_second_engine_speaks_recorded_voices(
+    harness: Harness,
+) -> None:
+    # The AWS demo: Gemini for the engine's own voices, Chatterbox for recorded ones.
+    settings = Settings(
+        tts_backend="gemini", tts_recorded_backend="chatterbox", tts_requests_per_day=4
+    )
+    harness.speech_settings = settings
+    budget = DailyBudget(MemoryCounter(), {settings.tts_model: 4})
+    harness.speech_budget = budget
+    engine = harness.client.get("/v1/speech/engine").json()
+    assert engine["recorded_voices"] is True
+    assert engine["uses_quota"] is True  # the engine's own voices still spend Gemini's budget
+    budget.spend(settings.tts_model, 2)
+    assert clip(harness).status_code == 429  # an engine voice: Gemini's budget is used up
+    mine = register(harness).json()["voice_id"]
+    # A recorded voice is Chatterbox's, which spends none of it.
+    assert clip(harness, voice={"kind": "recorded", "voice_id": mine}).status_code == 202
