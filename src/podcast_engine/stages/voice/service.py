@@ -1,6 +1,5 @@
 import hashlib
 import time
-from dataclasses import replace
 from typing import Any
 from uuid import UUID
 
@@ -11,13 +10,8 @@ from podcast_engine.common.models import ScriptLine
 from podcast_engine.common.pronunciation import rules_for, spoken
 from podcast_engine.common.queue import Stage
 from podcast_engine.stages.publish.service import AI_DISCLOSURE
-from podcast_engine.stages.voice.backends import (
-    DialogueBackend,
-    TtsBackend,
-    backend_unavailable,
-    make_backend,
-)
-from podcast_engine.stages.voice.registry import ClonedVoice, load_registry, problems_with
+from podcast_engine.stages.voice.backends import DialogueBackend, TtsBackend, make_backend
+from podcast_engine.stages.voice.registry import ClonedVoice
 
 log = get_logger("voice")
 
@@ -217,57 +211,6 @@ def registered_voices(
     return voices
 
 
-def recorded_voice_context(ctx: PipelineContext) -> PipelineContext:
-    """Return the context a job with a recorded voice runs in.
-
-    With ``TTS_RECORDED_BACKEND=chatterbox`` the worker voices with ``TTS_BACKEND`` (Gemini, say)
-    except where a voice recorded in the app is wanted: that job runs with Chatterbox instead.
-    Otherwise the context is returned unchanged.
-
-    Args:
-        ctx: The worker's context.
-
-    Returns:
-        A copy whose settings name Chatterbox as the voice engine, or ``ctx`` itself.
-    """
-    settings = ctx.settings
-    if settings.tts_backend == "chatterbox" or (
-        getattr(settings, "tts_recorded_backend", "") != "chatterbox"
-    ):
-        return ctx
-    return replace(ctx, settings=settings.model_copy(update={"tts_backend": "chatterbox"}))
-
-
-def default_voices_for_the_rest(
-    ctx: PipelineContext, hosts: list[str], overrides: dict[str, ClonedVoice]
-) -> dict[str, ClonedVoice]:
-    """Give Chatterbox's default voice to hosts that have no usable voice in ``voices.yaml``.
-
-    Used when Chatterbox is the second engine, for an episode where only some hosts have a recorded
-    voice: the config file's recordings (git-ignored, under ``assets/voices``) are usually not on
-    that server, and a host without one should still speak. Two hosts left on the default voice
-    are still refused by the distinct-voices check.
-
-    Args:
-        ctx: The (Chatterbox) context.
-        hosts: The hosts that will speak.
-        overrides: The hosts' recorded voices.
-
-    Returns:
-        The overrides, plus the default voice for each other host the file cannot voice.
-    """
-    root = ctx.settings.assets_dir.parent
-    registry = load_registry(ctx.voices_file) if ctx.voices_file.is_file() else None
-    filled = dict(overrides)
-    for host in hosts:
-        if host in filled:
-            continue
-        if registry is None or problems_with(registry, [host], root):
-            log.info("host_on_default_voice", host=host)
-            filled[host] = ClonedVoice()
-    return filled
-
-
 def prune_withdrawn_voices(ctx: PipelineContext) -> int:
     """Delete this worker's copies of recordings whose voice has been deleted.
 
@@ -329,10 +272,6 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     With Gemini, the whole step is checked against today's budget first, so a run never stops at the
     cap half voiced. The manifest records each host's voice, credit and consent record.
 
-    When the show's hosts have recorded voices and Chatterbox is the second engine
-    (``TTS_RECORDED_BACKEND``), the whole episode is voiced with Chatterbox, so every host sounds
-    like the same kind of speech; a host with no recorded voice gets Chatterbox's default voice.
-
     Args:
         episode_id: The episode being made.
         ctx: Shared clients; built from settings when omitted.
@@ -350,18 +289,9 @@ def synthesise_voices(episode_id: UUID, ctx: PipelineContext | None = None) -> S
     episode = ctx.repo.get_episode(episode_id)
     show = ctx.repo.get_show(episode.show_id)
     hosts = ctx.hosts(show.host_count)
-    second_engine = False
-    if any(host in hosts for host in show.host_voices):
-        chatterbox = recorded_voice_context(ctx)
-        second_engine = chatterbox is not ctx
-        ctx = chatterbox
-    if second_engine and (problem := backend_unavailable(ctx.settings)):
-        raise RuntimeError(f"This show's hosts have recorded voices, but {problem}")
     if ctx.settings.tts_backend == "chatterbox":
         prune_withdrawn_voices(ctx)
     overrides = registered_voices(ctx, show.host_voices, hosts)
-    if second_engine:
-        overrides = default_voices_for_the_rest(ctx, hosts, overrides)
     backend = _backend(ctx, tuple(hosts), overrides)
     if len({backend.voice_id(h) for h in hosts}) != len(hosts):
         raise ValueError("Each host needs a distinct voice (FR6); check the voice configuration.")

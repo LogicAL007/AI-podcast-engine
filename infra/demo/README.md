@@ -1,8 +1,8 @@
 # The engine on AWS, for a live demo
 
 One server (m7i-flex.large: 2 vCPUs, 8 GB of memory) runs the same Docker Compose stack as the Mac.
-The voice worker uses Gemini TTS with prebuilt voices, and Chatterbox (CPU build) for voices
-recorded in the app (`TTS_RECORDED_BACKEND=chatterbox`, set in `docker-compose.aws.yml`). Caddy serves the web app over HTTPS. The server runs in ca-central-1 and is managed through AWS Systems
+The voice worker uses Gemini TTS with prebuilt voices; the cloned voices (Chatterbox) run on the
+Mac only. Caddy serves the web app over HTTPS. The server runs in ca-central-1 and is managed through AWS Systems
 Manager (SSM), with no SSH.
 
 | Piece | Where |
@@ -116,11 +116,6 @@ with "EntityAlreadyExists". Then pass its ARN:
 - **Voicing uses the Gemini TTS quota** (about 12 episodes a day on the free tier), and a
   2-minute episode still takes a few minutes. For the demo, start an episode early, show the pipeline running, and play one that is
   already published.
-- **Recorded voices are slow here.** With no GPU, Chatterbox takes roughly a minute for a short
-  voice studio line and much longer for a whole episode, and the voice worker does one job at a
-  time, so a Gemini episode queued behind it waits. The first recorded-voice job also downloads the
-  model (about 3 GB, kept in the `hf_cache` volume). A host with no recorded voice in a show that has
-  one gets Chatterbox's default voice, since the Mac's `assets/voices` recordings are not deployed.
 - **Vault starts fresh on the server**, with its own unseal key and root token, in
   `/opt/demo/secrets` on the server. Those never leave it, and they are deleted with it. After
   the data copy, users sign in again.

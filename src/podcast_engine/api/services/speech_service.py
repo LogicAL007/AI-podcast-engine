@@ -20,7 +20,7 @@ from podcast_engine.common.models import Delivery
 from podcast_engine.common.quota import DailyBudget
 from podcast_engine.common.storage import ObjectStore
 from podcast_engine.common.voice_fx import PRESETS
-from podcast_engine.stages.voice.backends import GEMINI_VOICES, speaks_recorded_voices
+from podcast_engine.stages.voice.backends import GEMINI_VOICES
 
 log = get_logger("api.speech")
 
@@ -104,7 +104,7 @@ class SpeechService:
             options = [EngineVoiceOption(host=h, label=f"{h}'s default voice") for h in HOST_NAMES]
         return SpeechEngine(
             backend=backend,
-            recorded_voices=speaks_recorded_voices(self._settings),
+            recorded_voices=backend == "chatterbox",
             engine_voices=options,
             uses_quota=backend == "gemini",
             clips_left_today=self._clips_left(),
@@ -135,12 +135,7 @@ class SpeechService:
             {data.voice.voice_id}, owner
         ):
             raise NotFoundError("voice", data.voice.voice_id)
-        # A recorded voice is spoken by Chatterbox (as the voice engine or the second engine), which
-        # uses none of Gemini's budget.
-        on_gemini = self._settings.tts_backend == "gemini" and not (
-            isinstance(data.voice, RecordedVoice) and speaks_recorded_voices(self._settings)
-        )
-        if on_gemini and self._clips_left() == 0:
+        if self._settings.tts_backend == "gemini" and self._clips_left() == 0:
             assert self._budget is not None  # noqa: S101 - _clips_left is None without one
             raise TooManyRequestsError(
                 "Today's Gemini voice budget for trying voices is used up (half of the day's "

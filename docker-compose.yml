@@ -51,9 +51,6 @@ x-app-env: &app-env
   # placeholder (tones, for testing), gemini, or chatterbox (with the voice image's cloning extra,
   # see the voice service). say runs on a macOS host only: see the README.
   TTS_BACKEND: ${TTS_BACKEND:-placeholder}
-  # chatterbox: recorded voices are spoken by Chatterbox in the voice worker while TTS_BACKEND voices
-  # the rest (the voice image then needs VOICE_EXTRAS=voice,llm,cloning). Empty: no second engine.
-  TTS_RECORDED_BACKEND: ${TTS_RECORDED_BACKEND:-}
   TTS_MODEL: ${TTS_MODEL:-gemini-3.8-flash-tts}
   TTS_REQUESTS_PER_MINUTE: ${TTS_REQUESTS_PER_MINUTE:-0} # gemini free tier: 3
   # Gemini requests per model per Pacific day, shared through Redis; 0 = not counted.

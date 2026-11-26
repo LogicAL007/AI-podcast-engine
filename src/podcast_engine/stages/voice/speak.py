@@ -14,7 +14,6 @@ from podcast_engine.stages.voice.backends import backend_unavailable
 from podcast_engine.stages.voice.service import (
     _backend,
     prune_withdrawn_voices,
-    recorded_voice_context,
     registered_voices,
     segment_cache_key,
 )
@@ -33,8 +32,7 @@ class SpeakError(Exception):
 def _voiced(clip: SpeechClipRecord, ctx: PipelineContext) -> np.ndarray:
     """Voice a clip's text, from the cache where possible.
 
-    A recorded voice is lent to the host Alex for the clip and needs the Chatterbox engine, as the
-    voice engine or as the second engine for recorded voices (``TTS_RECORDED_BACKEND``). The text
+    A recorded voice is lent to the host Alex for the clip and needs the Chatterbox engine. The text
     goes through the pronunciation lexicon first. Gemini reads the whole text in one request (one of
     the day's few); Chatterbox does best a sentence or two at a time, so its text is split. Each
     piece's raw speech is cached like an episode's lines, and the pieces are joined with short
@@ -52,15 +50,12 @@ def _voiced(clip: SpeechClipRecord, ctx: PipelineContext) -> np.ndarray:
             that cannot speak it, or the voice was deleted.
         GeminiQuotaError: Today's Gemini TTS budget cannot cover the clip.
     """
-    voice = clip.voice
-    recorded = voice.get("kind") == "recorded"
-    if recorded:
-        ctx = recorded_voice_context(ctx)  # Chatterbox, when it is the second engine
     settings = ctx.settings
     problem = backend_unavailable(settings)
     if problem:
         raise SpeakError(problem)
-    if recorded:
+    voice = clip.voice
+    if voice.get("kind") == "recorded":
         if settings.tts_backend != "chatterbox":
             raise SpeakError(
                 f"This server voices with {settings.tts_backend}, which cannot speak recorded "

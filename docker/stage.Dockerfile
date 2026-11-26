@@ -11,11 +11,9 @@ ENV PATH="/opt/venv/bin:${PATH}"
 WORKDIR /build
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-# TORCH_INDEX_URL (CPU wheels) is an extra index for the whole install, so a pinned torch (Chatterbox
-# pins torch==2.6.0) resolves to its +cpu build there instead of PyPI's multi-GB CUDA one.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ -n "${TORCH_INDEX_URL}" ]; then set -- --extra-index-url "${TORCH_INDEX_URL}"; fi \
-    && if [ -n "${EXTRAS}" ]; then pip install "$@" ".[${EXTRAS}]"; else pip install "$@" .; fi
+    if [ -n "${TORCH_INDEX_URL}" ]; then pip install torch --index-url "${TORCH_INDEX_URL}"; fi \
+    && if [ -n "${EXTRAS}" ]; then pip install ".[${EXTRAS}]"; else pip install .; fi
 
 FROM python:${PYTHON_VERSION}-slim AS runtime
 ARG APT_PACKAGES=""
