@@ -355,23 +355,3 @@ The integration tests ([tests/integration/test_repositories.py](../tests/integra
 need the schema from `db/init/` and `DATABASE_URL` pointing at it; they skip themselves if
 Postgres is unreachable.
 
-## Adding an endpoint
-
-1. Add request/response schemas to the resource's `models/<resource>_model.py`.
-2. Add the rule to `services/<resource>_service.py`; raise a `DomainError` subclass for failure cases.
-3. If it needs data, add a method to the repository Protocol, the Postgres class and the test fake
-   (`tests/unit/api/fakes.py`).
-4. Add a controller method that maps the new errors with `to_http`.
-5. Add the route in `routers/<resource>_router.py` with a `summary`, a `response_description`, a
-   docstring (it becomes the description), `Path`/`Query` descriptions for every parameter, and
-   `responses=errors(e404="...")` (from `api/openapi.py`) for each error status. Files use
-   `file_response(...)`.
-6. Add a test in `tests/unit/api/`. `test_openapi_docs.py` fails if any of step 5 is missing.
-
-A new resource gets one file in each layer folder (`<resource>_router.py`, `_controller.py`,
-`_service.py`, `_model.py` and, if it stores data, `_repository.py`), a provider in
-`dependencies.py`, and an `include_router` line in `main.py`.
-
-## Not built yet
-
-- Search results as a source, and pages behind authentication.

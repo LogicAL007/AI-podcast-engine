@@ -1,15 +1,4 @@
 # Voices the pipeline may clone. Used by the notebook's Chatterbox backend (TTS_BACKEND = "chatterbox").
-#
-# A voice with a reference_audio is a CLONE of whoever is speaking in that recording. It is refused
-# unless speaker, consent and license are filled in and the file exists. Only use recordings of
-# people who agreed to this use (yourself, or someone who gave written permission). Never a real
-# person who did not, and never a public figure.
-#
-# A voice with reference_audio: null uses Chatterbox's built-in default voice and clones nobody.
-# Two hosts need two different voices (FR6), so at least one host needs a reference recording.
-#
-# Reference recordings are not committed: assets/voices/ is git-ignored. Use about 10 to 20
-# seconds of clean, single-speaker speech, 24 kHz or higher.
 chatterbox:
   Alex:
     reference_audio: assets/voices/ayomide.wav
