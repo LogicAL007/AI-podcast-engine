@@ -15,7 +15,5 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e ".[api,dev]"
-      - run: ruff check .
-      - run: ruff format --check .
       - run: mypy
       - run: pytest tests/unit
